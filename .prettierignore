@@ -1,0 +1,3 @@
+# Generated: its format is the sync's own, not Prettier's
+fixtures/archive/
+package-lock.json

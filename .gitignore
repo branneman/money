@@ -1,0 +1,18 @@
+# Real bank data never exists in this directory at all
+
+# Secrets and scratch: never commit
+tmp/
+*.pem
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+
+# Node
+node_modules/
+
+# OS
+.DS_Store

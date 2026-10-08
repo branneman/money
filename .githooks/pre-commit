@@ -1,0 +1,8 @@
+#!/bin/sh
+# The same commands as CI, on the whole repo, with no separate fast path.
+# Enabled by `npm install` (the prepare script sets core.hooksPath).
+set -e
+npm run --silent typecheck
+npm run --silent lint
+npm run --silent format:check
+npm test --silent
