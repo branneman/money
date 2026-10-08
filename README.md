@@ -20,8 +20,8 @@ Out of scope: payments.
 
 ## Tech stack
 
-- **Node.js 24 LTS (≥ 24.12) and TypeScript.** Node runs `.ts` files directly by stripping types, so there is no build step. `tsc --noEmit` does the type-checking.
-- **No runtime dependencies.** Built-in `fetch`, `node:crypto` for RS256 JWT signing, `node:fs` and `node:test`.
+- **Node.js 24 LTS (≥ 24.12) and TypeScript**, in one repository of npm workspaces. Node runs `.ts` files directly by stripping types, so nothing that runs on the server is built. `tsc --noEmit` does the type-checking.
+- **No runtime dependencies on the server.** The sync, the import and the dashboard's server use only what Node ships: `fetch`, `node:crypto`, `node:fs`, `node:http`. The dashboard's browser interface may use libraries, bundled at build time. See [docs/architecture.md](docs/architecture.md).
 - **[Enable Banking](https://enablebanking.com) API** as the licensed intermediary to each bank's PSD2 interface. Any bank it supports can be connected; nothing in the code is specific to one bank. Enable Banking is a registered account information service provider (AISP) supervised by the Finnish FIN-FSA. We use its _restricted production_ mode: free for personal use, limited to accounts linked to the application.
 - **JSON files** for storage: one directory per account, one file per calendar year.
 - **Dockerised**, run nightly. One image, two containers: the sync, and later the dashboard. See [docs/infra.md](docs/infra.md).

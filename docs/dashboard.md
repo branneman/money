@@ -2,6 +2,8 @@
 
 A small web app over the archive: tables and charts, with filtering, sorting and grouping, and rule-based categories. Phase 2; nothing here is built yet.
 
+It is two workspaces: `api`, the server, and `app`, the interface that runs in the browser. Both use `shared` for the normalised view and for categorising, so the server and the browser can never disagree about a category.
+
 ## Boundaries
 
 - **It never writes bank data.** The archive is mounted read-only, so this is enforced by the mount and not by the code.
@@ -83,16 +85,23 @@ Before saving, the editor previews the change: how many transactions move, and f
 - Totals and charts over time, per category and per account.
 - The rules editor, with reordering and the preview.
 
-How the interface is built (server-rendered pages, how much client-side script) is undecided. It gets its own document when there is enough to say.
+## Interface: `app`
 
-## Server
+- **Runs in the browser, and may use libraries**: for tables, charts and the editor. Which ones is decided in this slice's spec. The list stays short; see [architecture.md](architecture.md).
+- **Bundled at build time into static files**, which `api` serves. This is the only part of the project with a build step.
+- **Confined by the Content Security Policy** that `api` sends: scripts, styles and requests from and to its own origin only, with no inline script.
+- **Categorising can run here too**, because `shared` does. That is what lets the rules editor preview a change without saving it.
 
-- **Node.js, no build step, no runtime dependencies**, like the sync.
+Still undecided, and settled in the slice's spec: whether filtering and grouping run in the browser over the whole normalised view, or on the server per request.
+
+## Server: `api`
+
+- **Node.js, no build step, no runtime dependencies**, like the sync. It is a handful of routes over `node:http`: log in and out, read the normalised view, read and save rules, and serve `app`'s files.
 - **Login:** one account per person, from configuration: a name and a password hash, checked with `node:crypto`. There is no sign-up and no password reset.
 - **Sessions** are signed cookies, keyed by a secret from the environment, so they survive the restarts that deploys cause.
 - **Login attempts are rate-limited.**
 - **Requests that change rules are protected against cross-site request forgery.**
-- **Content headers** (`Content-Security-Policy` and the like) are set here, because they track what the pages do.
+- **Content headers** are set here, because they track what the pages do. The Content Security Policy is what makes browser libraries acceptable, so loosening it is a design change, not a fix.
 - **Logs** never contain amounts, account numbers, names or descriptions, here as everywhere.
 - It serves a health endpoint and a version endpoint returning the built commit.
 

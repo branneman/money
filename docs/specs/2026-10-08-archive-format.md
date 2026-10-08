@@ -1,6 +1,6 @@
 # Spec: the archive format in code
 
-Slice 1 of the build order in [architecture.md](../architecture.md). Retired once built.
+Slice 1 of the build order in [architecture.md](../architecture.md). Written 2026-10-08. Once the slice has shipped this file is history and is not kept up to date.
 
 ## Goal
 
@@ -10,7 +10,11 @@ Nothing in this slice talks to a bank, reads an exported file, or has a command 
 
 ## What gets built
 
-### `src/archive/`
+### Workspaces
+
+The repository becomes npm workspaces, as laid out in [architecture.md](../architecture.md): `shared` is created here, and the root keeps the tooling. `sync`, `api` and `app` are created by the slices that fill them. The test for the dependency rule lands with `shared`, and so does `npm run check:workspaces`, wired in as the first step of `npm run typecheck` ([testing.md](../testing.md)).
+
+### `shared/src/archive/`
 
 | Module         | Does                                                                                          |
 | -------------- | --------------------------------------------------------------------------------------------- |
@@ -25,7 +29,7 @@ Everything except `store.ts` is pure. `merge` takes the current time as an argum
 
 `merge` needs each incoming transaction's identity and booking date before it can store it. It gets them from a small function per source, so it stays unaware of what `raw` looks like.
 
-### `src/config/`
+### `shared/src/config/`
 
 The configuration file from [sync.md](../sync.md): its types, and a validator that returns every problem it finds, each as a message a person can act on. This slice needs it because normalising an import record requires its import format.
 
@@ -54,11 +58,11 @@ The story it tells, so that every rule in the format is exercised by data:
 
 The awkward cases the current archive has are kept: revised transactions, identical-looking pairs, foreign currency, missing counterparties, merchant names that vary, and nights without a sync.
 
-The generator imports its record types from `src/archive/` and builds every file through `merge` and `files.ts`. The fixtures then cannot drift from the format, and the generator is one more test of the real code.
+The generator imports its record types from `shared` and builds every file through `merge` and `files.ts`. The fixtures then cannot drift from the format, and the generator is one more test of the real code.
 
 ## Tests
 
-Tier 1, with factories in `test/support/`:
+Tier 1, with factories in `shared/testing/`:
 
 - `merge`: new, unchanged, changed, and the same identity arriving twice in one batch; two transactions identical in everything but `id` stay two.
 - `files`: a round trip is lossless; output is byte-stable; a record in the wrong year's file fails validation.
@@ -81,4 +85,3 @@ Fixtures: the existing freshness and invariant tests, updated for the new layout
 - `npm run typecheck`, `npm run lint`, `npm run format:check` and `npm test` pass.
 - `npm run fixtures` reproduces the committed archive byte for byte.
 - The status note in [architecture.md](../architecture.md) and the "Development data" section of the README describe the new layout.
-- This spec is deleted.

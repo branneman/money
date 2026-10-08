@@ -30,10 +30,12 @@ Only tiers 0 to 2 are needed for the sync. The rest arrive with the dashboard an
 
 **Charter:** catch type, syntax and style errors, and drifted generated files, before any behavioural test runs.
 
+- **`npm run check:workspaces`, first and cheapest.** It asserts that every `@money/*` package resolves inside this working tree. A git worktree without its own install resolves them up into the main checkout instead, and then every tier below judges the wrong source tree without erroring. It is the first step of `npm run typecheck`, so the hook and CI both run it. It arrives with the workspaces.
 - **`tsc --noEmit`.** Node strips types and never checks them, so this is the only thing that does. `erasableSyntaxOnly` also rejects syntax Node cannot strip.
 - **ESLint** with `typescript-eslint`, for correctness rules: unused variables, floating promises, unreachable code. A floating promise matters more than usual here, because an unawaited write is a partial write.
 - **Prettier**, formatting only.
-- **Fixture freshness.** `test/fixtures.test.ts` regenerates the synthetic archive in memory and fails if the committed files differ. A hand-edited fixture, or a generator change committed without its output, cannot slip through.
+- **The dependency rule.** A test reads every workspace's `package.json` and fails if `shared`, `sync` or `api` lists a runtime dependency that is not another workspace ([architecture.md](architecture.md)).
+- **Fixture freshness.** A test regenerates the synthetic archive in memory and fails if the committed files differ. A hand-edited fixture, or a generator change committed without its output, cannot slip through.
 
 **Whole repo, never just the changed files**, both in the pre-commit hook and in CI. LLM-authored changes tend to leave unrelated files unformatted, and a staged-files-only check would miss that.
 
@@ -60,7 +62,9 @@ Covers:
 - later, **categorising**: first match wins, rule order decides, every condition type, no match gives `uncategorised`, and an invalid regular expression is refused;
 - later, the dashboard's **filter, sort and group** functions.
 
-**Tooling:** `node:test` and `node:assert/strict`, under `test/`, mirroring `src/`. The clock is an injected function returning a fixed instant. No test reads the real time or the network.
+**Tooling:** `node:test` and `node:assert/strict`, as `*.test.ts` next to the code under test. That covers `shared`, `sync` and `api`. The `app` workspace picks its own test tooling with its libraries, in its slice's spec. The clock is an injected function returning a fixed instant. No test reads the real time or the network.
+
+**The timezone is pinned.** `npm test` sets `TZ=Europe/Amsterdam`. Bank dates are calendar dates in UTC, and the people reading them are an hour or two ahead of it. Under UTC, a test of that boundary passes against the very bug it exists to catch: a transaction booked on the 1st showing up on the 31st, or the other way round. Pinned to a zone that differs from UTC, the assertion means something. Tests that are about this boundary say so, and use instants just before and after midnight in both zones.
 
 **Logging is behaviour, so it is tested.** Logs may hold counts, dates and keys only, and job output leaves the production host on every run (see [infra.md](infra.md)). A unit test runs a sync over transactions with recognisable amounts, IBANs, names and descriptions, captures everything logged, and asserts none of those values appear.
 
@@ -97,7 +101,7 @@ Named scenarios pin the edges a generator reaches only by luck:
 
 Three kinds, never mixed, and **never real**. This repo does not hold real bank data in any form: not in files, not in fixtures, not in a test's inline literals. That includes the shape of a real bank's export file: import tests use a made-up format for a made-up bank.
 
-- **Tiers 1 and 2: factory functions** with defaults and overrides, in `test/support/`. A test reads as `aTransaction({ booking_date: "2025-12-31" })`: the field under test and nothing else. The library grows one function at a time.
+- **Tiers 1 and 2: factory functions** with defaults and overrides, in `shared/testing/`. A test reads as `aTransaction({ booking_date: "2025-12-31" })`: the field under test and nothing else. The library grows one function at a time.
 - **Tier 2: generated histories**, from the seeded generator described above.
 - **Dashboard development and its later tiers: the synthetic archive** in `fixtures/archive/`, about 5,400 transactions over six years on two accounts, written by `fixtures/generate.ts` in the same format production writes. It deliberately contains the awkward cases: revised transactions, identical-looking pairs, foreign currency, missing counterparties, merchant names that vary in spelling, transfers that appear on both accounts, and nights where the sync was down.
 
@@ -111,7 +115,7 @@ The archive's `raw` shape is the `Transaction` schema from Enable Banking's API 
 
 The archive outlives every version of the code, and nothing in it is ever rewritten wholesale. So the record format must stay readable forever.
 
-When the record format changes, the old format gets a small frozen fixture under `test/fixtures/formats/`, and a Tier 1 test asserts the current code still reads it and merges into it correctly. Capture the fixture in the same change that alters the format; one taken later is taken from a format that has already drifted.
+When the record format changes, the old format gets a small frozen fixture under `shared/fixtures/formats/`, and a Tier 1 test asserts the current code still reads it and merges into it correctly. Capture the fixture in the same change that alters the format; one taken later is taken from a format that has already drifted.
 
 ## Later tiers
 
@@ -137,7 +141,7 @@ On every push and pull request, and gating the image build:
 
 ```sh
 npm run typecheck && npm run lint && npm run format:check   # Tier 0
-npm test            # Tiers 1 and 2, and fixture freshness
+npm test            # Tiers 1 and 2, and fixture freshness; pins the timezone
 npm run fixtures    # regenerate fixtures/archive/ after changing the generator
 ```
 
@@ -148,5 +152,7 @@ npm run fixtures    # regenerate fixtures/archive/ after changing the generator
 | `tsc --noEmit`, ESLint, Prettier         | in place                                                |
 | Fixture freshness and archive invariants | in place (`test/fixtures.test.ts`)                      |
 | Pre-commit hook                          | in place (`.githooks/pre-commit`, set by `npm install`) |
+| Pinned test timezone                     | in place (`npm test`)                                   |
+| Workspace-link check, dependency rule    | arrive with the workspaces, in the first slice          |
 | CI                                       | not set up                                              |
 | Tier 1 and Tier 2 suites                 | arrive with the code they test                          |

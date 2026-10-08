@@ -57,6 +57,8 @@ The host accepts any app that meets a short contract. For this repo that means:
 
 One image serves both containers; they differ in command, mounts and environment.
 
+The image is built in two stages. The first installs development tools and bundles the browser interface. The second starts clean and receives the server's source files straight from the repository, plus the bundled interface from the first stage and nothing else from it. The production image holds no `node_modules` at all, because nothing on the server has a third-party dependency ([architecture.md](architecture.md)).
+
 ## Phase 1: the sync container
 
 ### How it runs

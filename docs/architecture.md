@@ -63,7 +63,44 @@ Two consequences:
 - **No bank is special.** Nothing in the code or in this repository names or assumes a particular bank. Which banks and accounts are connected is configuration.
 - **Fail loudly.** An unexpected response, a missing identifier or a bad configuration stops the run with a clear message. Nothing is guessed.
 - **Pure core, I/O at the edges.** Merging, normalising and categorising are pure functions. The clock, the network and the filesystem are passed in.
-- **No runtime dependencies, no build step.** Node.js runs the TypeScript directly.
+- **Nothing on the server depends on third-party code.** See Dependencies below.
+
+## Code layout
+
+One repository, with npm workspaces. Each workspace is a package named `@money/<name>`.
+
+```text
+shared/     the archive format, merge, the normalised view,
+            configuration, categorising. Pure functions.
+sync/       the command line: auth, sync, status, import
+api/        the dashboard's server
+app/        the dashboard's interface, in the browser
+fixtures/   the synthetic archive and its generator
+docs/       this design
+```
+
+- **`shared` is the core.** It has no I/O and runs unchanged in Node and in the browser. Everything that decides what a transaction is or which category it gets lives here, once.
+- **`sync`, `api` and `app` depend on `shared`, and never on each other.**
+- **Tests sit next to the code they test**, as `*.test.ts`.
+- **One image is built from the repository.** The sync container runs `sync`; the web container runs `api`, which also serves `app`'s built files.
+
+## Dependencies
+
+The rule differs by where the code runs, because what a dependency could do differs.
+
+| Workspace | Runs           | Can reach                                        | Runtime dependencies                  |
+| --------- | -------------- | ------------------------------------------------ | ------------------------------------- |
+| `shared`  | everywhere     | whatever its caller can                          | none                                  |
+| `sync`    | on the server  | bank credentials, the whole archive, the network | none                                  |
+| `api`     | on the server  | the whole archive, the rules, the network        | none                                  |
+| `app`     | in the browser | what the logged-in user can see                  | allowed, each one a deliberate choice |
+
+- **On the server, none.** Every dependency there is someone else's code running with access to bank data and an open network connection. What Node ships is enough for all three: `fetch`, `node:crypto`, `node:fs`, `node:http`. A workspace's `dependencies` may name only other `@money` workspaces, and a test enforces it.
+- **In the browser, a few.** Large tables, charts and an editor are not worth building from nothing. Browser code is confined by a strict Content Security Policy: it can load nothing from, and send nothing to, anywhere but the dashboard's own origin. Each library is still chosen deliberately and kept to a short list.
+- **Development tools** (type-checker, linter, formatter, test runner, bundler) never run in production and never see real data. They are still added only on purpose.
+- **The bundler is the one tool whose output ships.** The image build therefore takes exactly one thing from the build stage: `app`'s built files. Server code is copied into the image from the source tree, untouched by any tool.
+
+So "no build step" holds for everything Node runs, and `app` is the one workspace that is built.
 
 ## Data protection
 
@@ -73,10 +110,10 @@ Two consequences:
 
 ## Build order
 
-Each slice gets a short spec in `docs/specs/` before it is built, and the spec is retired when the slice is done.
+Each slice gets a spec in `docs/specs/`, dated, before it is built. Once the slice has shipped the spec is history: it is kept and no longer maintained, and whatever it settled is written into the documents above.
 
-1. **Archive format.** The record and layout in code, the normalised view, and fixtures regenerated to match: two banks, an imported stretch, a closed account.
+1. **Archive format.** The workspaces, the record and layout in code, the normalised view, and fixtures regenerated to match: two banks, an imported stretch, a closed account.
 2. **Sync.** `auth`, the backfill, the inbox, the nightly run, against a fake bank.
 3. **Import.** Import formats and the `import` command.
-4. **Dashboard.** Login, tables and charts over the fixtures.
+4. **Dashboard.** `api` and `app`: login, tables and charts over the fixtures. Its spec chooses the browser libraries.
 5. **Categories.** Rules, the editor and the preview.
