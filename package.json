@@ -7,7 +7,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test 'test/**/*.test.ts'",
+    "test": "TZ=Europe/Amsterdam node --test 'test/**/*.test.ts'",
     "fixtures": "node fixtures/generate.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
