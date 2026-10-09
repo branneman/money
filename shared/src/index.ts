@@ -1,2 +1,4 @@
 // The browser-safe entry. Nothing exported from here may import a `node:` module.
-export {};
+export * from "./archive/record.ts";
+export * from "./util/dates.ts";
+export * from "./util/equal.ts";
