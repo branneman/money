@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { parseYearFile } from "./files.ts";
 import { ACCOUNT_KEY, ArchiveError, identityOf } from "./record.ts";
 import type { ArchiveRecord, Source } from "./record.ts";
+import { planWrites } from "./writes.ts";
 
 const SOURCES: readonly Source[] = ["api", "import"];
 const YEAR_FILE = /^\d{4}\.json$/;
@@ -24,6 +25,11 @@ const entries = async (dir: string): Promise<Dirent[]> => {
   }
 };
 
+const checkLocation = (account: string, source: string): void => {
+  if (!ACCOUNT_KEY.test(account)) throw new ArchiveError(`${account} is not an account key`);
+  if (!SOURCES.includes(source as Source)) throw new ArchiveError(`${source} is not a source`);
+};
+
 const yearFileNames = async (dir: string, label: string): Promise<string[]> => {
   const found = await entries(dir);
   for (const entry of found) {
@@ -39,6 +45,7 @@ export const readAccountSource = async (
   account: string,
   source: Source,
 ): Promise<ArchiveRecord[]> => {
+  checkLocation(account, source);
   const dir = join(dataDir, account, source);
   const records: ArchiveRecord[] = [];
   for (const name of await yearFileNames(dir, `${account}/${source}`)) {
@@ -72,41 +79,38 @@ export const readArchive = async (dataDir: string): Promise<ArchiveRecord[]> => 
   return records;
 };
 
-const readIfPresent = async (path: string): Promise<string | null> => {
-  try {
-    return await readFile(path, "utf8");
-  } catch (error) {
-    if (isMissing(error)) return null;
-    throw error;
-  }
-};
-
-// Writes the year files of one account and source. Each file goes to a temporary name and
-// is renamed into place, so a file is the old version or the new one, never part of each.
+// Writes the year files of one account and source, in the order planWrites gives. Each
+// file goes to a temporary name and is renamed into place, so a file is the old version
+// or the new one, never part of each. The order means a crash can leave a record stored
+// twice, which reading reports, and never stored nowhere. The store assumes a single
+// writer per account and source.
 export const writeYearFiles = async (
   dataDir: string,
   account: string,
   source: Source,
   files: ReadonlyMap<string, string>,
 ): Promise<{ written: string[]; removed: string[] }> => {
+  checkLocation(account, source);
   const dir = join(dataDir, account, source);
-  await mkdir(dir, { recursive: true });
-  const existing = await yearFileNames(dir, `${account}/${source}`);
-
-  const written: string[] = [];
-  for (const name of [...files.keys()].toSorted()) {
-    const text = files.get(name) ?? "";
-    if ((await readIfPresent(join(dir, name))) === text) continue;
-    const temporary = join(dir, `.${name}.tmp`);
-    await writeFile(temporary, text, { flush: true });
-    await rename(temporary, join(dir, name));
-    written.push(name);
+  const existing = new Map<string, string>();
+  for (const name of await yearFileNames(dir, `${account}/${source}`)) {
+    existing.set(name, await readFile(join(dir, name), "utf8"));
   }
+  const steps = planWrites(existing, files, { account, source });
 
-  // A year file that is no longer in the set has had its last record move to another
-  // year. It goes last: a crash before this line leaves a record stored twice, which
-  // reading reports, and never a record stored nowhere.
-  const removed = existing.filter((name) => !files.has(name));
-  for (const name of removed) await rm(join(dir, name));
-  return { written, removed };
+  await mkdir(dir, { recursive: true });
+  const written = new Set<string>();
+  const removed: string[] = [];
+  for (const step of steps) {
+    if (step.kind === "remove") {
+      await rm(join(dir, step.name));
+      removed.push(step.name);
+      continue;
+    }
+    const temporary = join(dir, `.${step.name}.tmp`);
+    await writeFile(temporary, step.text, { flush: true });
+    await rename(temporary, join(dir, step.name));
+    written.add(step.name);
+  }
+  return { written: [...written].toSorted(), removed };
 };

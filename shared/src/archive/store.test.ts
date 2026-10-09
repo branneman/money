@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 
 import { anApiRecord, anImportRecord } from "../../testing/factories.ts";
@@ -129,4 +129,36 @@ test("written text is exactly the rendered text", async () => {
   await write([a]);
   const text = await readFile(join(dir, "bnka-current", "api", "2025.json"), "utf8");
   assert.equal(text, renderYearFiles([a]).get("2025.json"));
+});
+
+test("an account that is not a key is refused, and nothing is written", async () => {
+  const files = renderYearFiles([a]);
+  await assert.rejects(writeYearFiles(dir, "../..", "api", files), ArchiveError);
+  await assert.rejects(readAccountSource(dir, "../..", "api"), ArchiveError);
+  assert.deepEqual(await readdir(dir), []);
+  assert.deepEqual(await readdir(dirname(dir)).then((names) => names.includes("api")), false);
+});
+
+test("a file name that is not a year file is refused, and nothing is written", async () => {
+  const text = renderYearFiles([a]).get("2025.json") ?? "";
+  await assert.rejects(
+    writeYearFiles(dir, "bnka-current", "api", new Map([["../x.json", text]])),
+    ArchiveError,
+  );
+  assert.deepEqual(await readdir(dir), []);
+  assert.equal((await readdir(dirname(dir))).includes("x.json"), false);
+});
+
+test("an empty set over an existing account is refused and leaves the files alone", async () => {
+  await write([a, b]);
+  await assert.rejects(write([]), /would delete 2 stored record/);
+  assert.deepEqual(await readAccountSource(dir, "bnka-current", "api"), [a, b]);
+});
+
+test("a record that moves while another stays ends up stored exactly once", async () => {
+  const c = anApiRecord({ id: "c", date: "2025-07-01" });
+  await write([a, c]);
+  const moved = { ...a, date: "2026-03-01" };
+  await write([c, moved]);
+  assert.deepEqual(await readAccountSource(dir, "bnka-current", "api"), [c, moved]);
 });
