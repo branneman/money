@@ -48,7 +48,7 @@ Only tiers 0 to 2 are needed for the sync. The rest arrive with the dashboard an
 Covers:
 
 - **the fetch window**: first run, a normal night, missed nights catching up, the two-year clamp, the year boundary, and UTC date handling;
-- **merge**: new, known and unchanged, known and changed (the old version moves to `revisions`), and stored but missing from a window it falls inside;
+- **merge**: new, known and unchanged, known and changed (the old version moves to `revisions`), the same id twice in a batch or in storage, and a timestamp without a real time of day;
 - **identity**: account, source and `id`, and nothing else. Two transactions that look identical on the same day stay two transactions;
 - **partitioning and ordering**: per account and source, by `booking_date` into years, sorted by date and `id`, with a missing booking date as an error;
 - **the normalised view**: for API records and for import records through an import format, including the sign of amounts, decimal notation, and which counterparty is the other side;
@@ -75,14 +75,22 @@ Covers:
 1. **Convergence.** However the nights fall, the archive ends up the same. Any sequence of overlapping fetch windows over the same bank history produces byte-identical files.
 2. **Nothing is lost.** Every transaction the bank ever returned is in the archive, either as the current version or in `revisions`.
 
+In the archive-format slice these are stated over the pure core, before any sync exists, in `shared/src/archive/convergence.test.ts`:
+
+- **Convergence under revisions.** A bank history whose transactions change over time is synced on a random schedule of nights, applied in time order and ending in a full sync. The result must show the same as one sync of the final state. Revisions are not claimed to converge when they arrive in any order; they do not.
+- **Any order without revisions.** For histories whose transactions never change, overlapping batches in any order give the same view, and merging a batch again changes nothing.
+- **Source overlap.** The expected visible set is computed from the generated data, never from the code under test, and the view must match it exactly.
+
 These are expressed **property-based**: generate a random bank history and a random schedule of runs (skipped nights, repeated runs, runs on both sides of a year boundary, windows of different lengths, imports of overlapping files in between), run them, and compare the result against a single run over the full history. The normalised view must come out the same whatever the order. The generator is a small seeded PRNG, so a failure prints its seed and replays exactly. No property-testing library is needed for this.
+
+**A property test is not trusted until it has failed.** Before relying on one, break the code under test in a named way (for example, drop the revision, ignore the date, take the first of two duplicates) and see the property fail. Keep that habit for every new property.
 
 Named scenarios pin the edges a generator reaches only by luck:
 
 - a second run with nothing new leaves every file **byte-for-byte identical**;
 - pagination: `continuation_key` is followed to the end, and a page that fails halfway writes nothing;
 - a transaction changes at the bank between two runs;
-- a transaction disappears from a window it falls inside: kept, and warned about;
+- a transaction disappears from a window it falls inside: kept, and warned about (the merge cannot see this; the sync, which knows the window, does);
 - a run that dies between the temporary write and the rename leaves the previous file intact;
 - a run that dies after receiving pages and before merging is finished from the inbox by the next run, without asking the bank again;
 - a backfill that dies halfway keeps the pages it received;
@@ -103,9 +111,11 @@ Three kinds, never mixed, and **never real**. This repo does not hold real bank 
 
 - **Tiers 1 and 2: factory functions** with defaults and overrides, in `shared/testing/`. A test reads as `aTransaction({ booking_date: "2025-12-31" })`: the field under test and nothing else. The library grows one function at a time.
 - **Tier 2: generated histories**, from the seeded generator described above.
-- **Dashboard development and its later tiers: the synthetic archive** in `fixtures/archive/`, about 5,400 transactions over six years on two accounts, written by `fixtures/generate.ts` in the same format production writes. It deliberately contains the awkward cases: revised transactions, identical-looking pairs, foreign currency, missing counterparties, merchant names that vary in spelling, transfers that appear on both accounts, and nights where the sync was down.
+- **Dashboard development and its later tiers: the synthetic archive** in `fixtures/archive/`, about 6,000 transactions in 33 year files over ten accounts at two made-up banks, both sources, written by the generator (`fixtures/household.ts`, `world.ts` and `generate.ts`) through the real merge, in the same format production writes. Three accounts are closed, and savings interest is paid only on a positive balance. It deliberately contains the awkward cases: revised transactions, identical-looking pairs, foreign currency, missing counterparties, merchant names that vary in spelling, transfers that appear on both accounts, and nights where the sync was down.
 
 Change the archive by changing the generator and running `npm run fixtures`. Never edit a year file by hand.
+
+Every counterparty is invented. None names a real bank or a bank-owned brand, and a test fails if one returns; a payment scheme and a cash-machine network keep their real names, because neither is a bank. The generator writes its files with plain `node:fs` after emptying the directory, not through the store, because the store refuses to delete.
 
 Every generated IBAN has check digits `00`, which no valid IBAN can have, so no generated account number can belong to anyone. A test asserts this.
 
@@ -150,9 +160,9 @@ npm run fixtures    # regenerate fixtures/archive/ after changing the generator
 | Piece                                    | State                                                   |
 | ---------------------------------------- | ------------------------------------------------------- |
 | `tsc --noEmit`, ESLint, Prettier         | in place                                                |
-| Fixture freshness and archive invariants | in place (`test/fixtures.test.ts`)                      |
+| Fixture freshness and archive invariants | in place (`fixtures/archive.test.ts`)                   |
 | Pre-commit hook                          | in place (`.githooks/pre-commit`, set by `npm install`) |
 | Pinned test timezone                     | in place (`npm test`)                                   |
-| Workspace-link check, dependency rule    | arrive with the workspaces, in the first slice          |
-| CI                                       | not set up                                              |
+| Workspace-link check, dependency rule    | in place                                                |
+| CI                                       | in place, first run pending                             |
 | Tier 1 and Tier 2 suites                 | arrive with the code they test                          |

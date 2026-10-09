@@ -39,8 +39,8 @@ Out of scope: payments.
 
 This repository holds no real bank data, and the working directory never does either. There is no local production configuration and no local copy of the archive.
 
-- **`fixtures/archive/`** is a synthetic archive: about 5,400 invented transactions over six years on two accounts. The dashboard is built against it. It still uses the earlier single-directory layout, and is regenerated to match [docs/archive-format.md](docs/archive-format.md) in the first build slice.
-- **`fixtures/generate.ts`** produces it, deterministically. Change the generator and run `npm run fixtures`; never edit the files by hand. A test fails if the two drift apart.
+- **`fixtures/archive/`** is a synthetic archive in the layout [docs/archive-format.md](docs/archive-format.md) describes: two made-up banks, ten accounts, both sources, with `fixtures/config.json` beside it. The dashboard is built against it.
+- **`npm run fixtures`** produces it, deterministically. Change the generator and run `npm run fixtures`; never edit the files by hand. A test fails if the two drift apart.
 - The `sync` code is developed against a fake bank in tests, and against the Enable Banking sandbox with data and state under `tmp/sandbox/`.
 
 The synthetic `raw` shape follows Enable Banking's documented schema, not an observed bank response, and leaves optional fields null.

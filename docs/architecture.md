@@ -2,7 +2,7 @@
 
 The whole picture on one page. Each part has its own document; this one says how they fit.
 
-> **Status.** This describes the target. Built so far: the synthetic archive generator, and its tests. The fixtures still use the earlier single-directory layout and are regenerated in the first slice below.
+> **Status.** Built: the `shared` workspace (the archive format, merge, the normalised view, configuration) and the synthetic archive. Not built yet: `sync`, `api`, `app`.
 
 ## Parts
 

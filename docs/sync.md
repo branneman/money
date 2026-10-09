@@ -61,6 +61,10 @@ Every command exits non-zero on any failure, with a message that says what to do
 - **`closed`**: the account is kept and shown, and never fetched again.
 - **`imports`**: import formats by key, as described in [archive-format.md](archive-format.md).
 
+- **Keys.** Bank keys and import format keys match `[a-z0-9-]+`, like account keys.
+- **Identifiers.** An `iban` or an `import_id` that is present must be a non-empty text, even when the other one is valid.
+- **Messages never contain a value from the file.** They name keys and fields. An unknown bank is reported without its name, and an entry whose key is malformed is named by its position, such as `accounts, entry 2`.
+
 The file is validated at startup, and anything wrong with it stops the command. Both containers read it; neither writes it. The real file names real banks and accounts, so it lives with the production configuration. This repository holds only a made-up example, which the tests use.
 
 One Enable Banking application serves all banks. It is registered once, in production mode, with every account linked to it in the Control Panel. Linking whitelists an account; it does not authorise anything.
@@ -102,7 +106,7 @@ For each bank, and each of its open accounts that the API can reach:
 1. Mint a fresh JWT.
 2. Fetch booked transactions from _last successful sync minus `LOOKBACK_DAYS`_ through today, following `continuation_key` until it is absent. Because the window is anchored on the last success, missed nights catch up on their own.
 3. Send no PSU headers. The run is unattended.
-4. Merge, as defined in [archive-format.md](archive-format.md), and record the success in `STATE_DIR` only after the data is written.
+4. Merge, as defined in [archive-format.md](archive-format.md). The merge cannot tell that a stored record is missing from a fetch; the sync knows the window, so it is the sync that checks, keeps the record and logs a warning. Record the success in `STATE_DIR` only after the data is written.
 
 Then:
 

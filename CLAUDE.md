@@ -60,14 +60,19 @@ sync/              the command line: auth, sync, status, import
 api/               the dashboard's server
 app/               the dashboard's interface, in the browser
 fixtures/
-  generate.ts      seeded generator for the synthetic archive
+  household.ts     what the invented household did
+  world.ts         its accounts, and how each reaches the archive
+  dates.ts         date helpers for the generator
+  generate.ts      feeds it through the real merge
   archive/         generated
+  config.json      generated
+scripts/           repository checks
 docs/              durable design docs, flat
   specs/           one dated spec per slice
 tmp/               gitignored: sandbox data, state and key
 ```
 
-Tests sit next to the code as `*.test.ts`. Until the first slice creates the workspaces, the only code is `fixtures/` and `test/`.
+Tests sit next to the code as `*.test.ts`.
 
 ## Testing
 

@@ -102,3 +102,52 @@ Fixtures: the existing freshness and invariant tests, updated for the new layout
 - `npm run fixtures` reproduces the committed archive byte for byte.
 - The CI run for the slice's last commit is green, and was watched.
 - The status note in [architecture.md](../architecture.md) and the "Development data" section of the README describe the new layout.
+
+## What moved while it was built
+
+The record and merge:
+
+- **The record gained a `date` field.** A record has to be filed under a year when it is written, and a file has to be checkable against its own name without interpreting `raw`. Recorded in [archive-format.md](../archive-format.md).
+- **A timestamp must have a real time of day**, so `T99:99:99Z` is rejected.
+- **`merge` reports `added`, `revised` and `unchanged`** instead of a list of warnings. A stored record missing from a fetch can only be noticed by something that knows the fetch window, which is the sync slice's.
+- **The same id twice in one batch** is stored once when the two are identical, and is an error when they differ.
+- **The same id twice in what is already stored** is an error: `merge` refuses to continue rather than drop one.
+
+Year files and the store:
+
+- **`store.ts` is a separate, Node-only entry**, `@money/shared/node`, so the main entry stays free of I/O. Recorded in [architecture.md](../architecture.md).
+- **Writes are planned by a pure function**, `planWrites`, in `writes.ts`, so that no file loses a record before it is on disk in another file. Recorded in [archive-format.md](../archive-format.md).
+- **The store refuses any write that would make a stored record disappear**, an empty set over an existing account included, so nothing can be deleted through it.
+- **The writer validates the account key, the source, every file name and every file's text before touching the disk**, and the reader validates account and source.
+- **The guarantee has stated limits**: it covers a process crash, relies on the filesystem for power loss, can leave a record in two year files that reading then reports, and assumes one writer per account and source.
+
+Configuration:
+
+- **Bank keys and import format keys must match `[a-z0-9-]+`**, like account keys.
+- **An `iban` or `import_id` that is present must be a non-empty text**, even when the other identifier is valid.
+- **Messages never contain a value from the file**: an unknown bank is reported without its name, and an entry with a malformed key is named by its position. Recorded in [sync.md](../sync.md).
+
+The normalised view:
+
+- **A currency and an original currency must be exactly three capital letters**, because the number of decimals depends on it.
+- **For API records** the amount and the instructed amount carry no sign, a value date must be a real date, and an instructed amount with a currency but no readable value is an error.
+- **Description cells are read defensively**, and `original_amount` takes the sign of `amount`.
+
+Tests:
+
+- **The convergence property is stated over a changing bank history**, synced on a random schedule of nights applied in time order and ending in a full sync. A second property keeps the any-order claim for histories without revisions; the claim that revisions may arrive in any order was dropped, because it was never true.
+- **The overlap property computes its expected result from the generated data**, not from the code under test, and checks the visible set exactly.
+- **Each property was shown to fail by a named deliberate break** before it was trusted. Recorded in [testing.md](../testing.md).
+
+Fixtures:
+
+- **The generator is three files**, not one: `household.ts`, `world.ts` and `generate.ts`, plus `dates.ts`.
+- **The archive is 6,006 records in 33 year files**, ten accounts at two made-up banks.
+- **Three accounts are closed, not one**: the joint account, its savings account and the card at the first bank all stop on the day the second bank is added.
+- **Savings interest is paid only on a positive balance.**
+- **Every counterparty that named a real bank or a bank-owned brand was replaced** with an invented one, and a test fails if either returns. A payment scheme and a cash-machine network keep their real names, because neither is a bank.
+- **The generator writes its files with plain `node:fs`** after removing the directory, not through the store, because the store refuses to delete.
+
+CI:
+
+- **`.github/workflows/ci.yml` exists with two jobs** and has not yet run. It first runs when the branch is integrated and pushed.
