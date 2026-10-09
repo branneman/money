@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { anApiRecord } from "../../testing/factories.ts";
+import { makeRandom } from "../../testing/random.ts";
 import { renderYearFiles } from "./files.ts";
 import { ArchiveError } from "./record.ts";
 import type { ArchiveRecord } from "./record.ts";
@@ -74,31 +75,27 @@ test("a file emptied by a move is removed, last", () => {
   ]);
 });
 
-// A small seeded generator (mulberry32).
-const seeded = (seed: number) => () => {
-  seed = (seed + 0x6d2b79f5) | 0;
-  let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-};
-
 test("after every step, every stored id is still in some file", () => {
   for (let seed = 1; seed <= 400; seed++) {
-    const random = seeded(seed);
+    const random = makeRandom(seed);
     const years = ["2024", "2025", "2026"];
-    const count = 1 + Math.floor(random() * 8);
+    const count = 1 + Math.floor(random.next() * 8);
     const before = Array.from({ length: count }, (_, i) =>
-      rec(`id-${i}`, `${years[Math.floor(random() * 3)]}-0${1 + Math.floor(random() * 9)}-01`),
+      rec(
+        `id-${i}`,
+        `${years[Math.floor(random.next() * 3)]}-0${1 + Math.floor(random.next() * 9)}-01`,
+      ),
     );
     const after = before.map((record) =>
-      random() < 0.5
+      random.next() < 0.5
         ? {
             ...record,
-            date: `${years[Math.floor(random() * 3)]}-0${1 + Math.floor(random() * 9)}-01`,
+            date: `${years[Math.floor(random.next() * 3)]}-0${1 + Math.floor(random.next() * 9)}-01`,
           }
         : record,
     );
-    for (let i = 0; i < Math.floor(random() * 3); i++) after.push(rec(`new-${i}`, "2025-05-01"));
+    for (let i = 0; i < Math.floor(random.next() * 3); i++)
+      after.push(rec(`new-${i}`, "2025-05-01"));
 
     const existing = renderYearFiles(before);
     const next = renderYearFiles(after);
