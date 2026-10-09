@@ -1,0 +1,173 @@
+[
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101615476",
+    "format": "card-export",
+    "date": "2026-01-09",
+    "first_seen": "2026-04-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101615476",
+      "Booked": "2026-01-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101623395",
+    "format": "card-export",
+    "date": "2026-01-17",
+    "first_seen": "2026-04-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101623395",
+      "Booked": "2026-01-17",
+      "Amount": "-16,99",
+      "Text": "SPOTIFY P79FC4B4E STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101631314",
+    "format": "card-export",
+    "date": "2026-01-27",
+    "first_seen": "2026-04-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101631314",
+      "Booked": "2026-01-27",
+      "Amount": "+32,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101639233",
+    "format": "card-export",
+    "date": "2026-02-09",
+    "first_seen": "2026-04-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101639233",
+      "Booked": "2026-02-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101647152",
+    "format": "card-export",
+    "date": "2026-02-17",
+    "first_seen": "2026-04-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101647152",
+      "Booked": "2026-02-17",
+      "Amount": "-16,99",
+      "Text": "SPOTIFY PFE581DE9 STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101655071",
+    "format": "card-export",
+    "date": "2026-02-27",
+    "first_seen": "2026-04-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101655071",
+      "Booked": "2026-02-27",
+      "Amount": "+32,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101662990",
+    "format": "card-export",
+    "date": "2026-03-09",
+    "first_seen": "2026-04-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101662990",
+      "Booked": "2026-03-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101670909",
+    "format": "card-export",
+    "date": "2026-03-17",
+    "first_seen": "2026-04-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101670909",
+      "Booked": "2026-03-17",
+      "Amount": "-16,99",
+      "Text": "SPOTIFY P8A52EA1F STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101678828",
+    "format": "card-export",
+    "date": "2026-03-27",
+    "first_seen": "2026-04-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101678828",
+      "Booked": "2026-03-27",
+      "Amount": "+32,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  }
+]

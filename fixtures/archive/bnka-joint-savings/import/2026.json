@@ -1,0 +1,102 @@
+[
+  {
+    "account": "bnka-joint-savings",
+    "source": "import",
+    "id": "000000000000000006",
+    "format": "account-export",
+    "date": "2026-01-02",
+    "first_seen": "2026-04-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Account": "NL00BNKA0000000004",
+      "Currency": "EUR",
+      "Sequence": "000000000000000006",
+      "Booked": "2026-01-02",
+      "Value date": "2026-01-02",
+      "Amount": "+16,73",
+      "Counterparty account": "",
+      "Counterparty": "",
+      "Type": "rnt",
+      "Text 1": "Rente 2025",
+      "Text 2": "",
+      "Text 3": "",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-joint-savings",
+    "source": "import",
+    "id": "000000000000000007",
+    "format": "account-export",
+    "date": "2026-01-28",
+    "first_seen": "2026-04-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Account": "NL00BNKA0000000004",
+      "Currency": "EUR",
+      "Sequence": "000000000000000007",
+      "Booked": "2026-01-28",
+      "Value date": "2026-01-28",
+      "Amount": "+1500,00",
+      "Counterparty account": "NL00BNKA0000000002",
+      "Counterparty": "M. Visser en/of T. Bakker",
+      "Type": "ovb",
+      "Text 1": "Buffer",
+      "Text 2": "",
+      "Text 3": "",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-joint-savings",
+    "source": "import",
+    "id": "000000000000000008",
+    "format": "account-export",
+    "date": "2026-03-02",
+    "first_seen": "2026-04-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Account": "NL00BNKA0000000004",
+      "Currency": "EUR",
+      "Sequence": "000000000000000008",
+      "Booked": "2026-03-02",
+      "Value date": "2026-03-02",
+      "Amount": "+1500,00",
+      "Counterparty account": "NL00BNKA0000000002",
+      "Counterparty": "M. Visser en/of T. Bakker",
+      "Type": "ovb",
+      "Text 1": "Buffer",
+      "Text 2": "",
+      "Text 3": "",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-joint-savings",
+    "source": "import",
+    "id": "000000000000000009",
+    "format": "account-export",
+    "date": "2026-04-01",
+    "first_seen": "2026-07-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Account": "NL00BNKA0000000004",
+      "Currency": "EUR",
+      "Sequence": "000000000000000009",
+      "Booked": "2026-04-01",
+      "Value date": "2026-04-01",
+      "Amount": "-4620,03",
+      "Counterparty account": "NL00BNKB0000000004",
+      "Counterparty": "M. Visser en/of T. Bakker",
+      "Type": "ovb",
+      "Text 1": "Saldo overboeken",
+      "Text 2": "",
+      "Text 3": "",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  }
+]

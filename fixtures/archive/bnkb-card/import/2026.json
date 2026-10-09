@@ -1,0 +1,477 @@
+[
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100007919",
+    "format": "card-export",
+    "date": "2026-04-09",
+    "first_seen": "2026-07-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100007919",
+      "Booked": "2026-04-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100015838",
+    "format": "card-export",
+    "date": "2026-04-17",
+    "first_seen": "2026-07-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100015838",
+      "Booked": "2026-04-17",
+      "Amount": "-16,99",
+      "Text": "SPOTIFY PF9490B80 STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100023757",
+    "format": "card-export",
+    "date": "2026-04-27",
+    "first_seen": "2026-07-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100023757",
+      "Booked": "2026-04-27",
+      "Amount": "+32,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100031676",
+    "format": "card-export",
+    "date": "2026-05-09",
+    "first_seen": "2026-07-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100031676",
+      "Booked": "2026-05-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100039595",
+    "format": "card-export",
+    "date": "2026-05-17",
+    "first_seen": "2026-07-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100039595",
+      "Booked": "2026-05-17",
+      "Amount": "-16,99",
+      "Text": "SPOTIFY P936ECEC7 STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100047514",
+    "format": "card-export",
+    "date": "2026-05-27",
+    "first_seen": "2026-07-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100047514",
+      "Booked": "2026-05-27",
+      "Amount": "+32,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100055433",
+    "format": "card-export",
+    "date": "2026-06-09",
+    "first_seen": "2026-07-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100055433",
+      "Booked": "2026-06-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100063352",
+    "format": "card-export",
+    "date": "2026-06-17",
+    "first_seen": "2026-07-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100063352",
+      "Booked": "2026-06-17",
+      "Amount": "-16,99",
+      "Text": "SPOTIFY P11BB8D66 STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100071271",
+    "format": "card-export",
+    "date": "2026-06-29",
+    "first_seen": "2026-07-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100071271",
+      "Booked": "2026-06-29",
+      "Amount": "+32,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100079190",
+    "format": "card-export",
+    "date": "2026-07-09",
+    "first_seen": "2026-10-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100079190",
+      "Booked": "2026-07-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100087109",
+    "format": "card-export",
+    "date": "2026-07-17",
+    "first_seen": "2026-10-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100087109",
+      "Booked": "2026-07-17",
+      "Amount": "-16,99",
+      "Text": "SPOTIFY P11C85959 STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100095028",
+    "format": "card-export",
+    "date": "2026-07-18",
+    "first_seen": "2026-10-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100095028",
+      "Booked": "2026-07-18",
+      "Amount": "-45,07",
+      "Text": "CIRCLE K SMOGEN SWE",
+      "Original amount": "504,04",
+      "Original currency": "SEK"
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100102947",
+    "format": "card-export",
+    "date": "2026-07-20",
+    "first_seen": "2026-10-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100102947",
+      "Booked": "2026-07-20",
+      "Amount": "-44,16",
+      "Text": "SMOGENS FISKAUKTION SMOGEN SWE",
+      "Original amount": "493,86",
+      "Original currency": "SEK"
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100110866",
+    "format": "card-export",
+    "date": "2026-07-25",
+    "first_seen": "2026-10-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100110866",
+      "Booked": "2026-07-25",
+      "Amount": "-74,59",
+      "Text": "CIRCLE K SMOGEN SWE",
+      "Original amount": "834,17",
+      "Original currency": "SEK"
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100118785",
+    "format": "card-export",
+    "date": "2026-07-26",
+    "first_seen": "2026-10-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100118785",
+      "Booked": "2026-07-26",
+      "Amount": "-65,32",
+      "Text": "CIRCLE K SMOGEN SWE",
+      "Original amount": "730,50",
+      "Original currency": "SEK"
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100126704",
+    "format": "card-export",
+    "date": "2026-07-27",
+    "first_seen": "2026-10-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100126704",
+      "Booked": "2026-07-27",
+      "Amount": "+262,12",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100134623",
+    "format": "card-export",
+    "date": "2026-07-28",
+    "first_seen": "2026-10-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100134623",
+      "Booked": "2026-07-28",
+      "Amount": "-12,21",
+      "Text": "COOP SMOGEN SMOGEN SWE",
+      "Original amount": "136,55",
+      "Original currency": "SEK"
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100142542",
+    "format": "card-export",
+    "date": "2026-07-30",
+    "first_seen": "2026-10-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100142542",
+      "Booked": "2026-07-30",
+      "Amount": "-30,16",
+      "Text": "ICA NARA SMOGEN SWE",
+      "Original amount": "337,29",
+      "Original currency": "SEK"
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100150461",
+    "format": "card-export",
+    "date": "2026-07-31",
+    "first_seen": "2026-10-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100150461",
+      "Booked": "2026-07-31",
+      "Amount": "-29,12",
+      "Text": "COOP SMOGEN SMOGEN SWE",
+      "Original amount": "325,66",
+      "Original currency": "SEK"
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100158380",
+    "format": "card-export",
+    "date": "2026-08-09",
+    "first_seen": "2026-10-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100158380",
+      "Booked": "2026-08-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100166299",
+    "format": "card-export",
+    "date": "2026-08-17",
+    "first_seen": "2026-10-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100166299",
+      "Booked": "2026-08-17",
+      "Amount": "-16,99",
+      "Text": "SPOTIFY P90D45A39 STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100174218",
+    "format": "card-export",
+    "date": "2026-08-27",
+    "first_seen": "2026-10-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100174218",
+      "Booked": "2026-08-27",
+      "Amount": "+104,47",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100182137",
+    "format": "card-export",
+    "date": "2026-09-09",
+    "first_seen": "2026-10-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100182137",
+      "Booked": "2026-09-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100190056",
+    "format": "card-export",
+    "date": "2026-09-17",
+    "first_seen": "2026-10-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100190056",
+      "Booked": "2026-09-17",
+      "Amount": "-16,99",
+      "Text": "SPOTIFY P232BC5B0 STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnkb-card",
+    "source": "import",
+    "id": "P000100197975",
+    "format": "card-export",
+    "date": "2026-09-28",
+    "first_seen": "2026-10-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Card": "2001",
+      "Currency": "EUR",
+      "Reference": "P000100197975",
+      "Booked": "2026-09-28",
+      "Amount": "+32,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  }
+]

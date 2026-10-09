@@ -1,0 +1,1716 @@
+[
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260401-58881167",
+    "date": "2026-04-01",
+    "first_seen": "2026-04-03T03:00:44Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260401-58881167",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "150.00"
+      },
+      "credit_debit_indicator": "CRDT",
+      "status": "BOOK",
+      "booking_date": "2026-04-01",
+      "value_date": "2026-04-01",
+      "transaction_date": "2026-04-01",
+      "creditor": {
+        "name": "M. Visser"
+      },
+      "creditor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKA0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Periodieke overboeking",
+        "code": "STO",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Zakgeld"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260402-75658404",
+    "date": "2026-04-02",
+    "first_seen": "2026-04-03T03:00:44Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260402-75658404",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "50.00"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-04-02",
+      "value_date": "2026-04-02",
+      "transaction_date": "2026-04-02",
+      "creditor": {
+        "name": "M. Visser"
+      },
+      "creditor_account": {
+        "iban": "NL00BNKB0000000003"
+      },
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Periodieke overboeking",
+        "code": "STO",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Sparen"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260405-45991770",
+    "date": "2026-04-05",
+    "first_seen": "2026-04-06T03:00:39Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260405-45991770",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "3.64"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-04-05",
+      "value_date": "2026-04-05",
+      "transaction_date": "2026-04-04",
+      "creditor": {
+        "name": "Bakker Bart 214"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Bakker Bart 214 UTRECHT NLD",
+        "Pasvolgnr 004 04-04-2026 18:00"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260408-75806123",
+    "date": "2026-04-08",
+    "first_seen": "2026-04-09T03:00:03Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260408-75806123",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "8.27"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-04-08",
+      "value_date": "2026-04-08",
+      "transaction_date": "2026-04-08",
+      "creditor": {
+        "name": "Broodje Ben"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Broodje Ben UTRECHT NLD",
+        "Pasvolgnr 004 08-04-2026 18:08"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260425-87617398",
+    "date": "2026-04-25",
+    "first_seen": "2026-04-26T03:00:03Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260425-87617398",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "4.45"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-04-25",
+      "value_date": "2026-04-25",
+      "transaction_date": "2026-04-25",
+      "creditor": {
+        "name": "Koffiebar De Ontmoeting"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Koffiebar De Ontmoeting UTRECHT NLD",
+        "Pasvolgnr 004 25-04-2026 09:15"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260501-41319340",
+    "date": "2026-05-01",
+    "first_seen": "2026-05-02T03:00:08Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260501-41319340",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "150.00"
+      },
+      "credit_debit_indicator": "CRDT",
+      "status": "BOOK",
+      "booking_date": "2026-05-01",
+      "value_date": "2026-05-01",
+      "transaction_date": "2026-05-01",
+      "creditor": {
+        "name": "M. Visser"
+      },
+      "creditor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKA0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Periodieke overboeking",
+        "code": "STO",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Zakgeld"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260504-58097257",
+    "date": "2026-05-04",
+    "first_seen": "2026-05-05T03:00:17Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260504-58097257",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "50.00"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-05-04",
+      "value_date": "2026-05-04",
+      "transaction_date": "2026-05-04",
+      "creditor": {
+        "name": "M. Visser"
+      },
+      "creditor_account": {
+        "iban": "NL00BNKB0000000003"
+      },
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Periodieke overboeking",
+        "code": "STO",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Sparen"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260508-52173133",
+    "date": "2026-05-08",
+    "first_seen": "2026-05-10T03:00:45Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260508-52173133",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "9.08"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-05-08",
+      "value_date": "2026-05-08",
+      "transaction_date": "2026-05-08",
+      "creditor": {
+        "name": "Koffiebar De Ontmoeting"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Koffiebar De Ontmoeting UTRECHT NLD",
+        "Pasvolgnr 004 08-05-2026 20:14"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260512-65062515",
+    "date": "2026-05-12",
+    "first_seen": "2026-05-13T03:00:38Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260512-65062515",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "4.02"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-05-12",
+      "value_date": "2026-05-12",
+      "transaction_date": "2026-05-12",
+      "creditor": {
+        "name": "SumUp *Soepkar"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "SumUp *Soepkar UTRECHT NLD",
+        "Pasvolgnr 004 12-05-2026 09:42"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260520-85874797",
+    "date": "2026-05-20",
+    "first_seen": "2026-05-21T03:00:17Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260520-85874797",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "6.09"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-05-20",
+      "value_date": "2026-05-20",
+      "transaction_date": "2026-05-20",
+      "creditor": {
+        "name": "Broodje Ben"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Broodje Ben UTRECHT NLD",
+        "Pasvolgnr 004 20-05-2026 19:41"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260601-42276685",
+    "date": "2026-06-01",
+    "first_seen": "2026-06-02T03:00:15Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260601-42276685",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "150.00"
+      },
+      "credit_debit_indicator": "CRDT",
+      "status": "BOOK",
+      "booking_date": "2026-06-01",
+      "value_date": "2026-06-01",
+      "transaction_date": "2026-06-01",
+      "creditor": {
+        "name": "M. Visser"
+      },
+      "creditor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKA0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Periodieke overboeking",
+        "code": "STO",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Zakgeld"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260602-25499096",
+    "date": "2026-06-02",
+    "first_seen": "2026-06-03T03:00:34Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260602-25499096",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "50.00"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-06-02",
+      "value_date": "2026-06-02",
+      "transaction_date": "2026-06-02",
+      "creditor": {
+        "name": "M. Visser"
+      },
+      "creditor_account": {
+        "iban": "NL00BNKB0000000003"
+      },
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Periodieke overboeking",
+        "code": "STO",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Sparen"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260604-20385446",
+    "date": "2026-06-04",
+    "first_seen": "2026-06-05T03:00:24Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260604-20385446",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "12.55"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-06-04",
+      "value_date": "2026-06-04",
+      "transaction_date": "2026-06-04",
+      "creditor": {
+        "name": "Broodje Ben"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Broodje Ben UTRECHT NLD",
+        "Pasvolgnr 004 04-06-2026 14:17"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260608-58907250",
+    "date": "2026-06-08",
+    "first_seen": "2026-06-10T03:00:36Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260608-58907250",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "10.23"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-06-08",
+      "value_date": "2026-06-08",
+      "transaction_date": "2026-06-07",
+      "creditor": {
+        "name": "Bakker Bart 214"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Bakker Bart 214 UTRECHT NLD",
+        "Pasvolgnr 004 07-06-2026 19:59"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260615-16350315",
+    "date": "2026-06-15",
+    "first_seen": "2026-06-16T03:00:21Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260615-16350315",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "12.25"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-06-15",
+      "value_date": "2026-06-15",
+      "transaction_date": "2026-06-15",
+      "creditor": {
+        "name": "SumUp *Soepkar"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "SumUp *Soepkar UTRECHT NLD",
+        "Pasvolgnr 004 15-06-2026 15:02"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260629-50199692",
+    "date": "2026-06-29",
+    "first_seen": "2026-07-01T03:00:17Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260629-50199692",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "12.28"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-06-29",
+      "value_date": "2026-06-29",
+      "transaction_date": "2026-06-29",
+      "creditor": {
+        "name": "AH to go 5802"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "AH to go 5802 UTRECHT NLD",
+        "Pasvolgnr 004 29-06-2026 20:28"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260701-70865539",
+    "date": "2026-07-01",
+    "first_seen": "2026-07-02T03:00:24Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260701-70865539",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "150.00"
+      },
+      "credit_debit_indicator": "CRDT",
+      "status": "BOOK",
+      "booking_date": "2026-07-01",
+      "value_date": "2026-07-01",
+      "transaction_date": "2026-07-01",
+      "creditor": {
+        "name": "M. Visser"
+      },
+      "creditor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKA0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Periodieke overboeking",
+        "code": "STO",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Zakgeld"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260702-20532449",
+    "date": "2026-07-02",
+    "first_seen": "2026-07-03T03:00:05Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260702-20532449",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "50.00"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-07-02",
+      "value_date": "2026-07-02",
+      "transaction_date": "2026-07-02",
+      "creditor": {
+        "name": "M. Visser"
+      },
+      "creditor_account": {
+        "iban": "NL00BNKB0000000003"
+      },
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Periodieke overboeking",
+        "code": "STO",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Sparen"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260703-37310388",
+    "date": "2026-07-03",
+    "first_seen": "2026-07-04T03:00:10Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260703-37310388",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "4.49"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-07-03",
+      "value_date": "2026-07-03",
+      "transaction_date": "2026-07-03",
+      "creditor": {
+        "name": "SumUp *Soepkar"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "SumUp *Soepkar UTRECHT NLD",
+        "Pasvolgnr 004 03-07-2026 17:47"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260704-12756294",
+    "date": "2026-07-04",
+    "first_seen": "2026-07-06T03:00:39Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260704-12756294",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "5.09"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-07-04",
+      "value_date": "2026-07-04",
+      "transaction_date": "2026-07-04",
+      "creditor": {
+        "name": "AH to go 5802"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "AH to go 5802 UTRECHT NLD",
+        "Pasvolgnr 004 04-07-2026 20:01"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260705-29534494",
+    "date": "2026-07-05",
+    "first_seen": "2026-07-06T03:00:39Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260705-29534494",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "5.63"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-07-05",
+      "value_date": "2026-07-05",
+      "transaction_date": "2026-07-05",
+      "creditor": {
+        "name": "SumUp *Soepkar"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "SumUp *Soepkar UTRECHT NLD",
+        "Pasvolgnr 004 05-07-2026 14:40"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260706-32261620",
+    "date": "2026-07-06",
+    "first_seen": "2026-07-07T03:00:08Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260706-32261620",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "13.21"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-07-06",
+      "value_date": "2026-07-06",
+      "transaction_date": "2026-07-06",
+      "creditor": {
+        "name": "Broodje Ben"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Broodje Ben UTRECHT NLD",
+        "Pasvolgnr 004 06-07-2026 19:58"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260709-61928884",
+    "date": "2026-07-09",
+    "first_seen": "2026-07-11T03:00:34Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260709-61928884",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "3.56"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-07-09",
+      "value_date": "2026-07-09",
+      "transaction_date": "2026-07-09",
+      "creditor": {
+        "name": "AH to go 5802"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "AH to go 5802 UTRECHT NLD",
+        "Pasvolgnr 004 09-07-2026 10:22"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260711-82594322",
+    "date": "2026-07-11",
+    "first_seen": "2026-07-12T03:00:03Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260711-82594322",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "11.59"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-07-11",
+      "value_date": "2026-07-11",
+      "transaction_date": "2026-07-11",
+      "creditor": {
+        "name": "SumUp *Soepkar"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "SumUp *Soepkar UTRECHT NLD",
+        "Pasvolgnr 004 11-07-2026 10:09"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260712-65817545",
+    "date": "2026-07-12",
+    "first_seen": "2026-07-13T03:00:22Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260712-65817545",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "13.11"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-07-12",
+      "value_date": "2026-07-12",
+      "transaction_date": "2026-07-12",
+      "creditor": {
+        "name": "Broodje Ben"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Broodje Ben UTRECHT NLD",
+        "Pasvolgnr 004 12-07-2026 14:11"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260803-58759526",
+    "date": "2026-08-03",
+    "first_seen": "2026-08-04T03:00:24Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260803-58759526",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "150.00"
+      },
+      "credit_debit_indicator": "CRDT",
+      "status": "BOOK",
+      "booking_date": "2026-08-03",
+      "value_date": "2026-08-03",
+      "transaction_date": "2026-08-03",
+      "creditor": {
+        "name": "M. Visser"
+      },
+      "creditor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKA0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Periodieke overboeking",
+        "code": "STO",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Zakgeld"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260803-58759862",
+    "date": "2026-08-03",
+    "first_seen": "2026-08-05T03:00:44Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260803-58759862",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "50.00"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-08-03",
+      "value_date": "2026-08-03",
+      "transaction_date": "2026-08-03",
+      "creditor": {
+        "name": "M. Visser"
+      },
+      "creditor_account": {
+        "iban": "NL00BNKB0000000003"
+      },
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Periodieke overboeking",
+        "code": "STO",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Sparen"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260807-19519921",
+    "date": "2026-08-07",
+    "first_seen": "2026-08-08T03:00:13Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260807-19519921",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "3.56"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-08-07",
+      "value_date": "2026-08-07",
+      "transaction_date": "2026-08-07",
+      "creditor": {
+        "name": "Broodje Ben"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Broodje Ben UTRECHT NLD",
+        "Pasvolgnr 004 07-08-2026 11:45"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260901-48200443",
+    "date": "2026-09-01",
+    "first_seen": "2026-09-02T03:00:36Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260901-48200443",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "150.00"
+      },
+      "credit_debit_indicator": "CRDT",
+      "status": "BOOK",
+      "booking_date": "2026-09-01",
+      "value_date": "2026-09-01",
+      "transaction_date": "2026-09-01",
+      "creditor": {
+        "name": "M. Visser"
+      },
+      "creditor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKA0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Periodieke overboeking",
+        "code": "STO",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Zakgeld"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260901-48200662",
+    "date": "2026-09-01",
+    "first_seen": "2026-09-02T03:00:36Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260901-48200662",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "4.41"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-09-01",
+      "value_date": "2026-09-01",
+      "transaction_date": "2026-09-01",
+      "creditor": {
+        "name": "Bakker Bart 214"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Bakker Bart 214 UTRECHT NLD",
+        "Pasvolgnr 004 01-09-2026 15:36"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260902-10757699",
+    "date": "2026-09-02",
+    "first_seen": "2026-09-04T03:00:10Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260902-10757699",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "50.00"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-09-02",
+      "value_date": "2026-09-02",
+      "transaction_date": "2026-09-02",
+      "creditor": {
+        "name": "M. Visser"
+      },
+      "creditor_account": {
+        "iban": "NL00BNKB0000000003"
+      },
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Periodieke overboeking",
+        "code": "STO",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Sparen"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20260904-59196825",
+    "date": "2026-09-04",
+    "first_seen": "2026-09-05T03:00:41Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20260904-59196825",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "5.62"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-09-04",
+      "value_date": "2026-09-04",
+      "transaction_date": "2026-09-04",
+      "creditor": {
+        "name": "Bakker Bart 214"
+      },
+      "creditor_account": null,
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Betaalautomaat",
+        "code": "BEA",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Bakker Bart 214 UTRECHT NLD",
+        "Pasvolgnr 004 04-09-2026 16:07"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20261001-67479469",
+    "date": "2026-10-01",
+    "first_seen": "2026-10-02T03:00:12Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20261001-67479469",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "150.00"
+      },
+      "credit_debit_indicator": "CRDT",
+      "status": "BOOK",
+      "booking_date": "2026-10-01",
+      "value_date": "2026-10-01",
+      "transaction_date": "2026-10-01",
+      "creditor": {
+        "name": "M. Visser"
+      },
+      "creditor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKA0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Periodieke overboeking",
+        "code": "STO",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Zakgeld"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  },
+  {
+    "account": "bnkb-personal",
+    "source": "api",
+    "id": "20261002-30782752",
+    "date": "2026-10-02",
+    "first_seen": "2026-10-04T03:00:51Z",
+    "revisions": [],
+    "raw": {
+      "entry_reference": "20261002-30782752",
+      "transaction_amount": {
+        "currency": "EUR",
+        "amount": "50.00"
+      },
+      "credit_debit_indicator": "DBIT",
+      "status": "BOOK",
+      "booking_date": "2026-10-02",
+      "value_date": "2026-10-02",
+      "transaction_date": "2026-10-02",
+      "creditor": {
+        "name": "M. Visser"
+      },
+      "creditor_account": {
+        "iban": "NL00BNKB0000000003"
+      },
+      "creditor_agent": null,
+      "debtor": {
+        "name": "M. Visser"
+      },
+      "debtor_account": {
+        "iban": "NL00BNKB0000000001"
+      },
+      "debtor_agent": null,
+      "bank_transaction_code": {
+        "description": "Periodieke overboeking",
+        "code": "STO",
+        "sub_code": null
+      },
+      "merchant_category_code": null,
+      "remittance_information": [
+        "Sparen"
+      ],
+      "exchange_rate": null,
+      "balance_after_transaction": null,
+      "reference_number": null,
+      "reference_number_schema": null,
+      "debtor_account_additional_identification": null,
+      "creditor_account_additional_identification": null,
+      "note": null,
+      "transaction_id": null
+    }
+  }
+]

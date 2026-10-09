@@ -1,0 +1,52 @@
+[
+  {
+    "account": "bnka-joint-savings",
+    "source": "import",
+    "id": "000000000000000004",
+    "format": "account-export",
+    "date": "2025-01-02",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Account": "NL00BNKA0000000004",
+      "Currency": "EUR",
+      "Sequence": "000000000000000004",
+      "Booked": "2025-01-02",
+      "Value date": "2025-01-02",
+      "Amount": "+36,16",
+      "Counterparty account": "",
+      "Counterparty": "",
+      "Type": "rnt",
+      "Text 1": "Rente 2024",
+      "Text 2": "",
+      "Text 3": "",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-joint-savings",
+    "source": "import",
+    "id": "000000000000000005",
+    "format": "account-export",
+    "date": "2025-11-28",
+    "first_seen": "2026-01-01T20:00:00Z",
+    "revisions": [],
+    "raw": {
+      "Account": "NL00BNKA0000000004",
+      "Currency": "EUR",
+      "Sequence": "000000000000000005",
+      "Booked": "2025-11-28",
+      "Value date": "2025-11-28",
+      "Amount": "+1500,00",
+      "Counterparty account": "NL00BNKA0000000002",
+      "Counterparty": "M. Visser en/of T. Bakker",
+      "Type": "ovb",
+      "Text 1": "Buffer",
+      "Text 2": "",
+      "Text 3": "",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  }
+]

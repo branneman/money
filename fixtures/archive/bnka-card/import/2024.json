@@ -1,0 +1,762 @@
+[
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000100974037",
+    "format": "card-export",
+    "date": "2024-01-09",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000100974037",
+      "Booked": "2024-01-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000100981956",
+    "format": "card-export",
+    "date": "2024-01-17",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000100981956",
+      "Booked": "2024-01-17",
+      "Amount": "-14,99",
+      "Text": "SPOTIFY P6D94D920 STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000100989875",
+    "format": "card-export",
+    "date": "2024-01-29",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000100989875",
+      "Booked": "2024-01-29",
+      "Amount": "+30,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000100997794",
+    "format": "card-export",
+    "date": "2024-02-09",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000100997794",
+      "Booked": "2024-02-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101005713",
+    "format": "card-export",
+    "date": "2024-02-17",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101005713",
+      "Booked": "2024-02-17",
+      "Amount": "-14,99",
+      "Text": "SPOTIFY PEE9E9E8F STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101013632",
+    "format": "card-export",
+    "date": "2024-02-27",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101013632",
+      "Booked": "2024-02-27",
+      "Amount": "+30,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101021551",
+    "format": "card-export",
+    "date": "2024-03-09",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101021551",
+      "Booked": "2024-03-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101029470",
+    "format": "card-export",
+    "date": "2024-03-17",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101029470",
+      "Booked": "2024-03-17",
+      "Amount": "-14,99",
+      "Text": "SPOTIFY P71A3E9F6 STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101037389",
+    "format": "card-export",
+    "date": "2024-03-27",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101037389",
+      "Booked": "2024-03-27",
+      "Amount": "+30,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101045308",
+    "format": "card-export",
+    "date": "2024-04-09",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101045308",
+      "Booked": "2024-04-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101053227",
+    "format": "card-export",
+    "date": "2024-04-17",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101053227",
+      "Booked": "2024-04-17",
+      "Amount": "-14,99",
+      "Text": "SPOTIFY PD9C4C1FE STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101061146",
+    "format": "card-export",
+    "date": "2024-04-29",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101061146",
+      "Booked": "2024-04-29",
+      "Amount": "+30,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101069065",
+    "format": "card-export",
+    "date": "2024-05-09",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101069065",
+      "Booked": "2024-05-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101076984",
+    "format": "card-export",
+    "date": "2024-05-17",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101076984",
+      "Booked": "2024-05-17",
+      "Amount": "-14,99",
+      "Text": "SPOTIFY PC7BDE9E3 STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101084903",
+    "format": "card-export",
+    "date": "2024-05-27",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101084903",
+      "Booked": "2024-05-27",
+      "Amount": "+30,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101092822",
+    "format": "card-export",
+    "date": "2024-06-09",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101092822",
+      "Booked": "2024-06-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101100741",
+    "format": "card-export",
+    "date": "2024-06-17",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101100741",
+      "Booked": "2024-06-17",
+      "Amount": "-14,99",
+      "Text": "SPOTIFY P5EABFB77 STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101108660",
+    "format": "card-export",
+    "date": "2024-06-27",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101108660",
+      "Booked": "2024-06-27",
+      "Amount": "+30,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101116579",
+    "format": "card-export",
+    "date": "2024-07-09",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101116579",
+      "Booked": "2024-07-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101124498",
+    "format": "card-export",
+    "date": "2024-07-17",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101124498",
+      "Booked": "2024-07-17",
+      "Amount": "-14,99",
+      "Text": "SPOTIFY PEA25EE2B STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101132417",
+    "format": "card-export",
+    "date": "2024-07-29",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101132417",
+      "Booked": "2024-07-29",
+      "Amount": "+30,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101140336",
+    "format": "card-export",
+    "date": "2024-08-03",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101140336",
+      "Booked": "2024-08-03",
+      "Amount": "-4,67",
+      "Text": "GELATERIA DEL LAGO CANNOBIO ITA",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101148255",
+    "format": "card-export",
+    "date": "2024-08-07",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101148255",
+      "Booked": "2024-08-07",
+      "Amount": "-57,41",
+      "Text": "COOP CANNOBIO CANNOBIO ITA",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101156174",
+    "format": "card-export",
+    "date": "2024-08-09",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101156174",
+      "Booked": "2024-08-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101164093",
+    "format": "card-export",
+    "date": "2024-08-11",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101164093",
+      "Booked": "2024-08-11",
+      "Amount": "-80,98",
+      "Text": "TRATTORIA LA STREPPA CANNOBIO ITA",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101172012",
+    "format": "card-export",
+    "date": "2024-08-14",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101172012",
+      "Booked": "2024-08-14",
+      "Amount": "-48,30",
+      "Text": "TRATTORIA LA STREPPA CANNOBIO ITA",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101179931",
+    "format": "card-export",
+    "date": "2024-08-17",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101179931",
+      "Booked": "2024-08-17",
+      "Amount": "-14,99",
+      "Text": "SPOTIFY PF537489D STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101187850",
+    "format": "card-export",
+    "date": "2024-08-27",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101187850",
+      "Booked": "2024-08-27",
+      "Amount": "+222,34",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101195769",
+    "format": "card-export",
+    "date": "2024-09-09",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101195769",
+      "Booked": "2024-09-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101203688",
+    "format": "card-export",
+    "date": "2024-09-17",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101203688",
+      "Booked": "2024-09-17",
+      "Amount": "-14,99",
+      "Text": "SPOTIFY P6417A3AF STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101211607",
+    "format": "card-export",
+    "date": "2024-09-27",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101211607",
+      "Booked": "2024-09-27",
+      "Amount": "+30,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101219526",
+    "format": "card-export",
+    "date": "2024-10-09",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101219526",
+      "Booked": "2024-10-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101227445",
+    "format": "card-export",
+    "date": "2024-10-17",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101227445",
+      "Booked": "2024-10-17",
+      "Amount": "-14,99",
+      "Text": "SPOTIFY PB575F3BD STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101235364",
+    "format": "card-export",
+    "date": "2024-10-28",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101235364",
+      "Booked": "2024-10-28",
+      "Amount": "+30,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101243283",
+    "format": "card-export",
+    "date": "2024-11-09",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101243283",
+      "Booked": "2024-11-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101251202",
+    "format": "card-export",
+    "date": "2024-11-17",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101251202",
+      "Booked": "2024-11-17",
+      "Amount": "-14,99",
+      "Text": "SPOTIFY P246E53B5 STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101259121",
+    "format": "card-export",
+    "date": "2024-11-27",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101259121",
+      "Booked": "2024-11-27",
+      "Amount": "+30,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101267040",
+    "format": "card-export",
+    "date": "2024-12-09",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101267040",
+      "Booked": "2024-12-09",
+      "Amount": "-15,99",
+      "Text": "NETFLIX.COM AMSTERDAM NLD",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101274959",
+    "format": "card-export",
+    "date": "2024-12-17",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101274959",
+      "Booked": "2024-12-17",
+      "Amount": "-14,99",
+      "Text": "SPOTIFY P22708F26 STOCKHOLM SWE",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  },
+  {
+    "account": "bnka-card",
+    "source": "import",
+    "id": "P000101282878",
+    "format": "card-export",
+    "date": "2024-12-27",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Card": "1001",
+      "Currency": "EUR",
+      "Reference": "P000101282878",
+      "Booked": "2024-12-27",
+      "Amount": "+30,98",
+      "Text": "Afrekening creditcard",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  }
+]

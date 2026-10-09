@@ -1,0 +1,27 @@
+[
+  {
+    "account": "bnka-joint-savings",
+    "source": "import",
+    "id": "000000000000000003",
+    "format": "account-export",
+    "date": "2024-01-02",
+    "first_seen": "2025-04-02T19:14:05Z",
+    "revisions": [],
+    "raw": {
+      "Account": "NL00BNKA0000000004",
+      "Currency": "EUR",
+      "Sequence": "000000000000000003",
+      "Booked": "2024-01-02",
+      "Value date": "2024-01-02",
+      "Amount": "+17,35",
+      "Counterparty account": "",
+      "Counterparty": "",
+      "Type": "rnt",
+      "Text 1": "Rente 2023",
+      "Text 2": "",
+      "Text 3": "",
+      "Original amount": "",
+      "Original currency": ""
+    }
+  }
+]

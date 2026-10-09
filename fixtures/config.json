@@ -1,0 +1,142 @@
+{
+  "banks": {
+    "bnka": {
+      "aspsp": {
+        "name": "Example Bank A",
+        "country": "NL"
+      }
+    },
+    "bnkb": {
+      "aspsp": {
+        "name": "Example Bank B",
+        "country": "NL"
+      }
+    }
+  },
+  "accounts": {
+    "bnka-personal": {
+      "bank": "bnka",
+      "iban": "NL00BNKA0000000001"
+    },
+    "bnka-joint": {
+      "bank": "bnka",
+      "iban": "NL00BNKA0000000002",
+      "closed": true
+    },
+    "bnka-personal-savings": {
+      "bank": "bnka",
+      "iban": "NL00BNKA0000000003"
+    },
+    "bnka-joint-savings": {
+      "bank": "bnka",
+      "iban": "NL00BNKA0000000004"
+    },
+    "bnka-card": {
+      "bank": "bnka",
+      "import_id": "1001"
+    },
+    "bnkb-personal": {
+      "bank": "bnkb",
+      "iban": "NL00BNKB0000000001"
+    },
+    "bnkb-joint": {
+      "bank": "bnkb",
+      "iban": "NL00BNKB0000000002"
+    },
+    "bnkb-personal-savings": {
+      "bank": "bnkb",
+      "iban": "NL00BNKB0000000003"
+    },
+    "bnkb-joint-savings": {
+      "bank": "bnkb",
+      "iban": "NL00BNKB0000000004"
+    },
+    "bnkb-card": {
+      "bank": "bnkb",
+      "import_id": "2001"
+    }
+  },
+  "imports": {
+    "account-export": {
+      "delimiter": ";",
+      "encoding": "utf-8",
+      "account": {
+        "column": "Account"
+      },
+      "id": {
+        "column": "Sequence"
+      },
+      "date": {
+        "column": "Booked",
+        "format": "YYYY-MM-DD"
+      },
+      "value_date": {
+        "column": "Value date",
+        "format": "YYYY-MM-DD"
+      },
+      "amount": {
+        "column": "Amount",
+        "decimal": ","
+      },
+      "currency": {
+        "column": "Currency"
+      },
+      "counterparty_name": {
+        "column": "Counterparty"
+      },
+      "counterparty_account": {
+        "column": "Counterparty account"
+      },
+      "description": {
+        "columns": [
+          "Text 1",
+          "Text 2",
+          "Text 3"
+        ]
+      },
+      "code": {
+        "column": "Type"
+      },
+      "original_amount": {
+        "column": "Original amount",
+        "decimal": ","
+      },
+      "original_currency": {
+        "column": "Original currency"
+      }
+    },
+    "card-export": {
+      "delimiter": ";",
+      "encoding": "utf-8",
+      "account": {
+        "column": "Card"
+      },
+      "id": {
+        "column": "Reference"
+      },
+      "date": {
+        "column": "Booked",
+        "format": "YYYY-MM-DD"
+      },
+      "amount": {
+        "column": "Amount",
+        "decimal": ","
+      },
+      "currency": {
+        "column": "Currency"
+      },
+      "description": {
+        "columns": [
+          "Text"
+        ]
+      },
+      "original_amount": {
+        "column": "Original amount",
+        "decimal": ","
+      },
+      "original_currency": {
+        "column": "Original currency"
+      }
+    }
+  }
+}
