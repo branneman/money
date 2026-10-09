@@ -1,0 +1,10 @@
+{
+  "name": "@money/shared",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/archive/store.ts",
+    "./testing": "./testing/index.ts"
+  }
+}

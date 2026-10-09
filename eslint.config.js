@@ -13,7 +13,7 @@ export default tseslint.config(
   },
   {
     // node:test's `test` returns a promise the runner itself awaits.
-    files: ["test/**/*.ts"],
+    files: ["**/*.test.ts"],
     rules: {
       "@typescript-eslint/no-floating-promises": [
         "error",

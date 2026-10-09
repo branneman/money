@@ -5,9 +5,13 @@
   "engines": {
     "node": ">=24.12"
   },
+  "workspaces": [
+    "shared"
+  ],
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "test": "TZ=Europe/Amsterdam node --test 'test/**/*.test.ts'",
+    "check:workspaces": "node scripts/check-workspaces.ts",
+    "typecheck": "npm run check:workspaces && tsc --noEmit",
+    "test": "TZ=Europe/Amsterdam node --test 'shared/**/*.test.ts' 'fixtures/**/*.test.ts' 'scripts/**/*.test.ts'",
     "fixtures": "node fixtures/generate.ts",
     "lint": "eslint .",
     "format": "prettier --write .",

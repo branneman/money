@@ -3,8 +3,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { ACCOUNTS, ARCHIVE_DIR, buildArchive, renderYearFiles } from "../fixtures/generate.ts";
-import type { ArchiveRecord } from "../fixtures/generate.ts";
+import { ACCOUNTS, ARCHIVE_DIR, buildArchive, renderYearFiles } from "./generate.ts";
+import type { ArchiveRecord } from "./generate.ts";
 
 const records = buildArchive();
 const files = renderYearFiles(records);
