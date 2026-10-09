@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { anApiRecord, anImportRecord } from "../../testing/factories.ts";
+import { anApiRaw, anApiRecord, anImportRecord } from "../../testing/factories.ts";
 import { ArchiveError, checkRecord, identityOf } from "./record.ts";
 
 test("identity is account, source and id", () => {
@@ -47,6 +47,22 @@ const broken: [string, unknown, RegExp][] = [
   [
     "a revision without raw",
     { ...anApiRecord(), revisions: [{ replaced_at: "2025-01-03T03:00:00Z" }] },
+    /revisions/,
+  ],
+  [
+    "a revision whose replaced_at is not a UTC time",
+    {
+      ...anApiRecord(),
+      revisions: [{ replaced_at: "2025-01-03T25:00:00Z", raw: anApiRaw() }],
+    },
+    /revisions/,
+  ],
+  [
+    "an import revision with a cell that is not text",
+    {
+      ...anImportRecord(),
+      revisions: [{ replaced_at: "2025-01-03T03:00:00Z", raw: { Amount: 10 } }],
+    },
     /revisions/,
   ],
   ["a raw that is not an object", { ...anApiRecord(), raw: "x" }, /raw/],

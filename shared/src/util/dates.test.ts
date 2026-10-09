@@ -21,6 +21,16 @@ test("only UTC timestamps are accepted", () => {
   assert.ok(!isTimestamp("2026-10-07"));
 });
 
+test("a time of day that does not exist is rejected", () => {
+  assert.ok(!isTimestamp("2026-10-07T24:00:00Z"));
+  assert.ok(!isTimestamp("2026-10-07T25:00:00Z"));
+  assert.ok(!isTimestamp("2026-10-07T99:99:99Z"));
+  assert.ok(!isTimestamp("2026-10-07T03:60:00Z"));
+  assert.ok(!isTimestamp("2026-10-07T03:00:60Z"));
+  assert.ok(isTimestamp("2026-10-07T23:59:59Z"));
+  assert.ok(isTimestamp("2026-10-07T23:59:59.999Z"));
+});
+
 test("each supported notation parses to an ISO date", () => {
   assert.equal(parseDate("2025-12-31", "YYYY-MM-DD"), "2025-12-31");
   assert.equal(parseDate("31-12-2025", "DD-MM-YYYY"), "2025-12-31");

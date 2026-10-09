@@ -6,7 +6,8 @@ export const isIsoDate = (text: string): boolean => {
 };
 
 export const isTimestamp = (text: string): boolean =>
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(text) && isIsoDate(text.slice(0, 10));
+  /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?Z$/.test(text) &&
+  isIsoDate(text.slice(0, 10));
 
 export const DATE_FORMATS = {
   "YYYY-MM-DD": /^(?<y>\d{4})-(?<m>\d{2})-(?<d>\d{2})$/,
