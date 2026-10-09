@@ -1,3 +1,4 @@
+import type { Incoming } from "../src/archive/merge.ts";
 import type { ApiRaw, ApiRecord, ImportRaw, ImportRecord } from "../src/archive/record.ts";
 
 // Everything here is invented. IBANs use check digits 00, which no real IBAN can have.
@@ -56,5 +57,12 @@ export const anImportRecord = (overrides: Partial<ImportRecord> = {}): ImportRec
   first_seen: "2025-04-02T19:00:00Z",
   revisions: [],
   raw: anImportRaw(),
+  ...overrides,
+});
+
+export const anIncoming = (overrides: Partial<Incoming> = {}): Incoming => ({
+  id: "20250102-10000001",
+  date: "2025-01-02",
+  raw: anApiRaw(),
   ...overrides,
 });
