@@ -79,7 +79,8 @@ fixtures/   the synthetic archive and its generator
 docs/       this design
 ```
 
-- **`shared` is the core.** It has no I/O and runs unchanged in Node and in the browser. Everything that decides what a transaction is or which category it gets lives here, once.
+- **`shared` is the core.** Its main entry has no I/O and runs unchanged in Node and in the browser. Everything that decides what a transaction is or which category it gets lives here, once.
+- **`@money/shared/node` is the one exception**, a separate entry for reading and writing an archive directory. Every Node part needs exactly that, and the browser never imports it.
 - **`sync`, `api` and `app` depend on `shared`, and never on each other.**
 - **Tests sit next to the code they test**, as `*.test.ts`.
 - **One image is built from the repository.** The sync container runs `sync`; the web container runs `api`, which also serves `app`'s built files.

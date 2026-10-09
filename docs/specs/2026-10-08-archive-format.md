@@ -16,14 +16,14 @@ The repository becomes npm workspaces, as laid out in [architecture.md](../archi
 
 ### `shared/src/archive/`
 
-| Module         | Does                                                                                          |
-| -------------- | --------------------------------------------------------------------------------------------- |
-| `record.ts`    | The record types for both sources, and validation of a parsed year file.                      |
-| `merge.ts`     | `merge(stored, incoming, now)`: new, unchanged, changed (into `revisions`). Returns warnings. |
-| `files.ts`     | Records to year files and back: partitioning by booking year, ordering, exact formatting.     |
-| `normalise.ts` | A record to a normalised transaction, for API records and, given a format, import records.    |
-| `view.ts`      | All records of an archive to the normalised view, leaving out import records the API covers.  |
-| `store.ts`     | The only I/O: read an archive directory, write year files atomically.                         |
+| Module         | Does                                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| `record.ts`    | The record types for both sources, and validation of a parsed year file.                               |
+| `merge.ts`     | `merge(stored, incoming, now)`: new, unchanged, changed (into `revisions`). Returns warnings.          |
+| `files.ts`     | Records to year files and back: partitioning by booking year, ordering, exact formatting.              |
+| `normalise.ts` | A record to a normalised transaction, for API records and, given a format, import records.             |
+| `view.ts`      | All records of an archive to the normalised view, leaving out import records the API covers.           |
+| `store.ts`     | The only I/O: read an archive directory, write year files atomically. Exposed as `@money/shared/node`. |
 
 Everything except `store.ts` is pure. `merge` takes the current time as an argument.
 
@@ -34,6 +34,22 @@ Everything except `store.ts` is pure. `merge` takes the current time as an argum
 The configuration file from [sync.md](../sync.md): its types, and a validator that returns every problem it finds, each as a message a person can act on. This slice needs it because normalising an import record requires its import format.
 
 Checked at least: account keys match `[a-z0-9-]+`; every account names a bank that exists; every account has an `iban` or an `import_id`; no two accounts share one; every import format has its required fields; `encoding` is one of the three allowed names; `decimal` is `.` or `,`; date formats are ones the code supports.
+
+### Continuous integration
+
+The first workflow, `.github/workflows/ci.yml`, as [testing.md](../testing.md) describes it. It runs on every push and every pull request.
+
+| Job               | Runs                                                                       |
+| ----------------- | -------------------------------------------------------------------------- |
+| `static-analysis` | `npm run typecheck` (which starts with the link check), lint, format check |
+| `tests`           | `npm test`                                                                 |
+
+- The same commands as the pre-commit hook, on the whole repository, with no separate path.
+- Node comes from the `engines` field, and dependencies from `npm ci`.
+- The workflow declares `permissions: contents: read` and pins every third-party action to a commit SHA. It holds no secret.
+- No image is built yet. The build and push job arrives with the first slice that has something to run, and will depend on these two.
+
+With CI in place, the rule in `CLAUDE.md` about watching the run after a push takes effect.
 
 ### Fixtures
 
@@ -84,4 +100,5 @@ Fixtures: the existing freshness and invariant tests, updated for the new layout
 
 - `npm run typecheck`, `npm run lint`, `npm run format:check` and `npm test` pass.
 - `npm run fixtures` reproduces the committed archive byte for byte.
+- The CI run for the slice's last commit is green, and was watched.
 - The status note in [architecture.md](../architecture.md) and the "Development data" section of the README describe the new layout.

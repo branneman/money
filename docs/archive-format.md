@@ -38,7 +38,7 @@ $DATA_DIR/
 
 Each file is a JSON array of records:
 
-- sorted by booking date, then by `id`;
+- sorted by `date`, then by `id`;
 - formatted with two-space indentation and a trailing newline;
 - written to a temporary file and renamed into place, so a file is either the old version or the new one, never half of each.
 
@@ -51,6 +51,7 @@ A run that finds nothing new leaves every file byte-for-byte identical.
   "account": "bnka-current",
   "source": "api",
   "id": "20261006-12345678",
+  "date": "2026-10-06",
   "first_seen": "2026-10-07T03:00:00Z",
   "revisions": [],
   "raw": {}
@@ -63,11 +64,14 @@ A run that finds nothing new leaves every file byte-for-byte identical.
 | `source`     | `"api"` or `"import"`.                                                                  |
 | `id`         | The bank's own identifier for this transaction, as a string. See Identity.              |
 | `format`     | Import records only: the key of the import format that describes `raw`.                 |
+| `date`       | The booking date, `YYYY-MM-DD`. Decides the year file and the order. See below.         |
 | `first_seen` | When this record was first written, in UTC.                                             |
 | `revisions`  | Earlier versions of `raw`, oldest first. Each is `{ "replaced_at": "...", "raw": {} }`. |
 | `raw`        | The transaction exactly as received.                                                    |
 
 `account` and `source` repeat what the path already says. They are kept so a record still explains itself when it is copied out of its file.
+
+`date` is the one interpreted value stored in a record. It has to be: a record must be filed under a year when it is written, and a file must be checkable against its own name without knowing anything about `raw`. It is read from `raw` by whoever writes the record, and it follows the current `raw`: if a bank revises a booking date, `date` changes with it, and the record moves to another year file if need be.
 
 ### `raw` for API records
 
@@ -106,7 +110,7 @@ Readers never interpret `raw` directly. One pure function turns a record into a 
 | ---------------------- | --------------- | ----------------------------------------------------------- |
 | `account`              | string          | The account key.                                            |
 | `source`, `id`         | string          | Together with `account`, the identity.                      |
-| `date`                 | `YYYY-MM-DD`    | Booking date.                                               |
+| `date`                 | `YYYY-MM-DD`    | The record's `date`.                                        |
 | `value_date`           | date or null    |                                                             |
 | `amount`               | integer         | In the currency's smallest unit. Negative is money leaving. |
 | `currency`             | string          | ISO 4217.                                                   |
@@ -120,7 +124,7 @@ Readers never interpret `raw` directly. One pure function turns a record into a 
 | `revised`              | boolean         | Whether `revisions` is non-empty.                           |
 
 - **API records** are normalised by code: the sign comes from `credit_debit_indicator`, and the counterparty is the creditor of a debit or the debtor of a credit.
-- **Import records** are normalised by their import format (below). Fixing a mistake in a format changes the view at once and rewrites nothing.
+- **Import records** are normalised by their import format (below). Fixing a mistake in a format changes the view at once and rewrites nothing. The exception is the format's `date` column, which is read once, at import, to set the record's `date`.
 
 ### When both sources cover the same day
 
