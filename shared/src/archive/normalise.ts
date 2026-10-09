@@ -1,6 +1,6 @@
 import type { ImportFormat } from "../config/config.ts";
 import { parseAmount } from "../util/amounts.ts";
-import { parseDate } from "../util/dates.ts";
+import { isIsoDate, parseDate } from "../util/dates.ts";
 import { identityOf } from "./record.ts";
 import type { ApiRecord, ArchiveRecord, ImportRecord, Source } from "./record.ts";
 
@@ -37,6 +37,14 @@ const object = (value: unknown): Record<string, unknown> =>
     ? (value as Record<string, unknown>)
     : {};
 
+const CURRENCY_CODE = /^[A-Z]{3}$/;
+
+// The API's amounts carry no sign: the direction is a separate field.
+const unsignedAmount = (value: unknown, currency: string): number | null => {
+  const amount = text(value);
+  return amount === null || /^[+-]/.test(amount) ? null : parseAmount(amount, ".", currency);
+};
+
 const withSign = (magnitude: number, like: number): number =>
   like < 0 && magnitude !== 0 ? -Math.abs(magnitude) : Math.abs(magnitude);
 
@@ -52,9 +60,9 @@ const normaliseApi = (record: ApiRecord): Transaction => {
   const money = object(raw.transaction_amount);
   const currency = text(money.currency);
   if (currency === null) throw failure(record, "has no currency");
-  const magnitude = parseAmount(text(money.amount) ?? "", ".", currency);
-  if (magnitude === null || magnitude < 0)
-    throw failure(record, "has an amount that cannot be read");
+  if (!CURRENCY_CODE.test(currency)) throw failure(record, "has a currency that cannot be read");
+  const magnitude = unsignedAmount(money.amount, currency);
+  if (magnitude === null) throw failure(record, "has an amount that cannot be read");
   const indicator = raw.credit_debit_indicator;
   if (indicator !== "CRDT" && indicator !== "DBIT") throw failure(record, "has no direction");
   const amount = withSign(magnitude, indicator === "DBIT" ? -1 : 1);
@@ -64,17 +72,25 @@ const normaliseApi = (record: ApiRecord): Transaction => {
   const code = object(raw.bank_transaction_code);
   const instructed = object(object(raw.exchange_rate).instructed_amount);
   const originalCurrency = text(instructed.currency);
+  if (originalCurrency !== null && !CURRENCY_CODE.test(originalCurrency)) {
+    throw failure(record, "has an original currency that cannot be read");
+  }
   const original =
-    originalCurrency === null
-      ? null
-      : parseAmount(text(instructed.amount) ?? "", ".", originalCurrency);
+    originalCurrency === null ? null : unsignedAmount(instructed.amount, originalCurrency);
+  if (originalCurrency !== null && original === null) {
+    throw failure(record, "has an original amount that cannot be read");
+  }
+  const valueDate = text(raw.value_date);
+  if (valueDate !== null && !isIsoDate(valueDate)) {
+    throw failure(record, "has a value date that cannot be read");
+  }
   const lines = Array.isArray(raw.remittance_information)
     ? (raw.remittance_information as unknown[]).filter((line) => text(line) !== null)
     : [];
 
   return {
     ...common(record),
-    value_date: text(raw.value_date),
+    value_date: valueDate,
     amount,
     currency,
     counterparty_name: text(party.name),
@@ -95,6 +111,7 @@ const normaliseImport = (record: ImportRecord, format: ImportFormat): Transactio
 
   const currency = cell(format.currency);
   if (currency === null) throw failure(record, "has no currency");
+  if (!CURRENCY_CODE.test(currency)) throw failure(record, "has a currency that cannot be read");
   const amount = parseAmount(cell(format.amount) ?? "", format.amount.decimal, currency);
   if (amount === null) throw failure(record, "has an amount that cannot be read");
 
@@ -108,6 +125,9 @@ const normaliseImport = (record: ImportRecord, format: ImportFormat): Transactio
   }
 
   const originalCurrency = cell(format.original_currency);
+  if (originalCurrency !== null && !CURRENCY_CODE.test(originalCurrency)) {
+    throw failure(record, "has an original currency that cannot be read");
+  }
   const originalText = cell(format.original_amount);
   const original =
     originalCurrency === null || originalText === null || format.original_amount === undefined
@@ -125,8 +145,8 @@ const normaliseImport = (record: ImportRecord, format: ImportFormat): Transactio
     counterparty_name: cell(format.counterparty_name),
     counterparty_account: cell(format.counterparty_account),
     description: (format.description?.columns ?? [])
-      .map((column) => record.raw[column] ?? "")
-      .filter((line) => line !== "")
+      .map((column) => text(Object.hasOwn(record.raw, column) ? record.raw[column] : null))
+      .filter((line) => line !== null)
       .join("\n"),
     code: cell(format.code),
     original_amount: original === null ? null : withSign(original, amount),

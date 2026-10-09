@@ -226,6 +226,110 @@ const unreadable: [string, () => unknown, RegExp][] = [
     () => normalise(anImportRecord({ raw: anImportRaw({ "Value date": "02-01-2025" }) }), FORMATS),
     /value date/,
   ],
+  [
+    "an API record with an unreadable instructed amount",
+    () =>
+      normalise(
+        anApiRecord({
+          raw: anApiRaw({
+            exchange_rate: { instructed_amount: { currency: "JPY", amount: "1.500,00" } },
+          }),
+        }),
+        FORMATS,
+      ),
+    /original amount/,
+  ],
+  [
+    "an API record with an instructed amount that is a number",
+    () =>
+      normalise(
+        anApiRecord({
+          raw: anApiRaw({
+            exchange_rate: { instructed_amount: { currency: "JPY", amount: 1500 } },
+          }),
+        }),
+        FORMATS,
+      ),
+    /original amount/,
+  ],
+  [
+    "an API record with a signed instructed amount",
+    () =>
+      normalise(
+        anApiRecord({
+          raw: anApiRaw({
+            exchange_rate: { instructed_amount: { currency: "JPY", amount: "-15" } },
+          }),
+        }),
+        FORMATS,
+      ),
+    /original amount/,
+  ],
+  [
+    "an API record with a lowercase currency",
+    () =>
+      normalise(
+        anApiRecord({ raw: anApiRaw({ transaction_amount: { currency: "eur", amount: "1.00" } }) }),
+        FORMATS,
+      ),
+    /currency/,
+  ],
+  [
+    "an import row with a padded currency",
+    () => normalise(anImportRecord({ raw: anImportRaw({ Currency: " EUR" }) }), FORMATS),
+    /currency/,
+  ],
+  [
+    "an API record with a lowercase instructed currency",
+    () =>
+      normalise(
+        anApiRecord({
+          raw: anApiRaw({
+            exchange_rate: { instructed_amount: { currency: "jpy", amount: "1500" } },
+          }),
+        }),
+        FORMATS,
+      ),
+    /original currency/,
+  ],
+  [
+    "an import row with a lowercase original currency",
+    () =>
+      normalise(
+        anImportRecord({
+          raw: anImportRaw({ "Original amount": "74,50", "Original currency": "dkk" }),
+        }),
+        FORMATS,
+      ),
+    /original currency/,
+  ],
+  [
+    "an API record with an unreadable value date",
+    () => normalise(anApiRecord({ raw: anApiRaw({ value_date: "02-01-2025" }) }), FORMATS),
+    /value date/,
+  ],
+  [
+    "an API record with a plus sign on the amount",
+    () =>
+      normalise(
+        anApiRecord({
+          raw: anApiRaw({ transaction_amount: { currency: "EUR", amount: "+5.00" } }),
+        }),
+        FORMATS,
+      ),
+    /amount/,
+  ],
+  [
+    "an API record with a negative zero amount",
+    () =>
+      normalise(
+        anApiRecord({
+          raw: anApiRaw({ transaction_amount: { currency: "EUR", amount: "-0.00" } }),
+        }),
+        FORMATS,
+      ),
+    /amount/,
+  ],
 ];
 
 for (const [name, act, message] of unreadable) {
@@ -239,3 +343,12 @@ for (const [name, act, message] of unreadable) {
     });
   });
 }
+
+test("a description column named like an inherited property reads as empty", () => {
+  const formats = {
+    "example-export": aFormat({ description: { columns: ["Text 1", "constructor", "Text 2"] } }),
+  };
+  const result = normalise(anImportRecord(), formats);
+  assert.ok(!result.description.includes("function"));
+  assert.equal(result.description, normalise(anImportRecord(), FORMATS).description);
+});
