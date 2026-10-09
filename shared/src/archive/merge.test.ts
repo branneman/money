@@ -37,6 +37,7 @@ test("key order inside raw is not a change", () => {
   const stored = merge([], [anIncoming({ raw: { a: 1, b: 2 } })], API, NOW).records;
   const result = merge(stored, [anIncoming({ raw: { b: 2, a: 1 } })], API, LATER);
   assert.deepEqual(result.revised, []);
+  assert.equal(result.unchanged, 1);
 });
 
 test("a changed transaction keeps its earlier version", () => {
@@ -111,4 +112,39 @@ test("the inputs are not modified", () => {
   const snapshot = structuredClone(stored);
   merge(stored, [anIncoming({ raw: anApiRaw({ status: "OTHR" }) })], API, LATER);
   assert.deepEqual(stored, snapshot);
+});
+
+test("the same id twice in stored is an error that names only the identity", () => {
+  const twice = [anApiRecord(), anApiRecord({ raw: anApiRaw({ status: "OTHR" }) })];
+  assert.throws(
+    () => merge(twice, [], API, NOW),
+    (error: unknown) =>
+      error instanceof MergeError &&
+      error.message === "bnka-current/api/20250102-10000001 is stored twice",
+  );
+});
+
+test("a changed booking date with identical raw makes one revision holding the same raw", () => {
+  const stored = merge([], [anIncoming({ date: "2025-01-02" })], API, NOW).records;
+  const [record] = merge(stored, [anIncoming({ date: "2025-01-03" })], API, LATER).records;
+  assert.equal(record.revisions.length, 1);
+  assert.deepEqual(record.revisions[0].raw, record.raw);
+  assert.equal(record.revisions[0].replaced_at, LATER);
+});
+
+test("a mixed batch reports what was added, revised and left alone", () => {
+  const stored = merge([], [anIncoming({ id: "a" }), anIncoming({ id: "b" })], API, NOW).records;
+  const batch = [
+    anIncoming({ id: "a" }),
+    anIncoming({ id: "b", raw: anApiRaw({ status: "OTHR" }) }),
+    anIncoming({ id: "c" }),
+  ];
+  const result = merge(stored, batch, API, LATER);
+  assert.deepEqual(result.added, ["bnka-current/api/c"]);
+  assert.deepEqual(result.revised, ["bnka-current/api/b"]);
+  assert.equal(result.unchanged, 1);
+  assert.deepEqual(
+    result.records.map((record) => record.id),
+    ["a", "b", "c"],
+  );
 });

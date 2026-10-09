@@ -73,6 +73,7 @@ export const merge = (
         `${identityOf(record)} does not belong to ${target.account}/${target.source}`,
       );
     }
+    if (byId.has(record.id)) throw new MergeError(`${identityOf(record)} is stored twice`);
     byId.set(record.id, record);
   }
 
