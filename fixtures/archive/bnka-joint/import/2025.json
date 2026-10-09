@@ -64,12 +64,12 @@
       "Booked": "2025-01-01",
       "Value date": "2025-01-01",
       "Amount": "-1185,42",
-      "Counterparty account": "NL00BNKF0705652641",
-      "Counterparty": "Florius",
+      "Counterparty account": "NL00BNKF0571471023",
+      "Counterparty": "Thuishaven Hypotheken B.V.",
       "Type": "inc",
       "Text 1": "Hypotheek januari 2025",
       "Text 2": "Leningnummer 0000000000",
-      "Text 3": "Machtiging M284212771",
+      "Text 3": "Machtiging M241387585",
       "Original amount": "",
       "Original currency": ""
     }
@@ -1439,12 +1439,12 @@
       "Booked": "2025-02-03",
       "Value date": "2025-02-03",
       "Amount": "-1185,42",
-      "Counterparty account": "NL00BNKF0705652641",
-      "Counterparty": "Florius",
+      "Counterparty account": "NL00BNKF0571471023",
+      "Counterparty": "Thuishaven Hypotheken B.V.",
       "Type": "inc",
       "Text 1": "Hypotheek februari 2025",
       "Text 2": "Leningnummer 0000000000",
-      "Text 3": "Machtiging M284212771",
+      "Text 3": "Machtiging M241387585",
       "Original amount": "",
       "Original currency": ""
     }
@@ -2689,12 +2689,12 @@
       "Booked": "2025-03-03",
       "Value date": "2025-03-03",
       "Amount": "-1185,42",
-      "Counterparty account": "NL00BNKF0705652641",
-      "Counterparty": "Florius",
+      "Counterparty account": "NL00BNKF0571471023",
+      "Counterparty": "Thuishaven Hypotheken B.V.",
       "Type": "inc",
       "Text 1": "Hypotheek maart 2025",
       "Text 2": "Leningnummer 0000000000",
-      "Text 3": "Machtiging M284212771",
+      "Text 3": "Machtiging M241387585",
       "Original amount": "",
       "Original currency": ""
     }

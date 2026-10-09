@@ -2046,10 +2046,10 @@
       "value_date": "2025-02-12",
       "transaction_date": "2025-02-12",
       "creditor": {
-        "name": "AAB INZ TIKKIE"
+        "name": "INZ BETAALVERZOEK"
       },
       "creditor_account": {
-        "iban": "NL00BNKH1969595951"
+        "iban": "NL00BNKD0569481319"
       },
       "creditor_agent": null,
       "debtor": {
@@ -2066,7 +2066,7 @@
       },
       "merchant_category_code": null,
       "remittance_information": [
-        "Tikkie ID 671934358242",
+        "Verzoek ID 671934358242",
         "Borrel",
         "R. Koster"
       ],
@@ -2511,10 +2511,10 @@
       },
       "creditor_agent": null,
       "debtor": {
-        "name": "AAB INZ TIKKIE"
+        "name": "INZ BETAALVERZOEK"
       },
       "debtor_account": {
-        "iban": "NL00BNKH1969595951"
+        "iban": "NL00BNKD0569481319"
       },
       "debtor_agent": null,
       "bank_transaction_code": {
@@ -2524,7 +2524,7 @@
       },
       "merchant_category_code": null,
       "remittance_information": [
-        "Tikkie ID 143509071758",
+        "Verzoek ID 143509071758",
         "Lunch",
         "P. Hendriks"
       ],
@@ -3478,10 +3478,10 @@
       },
       "creditor_agent": null,
       "debtor": {
-        "name": "AAB INZ TIKKIE"
+        "name": "INZ BETAALVERZOEK"
       },
       "debtor_account": {
-        "iban": "NL00BNKH1969595951"
+        "iban": "NL00BNKD0569481319"
       },
       "debtor_agent": null,
       "bank_transaction_code": {
@@ -3491,7 +3491,7 @@
       },
       "merchant_category_code": null,
       "remittance_information": [
-        "Tikkie ID 275558684590",
+        "Verzoek ID 275558684590",
         "Cadeau Lotte",
         "L. de Boer"
       ],
@@ -4891,10 +4891,10 @@
       "value_date": "2025-04-09",
       "transaction_date": "2025-04-09",
       "creditor": {
-        "name": "AAB INZ TIKKIE"
+        "name": "INZ BETAALVERZOEK"
       },
       "creditor_account": {
-        "iban": "NL00BNKH1969595951"
+        "iban": "NL00BNKD0569481319"
       },
       "creditor_agent": null,
       "debtor": {
@@ -4911,7 +4911,7 @@
       },
       "merchant_category_code": null,
       "remittance_information": [
-        "Tikkie ID 172505915460",
+        "Verzoek ID 172505915460",
         "Etentje",
         "N. El Amrani"
       ],
@@ -7536,10 +7536,10 @@
       "value_date": "2025-06-09",
       "transaction_date": "2025-06-09",
       "creditor": {
-        "name": "AAB INZ TIKKIE"
+        "name": "INZ BETAALVERZOEK"
       },
       "creditor_account": {
-        "iban": "NL00BNKH1969595951"
+        "iban": "NL00BNKD0569481319"
       },
       "creditor_agent": null,
       "debtor": {
@@ -7556,7 +7556,7 @@
       },
       "merchant_category_code": null,
       "remittance_information": [
-        "Tikkie ID 765335848941",
+        "Verzoek ID 765335848941",
         "Cadeau Lotte",
         "N. El Amrani"
       ],
@@ -8297,10 +8297,10 @@
       "value_date": "2025-06-25",
       "transaction_date": "2025-06-25",
       "creditor": {
-        "name": "AAB INZ TIKKIE"
+        "name": "INZ BETAALVERZOEK"
       },
       "creditor_account": {
-        "iban": "NL00BNKH1969595951"
+        "iban": "NL00BNKD0569481319"
       },
       "creditor_agent": null,
       "debtor": {
@@ -8317,7 +8317,7 @@
       },
       "merchant_category_code": null,
       "remittance_information": [
-        "Tikkie ID 876986798155",
+        "Verzoek ID 876986798155",
         "Lunch",
         "R. Koster"
       ],
@@ -9113,10 +9113,10 @@
       "value_date": "2025-07-10",
       "transaction_date": "2025-07-10",
       "creditor": {
-        "name": "AAB INZ TIKKIE"
+        "name": "INZ BETAALVERZOEK"
       },
       "creditor_account": {
-        "iban": "NL00BNKH1969595951"
+        "iban": "NL00BNKD0569481319"
       },
       "creditor_agent": null,
       "debtor": {
@@ -9133,7 +9133,7 @@
       },
       "merchant_category_code": null,
       "remittance_information": [
-        "Tikkie ID 330647182071",
+        "Verzoek ID 330647182071",
         "Concertkaartjes",
         "N. El Amrani"
       ],
@@ -9687,10 +9687,10 @@
       },
       "creditor_agent": null,
       "debtor": {
-        "name": "AAB INZ TIKKIE"
+        "name": "INZ BETAALVERZOEK"
       },
       "debtor_account": {
-        "iban": "NL00BNKH1969595951"
+        "iban": "NL00BNKD0569481319"
       },
       "debtor_agent": null,
       "bank_transaction_code": {
@@ -9700,7 +9700,7 @@
       },
       "merchant_category_code": null,
       "remittance_information": [
-        "Tikkie ID 438765149870",
+        "Verzoek ID 438765149870",
         "Cadeau Lotte",
         "N. El Amrani"
       ],
@@ -12213,10 +12213,10 @@
       "value_date": "2025-09-26",
       "transaction_date": "2025-09-26",
       "creditor": {
-        "name": "AAB INZ TIKKIE"
+        "name": "INZ BETAALVERZOEK"
       },
       "creditor_account": {
-        "iban": "NL00BNKH1969595951"
+        "iban": "NL00BNKD0569481319"
       },
       "creditor_agent": null,
       "debtor": {
@@ -12233,7 +12233,7 @@
       },
       "merchant_category_code": null,
       "remittance_information": [
-        "Tikkie ID 180349223923",
+        "Verzoek ID 180349223923",
         "Lunch",
         "S. Yilmaz"
       ],
@@ -13176,10 +13176,10 @@
       "value_date": "2025-10-17",
       "transaction_date": "2025-10-17",
       "creditor": {
-        "name": "AAB INZ TIKKIE"
+        "name": "INZ BETAALVERZOEK"
       },
       "creditor_account": {
-        "iban": "NL00BNKH1969595951"
+        "iban": "NL00BNKD0569481319"
       },
       "creditor_agent": null,
       "debtor": {
@@ -13196,7 +13196,7 @@
       },
       "merchant_category_code": null,
       "remittance_information": [
-        "Tikkie ID 859835434666",
+        "Verzoek ID 859835434666",
         "Benzine",
         "P. Hendriks"
       ],
@@ -13286,10 +13286,10 @@
       },
       "creditor_agent": null,
       "debtor": {
-        "name": "AAB INZ TIKKIE"
+        "name": "INZ BETAALVERZOEK"
       },
       "debtor_account": {
-        "iban": "NL00BNKH1969595951"
+        "iban": "NL00BNKD0569481319"
       },
       "debtor_agent": null,
       "bank_transaction_code": {
@@ -13299,7 +13299,7 @@
       },
       "merchant_category_code": null,
       "remittance_information": [
-        "Tikkie ID 634203368411",
+        "Verzoek ID 634203368411",
         "Concertkaartjes",
         "P. Hendriks"
       ],
@@ -13693,10 +13693,10 @@
       "value_date": "2025-10-22",
       "transaction_date": "2025-10-22",
       "creditor": {
-        "name": "AAB INZ TIKKIE"
+        "name": "INZ BETAALVERZOEK"
       },
       "creditor_account": {
-        "iban": "NL00BNKH1969595951"
+        "iban": "NL00BNKD0569481319"
       },
       "creditor_agent": null,
       "debtor": {
@@ -13713,7 +13713,7 @@
       },
       "merchant_category_code": null,
       "remittance_information": [
-        "Tikkie ID 426693601593",
+        "Verzoek ID 426693601593",
         "Benzine",
         "R. Koster"
       ],
@@ -14104,10 +14104,10 @@
       "value_date": "2025-10-28",
       "transaction_date": "2025-10-28",
       "creditor": {
-        "name": "AAB INZ TIKKIE"
+        "name": "INZ BETAALVERZOEK"
       },
       "creditor_account": {
-        "iban": "NL00BNKH1969595951"
+        "iban": "NL00BNKD0569481319"
       },
       "creditor_agent": null,
       "debtor": {
@@ -14124,7 +14124,7 @@
       },
       "merchant_category_code": null,
       "remittance_information": [
-        "Tikkie ID 901863929966",
+        "Verzoek ID 901863929966",
         "Borrel",
         "L. de Boer"
       ],
@@ -16136,10 +16136,10 @@
       "value_date": "2025-12-09",
       "transaction_date": "2025-12-09",
       "creditor": {
-        "name": "AAB INZ TIKKIE"
+        "name": "INZ BETAALVERZOEK"
       },
       "creditor_account": {
-        "iban": "NL00BNKH1969595951"
+        "iban": "NL00BNKD0569481319"
       },
       "creditor_agent": null,
       "debtor": {
@@ -16156,7 +16156,7 @@
       },
       "merchant_category_code": null,
       "remittance_information": [
-        "Tikkie ID 161722941343",
+        "Verzoek ID 161722941343",
         "Concertkaartjes",
         "N. El Amrani"
       ],

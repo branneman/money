@@ -26,7 +26,7 @@ const LAST_NIGHT = END + 1;
 
 // Nights without a successful sync. Transactions booked in these windows were first seen
 // on the night the sync came back.
-const OUTAGES: readonly (readonly [number, number])[] = [
+export const OUTAGES: readonly (readonly [number, number])[] = [
   [utcDay(2025, 7, 6), utcDay(2025, 7, 13)],
   [utcDay(2026, 2, 10), utcDay(2026, 2, 12)],
 ];
@@ -107,6 +107,8 @@ const importRow = ({ day, account, event }: Posting, id: string): ImportRaw => {
     "Counterparty account": event.iban ?? "",
     Counterparty: event.party ?? "",
     Type: KINDS[event.kind].code.toLowerCase(),
+    // The made-up export has three text columns, so a transaction with more remittance lines
+    // keeps only the first three here; the API record has them all.
     "Text 1": event.remittance[0] ?? "",
     "Text 2": event.remittance[1] ?? "",
     "Text 3": event.remittance[2] ?? "",

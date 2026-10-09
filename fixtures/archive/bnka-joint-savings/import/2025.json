@@ -2,32 +2,7 @@
   {
     "account": "bnka-joint-savings",
     "source": "import",
-    "id": "000000000000000004",
-    "format": "account-export",
-    "date": "2025-01-02",
-    "first_seen": "2025-04-02T19:14:05Z",
-    "revisions": [],
-    "raw": {
-      "Account": "NL00BNKA0000000004",
-      "Currency": "EUR",
-      "Sequence": "000000000000000004",
-      "Booked": "2025-01-02",
-      "Value date": "2025-01-02",
-      "Amount": "+36,16",
-      "Counterparty account": "",
-      "Counterparty": "",
-      "Type": "rnt",
-      "Text 1": "Rente 2024",
-      "Text 2": "",
-      "Text 3": "",
-      "Original amount": "",
-      "Original currency": ""
-    }
-  },
-  {
-    "account": "bnka-joint-savings",
-    "source": "import",
-    "id": "000000000000000005",
+    "id": "000000000000000001",
     "format": "account-export",
     "date": "2025-11-28",
     "first_seen": "2026-01-01T20:00:00Z",
@@ -35,7 +10,7 @@
     "raw": {
       "Account": "NL00BNKA0000000004",
       "Currency": "EUR",
-      "Sequence": "000000000000000005",
+      "Sequence": "000000000000000001",
       "Booked": "2025-11-28",
       "Value date": "2025-11-28",
       "Amount": "+1500,00",

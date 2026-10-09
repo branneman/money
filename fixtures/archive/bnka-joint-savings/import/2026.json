@@ -2,7 +2,7 @@
   {
     "account": "bnka-joint-savings",
     "source": "import",
-    "id": "000000000000000006",
+    "id": "000000000000000002",
     "format": "account-export",
     "date": "2026-01-02",
     "first_seen": "2026-04-01T20:00:00Z",
@@ -10,10 +10,10 @@
     "raw": {
       "Account": "NL00BNKA0000000004",
       "Currency": "EUR",
-      "Sequence": "000000000000000006",
+      "Sequence": "000000000000000002",
       "Booked": "2026-01-02",
       "Value date": "2026-01-02",
-      "Amount": "+16,73",
+      "Amount": "+18,00",
       "Counterparty account": "",
       "Counterparty": "",
       "Type": "rnt",
@@ -27,7 +27,7 @@
   {
     "account": "bnka-joint-savings",
     "source": "import",
-    "id": "000000000000000007",
+    "id": "000000000000000003",
     "format": "account-export",
     "date": "2026-01-28",
     "first_seen": "2026-04-01T20:00:00Z",
@@ -35,7 +35,7 @@
     "raw": {
       "Account": "NL00BNKA0000000004",
       "Currency": "EUR",
-      "Sequence": "000000000000000007",
+      "Sequence": "000000000000000003",
       "Booked": "2026-01-28",
       "Value date": "2026-01-28",
       "Amount": "+1500,00",
@@ -52,7 +52,7 @@
   {
     "account": "bnka-joint-savings",
     "source": "import",
-    "id": "000000000000000008",
+    "id": "000000000000000004",
     "format": "account-export",
     "date": "2026-03-02",
     "first_seen": "2026-04-01T20:00:00Z",
@@ -60,7 +60,7 @@
     "raw": {
       "Account": "NL00BNKA0000000004",
       "Currency": "EUR",
-      "Sequence": "000000000000000008",
+      "Sequence": "000000000000000004",
       "Booked": "2026-03-02",
       "Value date": "2026-03-02",
       "Amount": "+1500,00",
@@ -77,7 +77,7 @@
   {
     "account": "bnka-joint-savings",
     "source": "import",
-    "id": "000000000000000009",
+    "id": "000000000000000005",
     "format": "account-export",
     "date": "2026-04-01",
     "first_seen": "2026-07-01T20:00:00Z",
@@ -85,10 +85,10 @@
     "raw": {
       "Account": "NL00BNKA0000000004",
       "Currency": "EUR",
-      "Sequence": "000000000000000009",
+      "Sequence": "000000000000000005",
       "Booked": "2026-04-01",
       "Value date": "2026-04-01",
-      "Amount": "-4620,03",
+      "Amount": "-4518,00",
       "Counterparty account": "NL00BNKB0000000004",
       "Counterparty": "M. Visser en/of T. Bakker",
       "Type": "ovb",

@@ -29,11 +29,13 @@
     },
     "bnka-joint-savings": {
       "bank": "bnka",
-      "iban": "NL00BNKA0000000004"
+      "iban": "NL00BNKA0000000004",
+      "closed": true
     },
     "bnka-card": {
       "bank": "bnka",
-      "import_id": "1001"
+      "import_id": "1001",
+      "closed": true
     },
     "bnkb-personal": {
       "bank": "bnkb",

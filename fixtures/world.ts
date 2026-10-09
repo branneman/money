@@ -4,8 +4,8 @@ import type { Config, ImportFormat } from "@money/shared";
 
 import { iso, parts, utcDay } from "./dates.ts";
 
-// A second bank is added on this day. The joint account, its savings and the card are at
-// bnkb from then on; the personal account stays at bnka.
+// A second bank is added on this day. The joint account, its savings and the card move to
+// bnkb and their bnka accounts are closed; the personal account stays at bnka.
 export const SWITCH = utcDay(2026, 4, 1);
 
 export const ROLES = [
@@ -84,6 +84,7 @@ export const ACCOUNTS: Record<AccountKey, AccountInfo> = {
     bank: "bnka",
     holder: JOINT,
     iban: "NL00BNKA0000000004",
+    closed: true,
     format: ACCOUNT,
     reach: { import: "ongoing" },
   },
@@ -91,6 +92,7 @@ export const ACCOUNTS: Record<AccountKey, AccountInfo> = {
     bank: "bnka",
     holder: JOINT,
     import_id: "1001",
+    closed: true,
     format: "card-export",
     reach: { import: "ongoing" },
   },

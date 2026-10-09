@@ -1,13 +1,22 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import { apiStarts, identityOf, validateConfig, view, visibleRecords } from "@money/shared";
 import type { ArchiveRecord } from "@money/shared";
 import { readArchive } from "@money/shared/node";
 
-import { ARCHIVE_DIR, buildArchive, CONFIG_PATH, renderArchive, renderConfig } from "./generate.ts";
-import { ACCOUNTS, CONFIG, FORMATS } from "./world.ts";
+import { iso, utcDay } from "./dates.ts";
+import {
+  ARCHIVE_DIR,
+  buildArchive,
+  CONFIG_PATH,
+  OUTAGES,
+  renderArchive,
+  renderConfig,
+} from "./generate.ts";
+import { END } from "./household.ts";
+import { ACCOUNTS, CONFIG, FORMATS, importedAt, SWITCH } from "./world.ts";
 import type { AccountKey } from "./world.ts";
 
 const records = buildArchive();
@@ -93,14 +102,137 @@ test("the closed account receives nothing after it closed", () => {
   assert.equal(last, "2026-04-01");
 });
 
-test("a transfer between two of the household's accounts appears on both", () => {
-  const moved = shown.filter(
-    (item) =>
-      item.description === "Saldo overboeken" &&
-      ["bnka-joint", "bnkb-joint"].includes(item.account),
-  );
-  assert.deepEqual(moved.map((item) => item.account).toSorted(), ["bnka-joint", "bnkb-joint"]);
-  assert.equal(moved[0].amount + moved[1].amount, 0);
+const dayOf = (date: string): number => {
+  const [y, m, d] = date.split("-").map(Number);
+  return utcDay(y, m, d);
+};
+const accountByIban = new Map(
+  Object.entries(ACCOUNTS).flatMap(([key, account]) =>
+    account.iban === undefined ? [] : [[account.iban, key as AccountKey] as const],
+  ),
+);
+
+test("every transfer between the household's own accounts appears on both", () => {
+  let pairs = 0;
+  let switchMove = false;
+  for (const item of shown) {
+    const other =
+      item.counterparty_account === null ? undefined : accountByIban.get(item.counterparty_account);
+    if (other === undefined) continue;
+    // An import-only account has nothing for a quarter that has not been exported yet.
+    if (
+      ACCOUNTS[other].reach.api === undefined &&
+      importedAt(other, dayOf(item.date), END + 1) === null
+    ) {
+      continue;
+    }
+    const match = shown.find(
+      (candidate) =>
+        candidate.account === other &&
+        candidate.date === item.date &&
+        candidate.amount === -item.amount &&
+        candidate.description === item.description,
+    );
+    assert.ok(match, `${item.account}/${item.id} has no counterpart on ${other}`);
+    pairs++;
+    if (
+      item.account === "bnka-joint" &&
+      other === "bnkb-joint" &&
+      item.description === "Saldo overboeken"
+    ) {
+      switchMove = true;
+    }
+  }
+  assert.ok(pairs > 300, `only ${pairs} paired transfers`);
+  assert.ok(switchMove, "the switch-day move from bnka-joint to bnkb-joint");
+});
+
+test("every account that changes at the switch does so on the switch day", () => {
+  const switchDate = iso(SWITCH);
+  for (const key of ["bnka-joint", "bnka-joint-savings", "bnka-card"] as const) {
+    assert.equal(CONFIG.accounts[key].closed, true, `${key} is closed`);
+    const mine = records.filter((record) => record.account === key);
+    assert.ok(mine.length > 0);
+    assert.ok(
+      mine.every((record) => record.date <= switchDate),
+      `${key} has records after the switch`,
+    );
+  }
+  for (const key of Object.keys(ACCOUNTS).filter((name) => name.startsWith("bnkb-"))) {
+    const mine = records.filter((record) => record.account === key);
+    assert.ok(mine.length > 0);
+    assert.ok(
+      mine.every((record) => record.date >= switchDate),
+      `${key} has records before the switch`,
+    );
+  }
+});
+
+test("nothing is first seen during an outage, and the next night catches up", () => {
+  const api = of("bnka-personal", "api");
+  for (const [from, to] of OUTAGES) {
+    const inside = api.filter((record) => {
+      const seen = record.first_seen.slice(0, 10);
+      return seen >= iso(from) && seen <= iso(to);
+    });
+    assert.equal(inside.length, 0, `first seen during the outage from ${iso(from)}`);
+    const caughtUp = api.filter(
+      (record) =>
+        record.date >= iso(from) &&
+        record.date <= iso(to) &&
+        record.first_seen.startsWith(iso(to + 1)),
+    );
+    assert.ok(caughtUp.length > 0, `nothing caught up on ${iso(to + 1)}`);
+  }
+});
+
+test("API records are internally consistent", () => {
+  const api = records.filter((record) => record.source === "api");
+  let lateBooked = 0;
+  for (const record of api) {
+    const raw = record.raw;
+    assert.ok(String(raw.transaction_date) <= String(raw.booking_date), identityOf(record));
+    if (String(raw.transaction_date) < String(raw.booking_date)) lateBooked++;
+    const iban = ACCOUNTS[record.account as AccountKey].iban;
+    const side = raw.credit_debit_indicator === "CRDT" ? raw.creditor_account : raw.debtor_account;
+    assert.deepEqual(side, { iban }, identityOf(record));
+    for (const revision of record.revisions) {
+      assert.notDeepEqual(revision.raw, record.raw, identityOf(record));
+    }
+  }
+  assert.ok(lateBooked > 100, `only ${lateBooked} booked after their transaction date`);
+});
+
+test("interest is only paid on an account that already has transactions", () => {
+  let interest = 0;
+  for (const key of Object.keys(ACCOUNTS) as AccountKey[]) {
+    const mine = shown.filter((item) => item.account === key);
+    const first = mine.find((item) => item.description.startsWith("Rente") === false);
+    for (const item of mine.filter((candidate) => candidate.description.startsWith("Rente"))) {
+      interest++;
+      assert.ok(first !== undefined && first.date <= item.date, `${key} interest before activity`);
+      assert.ok(item.amount > 0);
+    }
+  }
+  assert.ok(interest > 0);
+});
+
+test("no bank is named in the fixtures", () => {
+  const forbidden = [
+    ["AA", "B INZ"],
+    ["Flor", "ius"],
+  ].map((fragments) => fragments.join(""));
+  const texts = [
+    ...readdirSync(import.meta.dirname)
+      .filter((name) => name.endsWith(".ts"))
+      .map((name) => readFileSync(`${import.meta.dirname}/${name}`, "utf8")),
+    ...files.values(),
+  ];
+  for (const text of texts) {
+    for (const word of forbidden) {
+      assert.ok(!text.toLowerCase().includes(word.toLowerCase()), "a forbidden name appears");
+    }
+  }
 });
 
 test("every record normalises, and amounts are never zero", () => {

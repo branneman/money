@@ -379,7 +379,7 @@ const fixedRules = (r: Rng, day: number): Event[] => {
       ]),
     );
     events.push(
-      debit("joint", "Florius", day < utcDay(2025, 6, 1) ? 118_542 : 124_317, [
+      debit("joint", "Thuishaven Hypotheken B.V.", day < utcDay(2025, 6, 1) ? 118_542 : 124_317, [
         `Hypotheek ${period}`,
         "Leningnummer 0000000000",
       ]),
@@ -590,18 +590,6 @@ const fixedRules = (r: Rng, day: number): Event[] => {
       );
     }
   }
-  if (m === 1 && due(day, 2)) {
-    for (const role of ["personal-savings", "joint-savings"] as const) {
-      events.push({
-        role,
-        kind: "interest",
-        cents: 300 + (hash(`interest:${role}:${y}`) % 3_700),
-        party: null,
-        iban: null,
-        remittance: [`Rente ${y - 1}`],
-      });
-    }
-  }
   if (day >= SWITCH) {
     if (due(day, 1))
       events.push(...internal(day, "personal", "second-personal", "standing", 15_000, ["Zakgeld"]));
@@ -701,7 +689,7 @@ const FRIENDS = [
   "N. El Amrani",
   "P. Hendriks",
 ] as const;
-const TIKKIE_REASONS = [
+const PAYMENT_REQUEST_REASONS = [
   "Etentje",
   "Cadeau Lotte",
   "Boodschappen weekend",
@@ -711,13 +699,13 @@ const TIKKIE_REASONS = [
   "Lunch",
   "Benzine",
 ] as const;
-const TIKKIE = "AAB INZ TIKKIE";
+const PAYMENT_REQUEST = "INZ BETAALVERZOEK";
 
 type Schedule = (day: number, event: Event) => void;
 
-const tikkieLines = (r: Rng): string[] => [
-  `Tikkie ID ${pad(r.int(0, 999_999), 6)}${pad(r.int(0, 999_999), 6)}`,
-  r.pick(TIKKIE_REASONS),
+const paymentRequestLines = (r: Rng): string[] => [
+  `Verzoek ID ${pad(r.int(0, 999_999), 6)}${pad(r.int(0, 999_999), 6)}`,
+  r.pick(PAYMENT_REQUEST_REASONS),
   r.pick(FRIENDS),
 ];
 
@@ -847,14 +835,21 @@ const dailyRules = (r: Rng, day: number, schedule: Schedule): Event[] => {
       role: "personal",
       kind: "ideal",
       cents: -r.cents(5, 48),
-      party: TIKKIE,
-      iban: fakeIban(TIKKIE),
-      remittance: tikkieLines(r),
+      party: PAYMENT_REQUEST,
+      iban: fakeIban(PAYMENT_REQUEST),
+      remittance: paymentRequestLines(r),
     });
   }
   if (r.chance(0.03)) {
     events.push(
-      credit("personal", "transfer", TIKKIE, fakeIban(TIKKIE), r.cents(5, 60), tikkieLines(r)),
+      credit(
+        "personal",
+        "transfer",
+        PAYMENT_REQUEST,
+        fakeIban(PAYMENT_REQUEST),
+        r.cents(5, 60),
+        paymentRequestLines(r),
+      ),
     );
   }
   if (r.chance(0.012)) {
@@ -917,6 +912,23 @@ const tripRules = (r: Rng, day: number, trip: Trip): Event[] => {
 // of the month. Balances never reach the archive; they only steer these transfers.
 const balancingRules = (day: number, balances: Record<Role, number>): Event[] => {
   const events: Event[] = [];
+  const { y, m } = parts(day);
+  // Interest for the previous year, on whatever the savings hold.
+  if (m === 1 && due(day, 2)) {
+    for (const role of ["personal-savings", "joint-savings", "second-savings"] as const) {
+      const cents = balances[role] > 0 ? Math.round(balances[role] * 0.012) : 0;
+      if (cents > 0) {
+        events.push({
+          role,
+          kind: "interest",
+          cents,
+          party: null,
+          iban: null,
+          remittance: [`Rente ${y - 1}`],
+        });
+      }
+    }
+  }
   if (due(day, 27) && balances.card < 0) {
     events.push(
       ...internal(day, "joint", "card", "debit", -balances.card, ["Afrekening creditcard"]),
