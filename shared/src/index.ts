@@ -7,3 +7,4 @@ export * from "./archive/files.ts";
 export * from "./config/config.ts";
 export * from "./archive/normalise.ts";
 export * from "./util/amounts.ts";
+export * from "./archive/view.ts";
