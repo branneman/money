@@ -2,3 +2,6 @@
 fixtures/archive/
 package-lock.json
 fixtures/config.json
+
+# Agent scratch space, ignored by git through its own nested file
+.superpowers/
