@@ -34,7 +34,8 @@ Only tiers 0 to 2 are needed for the sync. The rest arrive with the dashboard an
 - **`tsc --noEmit`.** Node strips types and never checks them, so this is the only thing that does. `erasableSyntaxOnly` also rejects syntax Node cannot strip.
 - **ESLint** with `typescript-eslint`, for correctness rules: unused variables, floating promises, unreachable code. A floating promise matters more than usual here, because an unawaited write is a partial write.
 - **Prettier**, formatting only.
-- **The dependency rule.** A test reads every workspace's `package.json` and fails if `shared`, `sync` or `api` lists a runtime dependency that is not another workspace ([architecture.md](architecture.md)).
+- **The dependency rule.** A test reads every workspace's `package.json` and fails if `shared`, `sync` or `api` lists a runtime dependency that is not another workspace, optional and peer dependencies included ([architecture.md](architecture.md)).
+- **The browser-safe entry.** A test walks every file `shared/src/index.ts` reaches and fails, naming the file, if one imports a `node:` module.
 - **Fixture freshness.** A test regenerates the synthetic archive in memory and fails if the committed files differ. A hand-edited fixture, or a generator change committed without its output, cannot slip through.
 
 **Whole repo, never just the changed files**, both in the pre-commit hook and in CI. LLM-authored changes tend to leave unrelated files unformatted, and a staged-files-only check would miss that.
@@ -115,7 +116,9 @@ Three kinds, never mixed, and **never real**. This repo does not hold real bank 
 
 Change the archive by changing the generator and running `npm run fixtures`. Never edit a year file by hand.
 
-Every counterparty is invented. None names a real bank or a bank-owned brand, and a test fails if one returns; a payment scheme and a cash-machine network keep their real names, because neither is a bank. The generator writes its files with plain `node:fs` after emptying the directory, not through the store, because the store refuses to delete.
+Merchants, insurers, utilities and public bodies are real company names, because realistic grouping needs them. The household, its people, employers, account numbers and every payment institution among the counterparties are invented. No counterparty names a bank. A few invented merchants carry the prefix a card-terminal provider puts before a name, as statements do. A test holds the generated archive to one committed list of known counterparties, `fixtures/counterparties.ts`, so a new name is a deliberate addition, and an entry nothing uses fails as well. Card rows have no counterparty, so the first line of their text is held to a list in the same file.
+
+The generator writes its files with plain `node:fs` after emptying the directory, not through the store, because the store refuses to delete.
 
 Every generated IBAN has check digits `00`, which no valid IBAN can have, so no generated account number can belong to anyone. A test asserts this.
 

@@ -158,6 +158,22 @@ Import is safe to repeat. Importing the same file twice changes nothing, and ove
 
 Where an import overlaps what the API has fetched, both are stored and the reader prefers the API. See [archive-format.md](archive-format.md).
 
+## What the sync and the import owe the archive
+
+The archive-format slice left these to the code that calls it:
+
+- Check at startup that `DATA_DIR` exists. A missing directory reads as an empty archive.
+- A recovery path for a record found in two year files after an interrupted write. Reading reports it and stops.
+- Timestamps passed to `merge` are truncated to whole seconds.
+- Validate API responses at the boundary by type as well as presence: a value date that is a number, numbers that would not survive JSON unchanged. Hand `merge` only JSON-clean `raw`.
+- A stored record absent from a fetch window that should contain it is noticed here, since `merge` cannot see the window.
+- Filesystem errors carry host paths in their messages. The top-level handler decides what is logged.
+- The configuration validator should reject unknown keys, so a mistyped column name cannot silently yield nulls (import slice).
+- An import format's `id` column must not point at a sensitive column, since identities appear in messages.
+- A new workspace's tests are not run until the root `test` script and `tsconfig.json` list it.
+
+The power-loss and single-writer limits are stated in [archive-format.md](archive-format.md).
+
 ## Open questions
 
 Each needs a real response or a real file to answer. None can be settled from documentation.

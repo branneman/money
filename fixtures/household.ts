@@ -675,10 +675,10 @@ const CLOTHING = [
 const ONLINE: readonly (readonly [string, number, number])[] = [
   ["bol.com b.v.", 8, 120],
   ["bol.com b.v.", 8, 120],
-  ["Zalando Payments GmbH", 25, 160],
+  ["Modehuis Online B.V.", 25, 160],
   ["Coolblue B.V.", 30, 650],
-  ["Stichting Mollie Payments", 10, 90],
-  ["Adyen N.V.", 10, 140],
+  ["Stichting Derdengelden Webwinkels", 10, 90],
+  ["Betaalhuis N.V.", 10, 140],
   ["Boekhandel Savannah Bay", 12, 45],
 ];
 const FRIENDS = [

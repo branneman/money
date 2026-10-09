@@ -109,6 +109,8 @@ The record and merge:
 
 - **The record gained a `date` field.** A record has to be filed under a year when it is written, and a file has to be checkable against its own name without interpreting `raw`. Recorded in [archive-format.md](../archive-format.md).
 - **A timestamp must have a real time of day**, so `T99:99:99Z` is rejected.
+- **Timestamps are UTC in whole seconds**, `YYYY-MM-DDTHH:MM:SSZ`: a fraction of a second is rejected in a record, and `merge` refuses a current time in any other notation.
+- **`format` on an import record is a key** and must match the key pattern.
 - **`merge` reports `added`, `revised` and `unchanged`** instead of a list of warnings. A stored record missing from a fetch can only be noticed by something that knows the fetch window, which is the sync slice's.
 - **The same id twice in one batch** is stored once when the two are identical, and is an error when they differ.
 - **The same id twice in what is already stored** is an error: `merge` refuses to continue rather than drop one.
@@ -117,7 +119,8 @@ Year files and the store:
 
 - **`store.ts` is a separate, Node-only entry**, `@money/shared/node`, so the main entry stays free of I/O. Recorded in [architecture.md](../architecture.md).
 - **Writes are planned by a pure function**, `planWrites`, in `writes.ts`, so that no file loses a record before it is on disk in another file. Recorded in [archive-format.md](../archive-format.md).
-- **The store refuses any write that would make a stored record disappear**, an empty set over an existing account included, so nothing can be deleted through it.
+- **The store refuses any write after which a stored identity would be gone**, an empty set over an existing account included, so no record is deleted through it. It does not compare revisions, and a year file is removed only when every record it held now lives in another file.
+- **The store never repeats a name that failed its pattern**: a stray in the archive, a bad account or a bad source is described by what and where it is, without its name.
 - **The writer validates the account key, the source, every file name and every file's text before touching the disk**, and the reader validates account and source.
 - **The guarantee has stated limits**: it covers a process crash, relies on the filesystem for power loss, can leave a record in two year files that reading then reports, and assumes one writer per account and source.
 
@@ -132,6 +135,7 @@ The normalised view:
 - **A currency and an original currency must be exactly three capital letters**, because the number of decimals depends on it.
 - **For API records** the amount and the instructed amount carry no sign, a value date must be a real date, and an instructed amount with a currency but no readable value is an error.
 - **Description cells are read defensively**, and `original_amount` takes the sign of `amount`.
+- **An original amount and an original currency come together or not at all**; one without the other is an error, for both sources.
 
 Tests:
 
@@ -146,6 +150,8 @@ Fixtures:
 - **Three accounts are closed, not one**: the joint account, its savings account and the card at the first bank all stop on the day the second bank is added.
 - **Savings interest is paid only on a positive balance.**
 - **Every counterparty that named a real bank or a bank-owned brand was replaced** with an invented one, and a test fails if either returns. A payment scheme and a cash-machine network keep their real names, because neither is a bank.
+- **Every payment institution among the counterparties is invented too**: the three that remained were replaced in the final review.
+- **The forbidden-strings test became an allow-list**: the generated archive is held to one committed list of known counterparties, `fixtures/counterparties.ts`, so no test spells a name that must not appear.
 - **The generator writes its files with plain `node:fs`** after removing the directory, not through the store, because the store refuses to delete.
 
 CI:

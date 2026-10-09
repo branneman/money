@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import { apiStarts, identityOf, validateConfig, view, visibleRecords } from "@money/shared";
 import type { ArchiveRecord } from "@money/shared";
 import { readArchive } from "@money/shared/node";
 
+import { KNOWN_CARD_TEXTS, KNOWN_COUNTERPARTIES } from "./counterparties.ts";
 import { iso, utcDay } from "./dates.ts";
 import {
   ARCHIVE_DIR,
@@ -217,22 +218,39 @@ test("interest is only paid on an account that already has transactions", () => 
   assert.ok(interest > 0);
 });
 
-test("no bank is named in the fixtures", () => {
-  const forbidden = [
-    ["AA", "B INZ"],
-    ["Flor", "ius"],
-  ].map((fragments) => fragments.join(""));
-  const texts = [
-    ...readdirSync(import.meta.dirname)
-      .filter((name) => name.endsWith(".ts"))
-      .map((name) => readFileSync(`${import.meta.dirname}/${name}`, "utf8")),
-    ...files.values(),
-  ];
-  for (const text of texts) {
-    for (const word of forbidden) {
-      assert.ok(!text.toLowerCase().includes(word.toLowerCase()), "a forbidden name appears");
-    }
+// Holds a set of names to a committed list, both ways: nothing outside the list, and no
+// exact entry of the list that nothing uses.
+const heldTo = (found: ReadonlySet<string>, known: readonly (string | RegExp)[], what: string) => {
+  const matches = (name: string, entry: string | RegExp): boolean =>
+    typeof entry === "string" ? entry === name : entry.test(name);
+  for (const name of found) {
+    assert.ok(
+      known.some((entry) => matches(name, entry)),
+      `${what} "${name}" is not in fixtures/counterparties.ts`,
+    );
   }
+  for (const entry of known) {
+    if (typeof entry !== "string") continue;
+    assert.ok(found.has(entry), `${what} "${entry}" is listed but never generated`);
+  }
+};
+
+test("every counterparty is one the committed list knows, and the list has no dead entry", () => {
+  const names = new Set(
+    shown.flatMap((item) => (item.counterparty_name === null ? [] : [item.counterparty_name])),
+  );
+  assert.ok(names.size > 100, `only ${names.size} distinct counterparties`);
+  heldTo(names, KNOWN_COUNTERPARTIES, "counterparty");
+});
+
+test("every card row's first line of text is one the committed list knows", () => {
+  const cardRows = shown.filter(
+    (item) => ACCOUNTS[item.account as AccountKey].format === "card-export",
+  );
+  assert.ok(cardRows.length > 100, `only ${cardRows.length} card rows`);
+  assert.ok(cardRows.every((item) => item.counterparty_name === null));
+  const texts = new Set(cardRows.map((item) => item.description.split("\n")[0]));
+  heldTo(texts, KNOWN_CARD_TEXTS, "card text");
 });
 
 test("every record normalises, and amounts are never zero", () => {

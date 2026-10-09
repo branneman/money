@@ -3221,7 +3221,7 @@ Edit `fixtures/household.ts`. The type-checker lists every site you miss; run `n
       }
       ```
 
-11. In `dailyRules`: every `account:` key in an object literal becomes `role:` (the Tikkie and cash-machine events). Add, before `return events;`:
+11. In `dailyRules`: every `account:` key in an object literal becomes `role:` (the payment-request and cash-machine events). Add, before `return events;`:
 
     ```ts
     if (day >= SWITCH && r.chance(0.12)) {

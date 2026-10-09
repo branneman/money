@@ -3827,10 +3827,10 @@
       "value_date": "2025-03-23",
       "transaction_date": "2025-03-23",
       "creditor": {
-        "name": "Zalando Payments GmbH"
+        "name": "Modehuis Online B.V."
       },
       "creditor_account": {
-        "iban": "NL00BNKH2692272293"
+        "iban": "NL00BNKG3001196464"
       },
       "creditor_agent": null,
       "debtor": {
@@ -5448,10 +5448,10 @@
       "value_date": "2025-04-25",
       "transaction_date": "2025-04-25",
       "creditor": {
-        "name": "Stichting Mollie Payments"
+        "name": "Stichting Derdengelden Webwinkels"
       },
       "creditor_account": {
-        "iban": "NL00BNKH0394737455"
+        "iban": "NL00BNKC0815072808"
       },
       "creditor_agent": null,
       "debtor": {
@@ -8094,10 +8094,10 @@
       "value_date": "2025-06-21",
       "transaction_date": "2025-06-21",
       "creditor": {
-        "name": "Zalando Payments GmbH"
+        "name": "Modehuis Online B.V."
       },
       "creditor_account": {
-        "iban": "NL00BNKH2692272293"
+        "iban": "NL00BNKG3001196464"
       },
       "creditor_agent": null,
       "debtor": {
@@ -9061,10 +9061,10 @@
       "value_date": "2025-07-10",
       "transaction_date": "2025-07-10",
       "creditor": {
-        "name": "Stichting Mollie Payments"
+        "name": "Stichting Derdengelden Webwinkels"
       },
       "creditor_account": {
-        "iban": "NL00BNKH0394737455"
+        "iban": "NL00BNKC0815072808"
       },
       "creditor_agent": null,
       "debtor": {
@@ -11859,10 +11859,10 @@
       "value_date": "2025-09-22",
       "transaction_date": "2025-09-22",
       "creditor": {
-        "name": "Stichting Mollie Payments"
+        "name": "Stichting Derdengelden Webwinkels"
       },
       "creditor_account": {
-        "iban": "NL00BNKH0394737455"
+        "iban": "NL00BNKC0815072808"
       },
       "creditor_agent": null,
       "debtor": {
@@ -12471,10 +12471,10 @@
       "value_date": "2025-09-30",
       "transaction_date": "2025-09-30",
       "creditor": {
-        "name": "Stichting Mollie Payments"
+        "name": "Stichting Derdengelden Webwinkels"
       },
       "creditor_account": {
-        "iban": "NL00BNKH0394737455"
+        "iban": "NL00BNKC0815072808"
       },
       "creditor_agent": null,
       "debtor": {
@@ -13539,10 +13539,10 @@
       "value_date": "2025-10-21",
       "transaction_date": "2025-10-21",
       "creditor": {
-        "name": "Stichting Mollie Payments"
+        "name": "Stichting Derdengelden Webwinkels"
       },
       "creditor_account": {
-        "iban": "NL00BNKH0394737455"
+        "iban": "NL00BNKC0815072808"
       },
       "creditor_agent": null,
       "debtor": {
@@ -14308,10 +14308,10 @@
       "value_date": "2025-10-30",
       "transaction_date": "2025-10-30",
       "creditor": {
-        "name": "Zalando Payments GmbH"
+        "name": "Modehuis Online B.V."
       },
       "creditor_account": {
-        "iban": "NL00BNKH2692272293"
+        "iban": "NL00BNKG3001196464"
       },
       "creditor_agent": null,
       "debtor": {
@@ -15984,10 +15984,10 @@
       "value_date": "2025-12-06",
       "transaction_date": "2025-12-06",
       "creditor": {
-        "name": "Stichting Mollie Payments"
+        "name": "Stichting Derdengelden Webwinkels"
       },
       "creditor_account": {
-        "iban": "NL00BNKH0394737455"
+        "iban": "NL00BNKC0815072808"
       },
       "creditor_agent": null,
       "debtor": {
@@ -16897,10 +16897,10 @@
       "value_date": "2025-12-25",
       "transaction_date": "2025-12-25",
       "creditor": {
-        "name": "Stichting Mollie Payments"
+        "name": "Stichting Derdengelden Webwinkels"
       },
       "creditor_account": {
-        "iban": "NL00BNKH0394737455"
+        "iban": "NL00BNKC0815072808"
       },
       "creditor_agent": null,
       "debtor": {

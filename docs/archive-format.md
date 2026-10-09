@@ -49,8 +49,10 @@ A run that finds nothing new leaves every file byte-for-byte identical.
 The store (`@money/shared/node`) is the only code that touches the files. It writes one account and source at a time, and it is built so that a stored record is never lost.
 
 - **Order.** Which files change, and in what order, is decided by a pure function before anything is written. A file that loses records is first written as the union of its old and new records, and only then as its final text, once the files that gain them are on disk. Files that are no longer needed are removed last. After any prefix of those steps every stored id is still in at least one file.
-- **Nothing is deleted through the store.** It refuses any write after which a stored record would be gone, including an empty set over an account that has records.
+- **No record is deleted through the store.** It refuses a write after which a stored identity would be gone, including an empty set over an account that has records. It does not compare revisions. A year file is removed only when every record it held now lives in another file.
 - **Validate first.** The account key, the source, every file name and every file's text are checked before the disk is touched. Reading checks the account and the source as well, and a name in the archive that is not an account, a source or a year file is an error.
+- **A name that fails its pattern is never repeated.** Such a name may be anything, so the message says what was found and where, using only names that passed.
+- **Nothing to write creates nothing**, not even the account's directory.
 
 Limits, stated plainly:
 
@@ -72,18 +74,20 @@ Limits, stated plainly:
 }
 ```
 
-| Field        | Meaning                                                                                 |
-| ------------ | --------------------------------------------------------------------------------------- |
-| `account`    | The account key.                                                                        |
-| `source`     | `"api"` or `"import"`.                                                                  |
-| `id`         | The bank's own identifier for this transaction, as a string. See Identity.              |
-| `format`     | Import records only: the key of the import format that describes `raw`.                 |
-| `date`       | The booking date, `YYYY-MM-DD`. Decides the year file and the order. See below.         |
-| `first_seen` | When this record was first written, in UTC. A real time of day is required.             |
-| `revisions`  | Earlier versions of `raw`, oldest first. Each is `{ "replaced_at": "...", "raw": {} }`. |
-| `raw`        | The transaction exactly as received.                                                    |
+| Field        | Meaning                                                                                                                                       |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `account`    | The account key.                                                                                                                              |
+| `source`     | `"api"` or `"import"`.                                                                                                                        |
+| `id`         | The bank's own identifier for this transaction, as a string. See Identity.                                                                    |
+| `format`     | Import records only: the key of the import format that describes `raw`. It is a key, and matches the key pattern, `[a-z0-9-]+`.               |
+| `date`       | The booking date, `YYYY-MM-DD`. Decides the year file and the order. See below.                                                               |
+| `first_seen` | When this record was first written: UTC in whole seconds, `YYYY-MM-DDTHH:MM:SSZ`, so timestamps sort as text. A real time of day is required. |
+| `revisions`  | Earlier versions of `raw`, oldest first. Each is `{ "replaced_at": "...", "raw": {} }`, with `replaced_at` a timestamp like `first_seen`.     |
+| `raw`        | The transaction exactly as received.                                                                                                          |
 
 `account` and `source` repeat what the path already says. They are kept so a record still explains itself when it is copied out of its file.
+
+A fraction of a second is rejected in `first_seen` and in `replaced_at`, and `merge` refuses a current time in any other notation.
 
 `date` is the one interpreted value stored in a record. It has to be: a record must be filed under a year when it is written, and a file must be checkable against its own name without knowing anything about `raw`. It is read from `raw` by whoever writes the record, and it follows the current `raw`: if a bank revises a booking date, `date` changes with it, and the record moves to another year file if need be.
 
@@ -117,6 +121,8 @@ The same rules apply to both sources. For each incoming transaction:
 - **The same identity twice in one batch:** stored once if the two are identical, an error if they differ.
 - **The same identity twice in what is already stored:** an error. Merging stops rather than drop one.
 
+`import` is stricter than `merge`: a file with a repeated identifier is rejected whole, while `merge` itself accepts an identical repeat within a batch.
+
 `merge` returns the full, sorted set of records, the identities it added, the identities it revised and a count of those unchanged. It never reports on what a batch lacks: noticing that a stored record is missing from a fetch needs the fetch window, which belongs to the sync ([sync.md](sync.md)). A stored record absent from a fetch is kept either way.
 
 ## Reading: the normalised view
@@ -141,7 +147,7 @@ Readers never interpret `raw` directly. One pure function turns a record into a 
 | `revised`              | boolean         | Whether `revisions` is non-empty.                           |
 
 - **API records** are normalised by code: the sign comes from `credit_debit_indicator`, and the counterparty is the creditor of a debit or the debtor of a credit. The amount and the instructed amount carry no sign of their own, and a value date, when present, must be a real date. An instructed amount with a currency that cannot be read is an error.
-- **Both sources:** a currency and an original currency must be exactly three capital letters, since the number of decimals depends on it. `original_amount` takes the sign of `amount`. Anything that cannot be read is an error that names the record, never a guess. Description cells are looked up defensively: a column that is absent gives nothing.
+- **Both sources:** a currency and an original currency must be exactly three capital letters, since the number of decimals depends on it. `original_amount` takes the sign of `amount`. An original amount and an original currency come together or not at all: one without the other is an error. Anything that cannot be read is an error that names the record, never a guess. Description cells are looked up defensively: a column that is absent gives nothing.
 - **Import records** are normalised by their import format (below). Fixing a mistake in a format changes the view at once and rewrites nothing. The exception is the format's `date` column, which is read once, at import, to set the record's `date`.
 
 ### When both sources cover the same day
