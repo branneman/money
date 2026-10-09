@@ -92,6 +92,14 @@ const formatProblems = (format: unknown): string[] => {
   return problems;
 };
 
+// Names an entry by its key only when the key is well formed. A malformed key may be
+// anything a person pasted, so it is named by position instead.
+const labelOf = (section: string, key: string, index: number): string =>
+  ACCOUNT_KEY.test(key) ? `${section}.${key}` : `${section}, entry ${index + 1}`;
+
+const keyProblem = (label: string, key: string): string[] =>
+  ACCOUNT_KEY.test(key) ? [] : [`${label}: the key may hold only a-z, 0-9 and -`];
+
 // Returns every problem, each as a sentence a person can act on. Messages name keys and
 // fields, never the values of account numbers.
 export const validateConfig = (value: unknown): ConfigResult => {
@@ -106,32 +114,39 @@ export const validateConfig = (value: unknown): ConfigResult => {
   const accounts = section("accounts");
   const imports = section("imports");
 
-  for (const [key, bank] of Object.entries(banks)) {
+  for (const [index, [key, bank]] of Object.entries(banks).entries()) {
+    const at = labelOf("banks", key, index);
+    problems.push(...keyProblem(at, key));
     const aspsp = isObject(bank) && isObject(bank.aspsp) ? bank.aspsp : {};
-    if (!isText(aspsp.name)) problems.push(`banks.${key}: aspsp.name is missing`);
+    if (!isText(aspsp.name)) problems.push(`${at}: aspsp.name is missing`);
     if (!isText(aspsp.country) || !/^[A-Z]{2}$/.test(aspsp.country)) {
-      problems.push(`banks.${key}: aspsp.country must be a two-letter country code`);
+      problems.push(`${at}: aspsp.country must be a two-letter country code`);
     }
   }
 
   const ibans = new Map<string, string>();
   const importIds = new Map<string, string>();
-  for (const [key, account] of Object.entries(accounts)) {
-    const at = `accounts.${key}`;
-    if (!ACCOUNT_KEY.test(key)) problems.push(`${at}: the key may hold only a-z, 0-9 and -`);
+  for (const [index, [key, account]] of Object.entries(accounts).entries()) {
+    const at = labelOf("accounts", key, index);
+    problems.push(...keyProblem(at, key));
     if (!isObject(account)) {
       problems.push(`${at}: is not an object`);
       continue;
     }
     if (!isText(account.bank)) problems.push(`${at}: bank is missing`);
     else if (!Object.hasOwn(banks, account.bank)) {
-      problems.push(`${at}: bank ${account.bank} is not configured`);
+      problems.push(`${at}: its bank is not configured`);
     }
     if (!isText(account.iban) && !isText(account.import_id)) {
       problems.push(`${at}: needs an iban or an import_id`);
     }
     if (account.closed !== undefined && typeof account.closed !== "boolean") {
       problems.push(`${at}: closed must be true or false`);
+    }
+    for (const field of ["iban", "import_id"] as const) {
+      if (account[field] !== undefined && !isText(account[field])) {
+        problems.push(`${at}: ${field} must be a non-empty text`);
+      }
     }
     for (const [field, seen] of [
       ["iban", ibans],
@@ -141,12 +156,14 @@ export const validateConfig = (value: unknown): ConfigResult => {
       if (!isText(identifier)) continue;
       const other = seen.get(identifier);
       if (other !== undefined) problems.push(`${at}: shares its ${field} with ${other}`);
-      else seen.set(identifier, key);
+      else seen.set(identifier, at);
     }
   }
 
-  for (const [key, format] of Object.entries(imports)) {
-    problems.push(...formatProblems(format).map((problem) => `imports.${key}: ${problem}`));
+  for (const [index, [key, format]] of Object.entries(imports).entries()) {
+    const at = labelOf("imports", key, index);
+    problems.push(...keyProblem(at, key));
+    problems.push(...formatProblems(format).map((problem) => `${at}: ${problem}`));
   }
 
   return problems.length === 0 ? { ok: true, config: value as Config } : { ok: false, problems };

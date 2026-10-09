@@ -35,12 +35,12 @@ const wrong: [string, unknown, RegExp][] = [
   [
     "an account key with capitals",
     aConfig({ accounts: { "Bnka Current": { bank: "bnka", iban: "NL00BNKA0000000001" } } }),
-    /accounts\.Bnka Current: the key/,
+    /accounts, entry 1: the key/,
   ],
   [
     "an account at an unknown bank",
     aConfig({ accounts: { a: { bank: "nope", iban: "NL00BNKA0000000001" } } }),
-    /accounts\.a: bank nope is not configured/,
+    /accounts\.a: its bank is not configured/,
   ],
   [
     "an account with neither identifier",
@@ -55,6 +55,30 @@ const wrong: [string, unknown, RegExp][] = [
       },
     }),
     /accounts\.a: closed/,
+  ],
+  [
+    "a numeric import_id beside a valid iban",
+    aConfig({
+      accounts: {
+        a: { bank: "bnka", iban: "NL00BNKA0000000001", import_id: 1001 as unknown as string },
+      },
+    }),
+    /accounts\.a: import_id must be a non-empty text/,
+  ],
+  [
+    "an empty iban beside a valid import_id",
+    aConfig({ accounts: { a: { bank: "bnka", iban: "", import_id: "1001" } } }),
+    /accounts\.a: iban must be a non-empty text/,
+  ],
+  [
+    "a bank key with capitals",
+    aConfig({ banks: { "Bnk A": { aspsp: { name: "Example Bank", country: "NL" } } } }),
+    /banks, entry 1: the key/,
+  ],
+  [
+    "an import format key with capitals",
+    aConfig({ imports: { "Bad Key": aFormat() } }),
+    /imports, entry 1: the key/,
   ],
   [
     "two accounts with one IBAN",
@@ -142,4 +166,26 @@ test("a problem never repeats an account number", () => {
     }),
   );
   assert.ok(problems.every((problem) => !problem.includes("NL00")));
+});
+
+test("an IBAN pasted into a bank or used as a key is never repeated", () => {
+  const iban = "NL00BNKA0000000001";
+  const pasted = problemsOf(aConfig({ accounts: { a: { bank: iban, import_id: "1" } } }));
+  assert.ok(pasted.length > 0);
+  assert.ok(
+    pasted.every((problem) => !problem.includes("NL00")),
+    pasted.join(" | "),
+  );
+  const keyed = problemsOf(
+    aConfig({
+      accounts: { [iban]: { bank: "bnka", iban }, b: { bank: "bnka", iban } },
+      banks: { [iban]: { aspsp: { name: "Example Bank", country: "NL" } } },
+      imports: { [iban]: aFormat({ delimiter: "" }) },
+    }),
+  );
+  assert.ok(keyed.length > 0);
+  assert.ok(
+    keyed.every((problem) => !problem.includes("NL00")),
+    keyed.join(" | "),
+  );
 });
