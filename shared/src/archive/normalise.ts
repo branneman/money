@@ -1,6 +1,7 @@
 import type { ImportFormat } from "../config/config.ts";
 import { parseAmount } from "../util/amounts.ts";
 import { isIsoDate, parseDate } from "../util/dates.ts";
+import { isObject, isText } from "../util/guards.ts";
 import { identityOf } from "./record.ts";
 import type { ApiRecord, ArchiveRecord, ImportRecord, Source } from "./record.ts";
 
@@ -23,19 +24,17 @@ export type Transaction = {
   revised: boolean;
 };
 
-export class NormaliseError extends Error {}
+export class NormaliseError extends Error {
+  override name = "NormaliseError";
+}
 
 // Messages name the record and the field. They never repeat a value from `raw`.
 const failure = (record: ArchiveRecord, problem: string): NormaliseError =>
   new NormaliseError(`${identityOf(record)} ${problem}`);
 
-const text = (value: unknown): string | null =>
-  typeof value === "string" && value !== "" ? value : null;
+const text = (value: unknown): string | null => (isText(value) ? value : null);
 
-const object = (value: unknown): Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
+const object = (value: unknown): Record<string, unknown> => (isObject(value) ? value : {});
 
 const CURRENCY_CODE = /^[A-Z]{3}$/;
 
@@ -43,6 +42,13 @@ const CURRENCY_CODE = /^[A-Z]{3}$/;
 const unsignedAmount = (value: unknown, currency: string): number | null => {
   const amount = text(value);
   return amount === null || /^[+-]/.test(amount) ? null : parseAmount(amount, ".", currency);
+};
+
+// An original amount and an original currency come together or not at all.
+const checkPaired = (record: ArchiveRecord, hasAmount: boolean, hasCurrency: boolean): void => {
+  if (hasAmount && !hasCurrency) throw failure(record, "has an original amount without a currency");
+  if (hasCurrency && !hasAmount)
+    throw failure(record, "has an original currency without an amount");
 };
 
 const withSign = (magnitude: number, like: number): number =>
@@ -72,6 +78,10 @@ const normaliseApi = (record: ApiRecord): Transaction => {
   const code = object(raw.bank_transaction_code);
   const instructed = object(object(raw.exchange_rate).instructed_amount);
   const originalCurrency = text(instructed.currency);
+  // An amount of the wrong type is present, and is then an amount that cannot be read.
+  const hasOriginal =
+    instructed.amount !== undefined && instructed.amount !== null && instructed.amount !== "";
+  checkPaired(record, hasOriginal, originalCurrency !== null);
   if (originalCurrency !== null && !CURRENCY_CODE.test(originalCurrency)) {
     throw failure(record, "has an original currency that cannot be read");
   }
@@ -125,10 +135,11 @@ const normaliseImport = (record: ImportRecord, format: ImportFormat): Transactio
   }
 
   const originalCurrency = cell(format.original_currency);
+  const originalText = cell(format.original_amount);
+  checkPaired(record, originalText !== null, originalCurrency !== null);
   if (originalCurrency !== null && !CURRENCY_CODE.test(originalCurrency)) {
     throw failure(record, "has an original currency that cannot be read");
   }
-  const originalText = cell(format.original_amount);
   const original =
     originalCurrency === null || originalText === null || format.original_amount === undefined
       ? null

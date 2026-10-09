@@ -148,3 +148,17 @@ test("a mixed batch reports what was added, revised and left alone", () => {
     ["a", "b", "c"],
   );
 });
+
+test("now must be a UTC time in whole seconds", () => {
+  for (const now of ["2025-01-03T03:00:00.123Z", "2025-01-03", "2025-01-03T03:00:00+01:00", ""]) {
+    assert.throws(
+      () => merge([], [anIncoming()], API, now),
+      (error: unknown) =>
+        error instanceof MergeError && error.message === "now is not a UTC time in whole seconds",
+    );
+  }
+});
+
+test("a merge error carries its class name", () => {
+  assert.equal(new MergeError("x").name, "MergeError");
+});

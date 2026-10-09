@@ -330,6 +330,38 @@ const unreadable: [string, () => unknown, RegExp][] = [
       ),
     /amount/,
   ],
+  [
+    "an API record with an instructed amount but no currency",
+    () =>
+      normalise(
+        anApiRecord({
+          raw: anApiRaw({ exchange_rate: { instructed_amount: { amount: "1500" } } }),
+        }),
+        FORMATS,
+      ),
+    /has an original amount without a currency$/,
+  ],
+  [
+    "an API record with an instructed currency but no amount",
+    () =>
+      normalise(
+        anApiRecord({
+          raw: anApiRaw({ exchange_rate: { instructed_amount: { currency: "JPY" } } }),
+        }),
+        FORMATS,
+      ),
+    /has an original currency without an amount$/,
+  ],
+  [
+    "an import row with an original amount but no currency",
+    () => normalise(anImportRecord({ raw: anImportRaw({ "Original amount": "74,50" }) }), FORMATS),
+    /has an original amount without a currency$/,
+  ],
+  [
+    "an import row with an original currency but no amount",
+    () => normalise(anImportRecord({ raw: anImportRaw({ "Original currency": "DKK" }) }), FORMATS),
+    /has an original currency without an amount$/,
+  ],
 ];
 
 for (const [name, act, message] of unreadable) {
@@ -351,4 +383,8 @@ test("a description column named like an inherited property reads as empty", () 
   const result = normalise(anImportRecord(), formats);
   assert.ok(!result.description.includes("function"));
   assert.equal(result.description, normalise(anImportRecord(), FORMATS).description);
+});
+
+test("a normalise error carries its class name", () => {
+  assert.equal(new NormaliseError("x").name, "NormaliseError");
 });

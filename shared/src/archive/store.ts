@@ -3,13 +3,12 @@ import type { Dirent } from "node:fs";
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { parseYearFile } from "./files.ts";
+import { parseYearFile, YEAR_FILE } from "./files.ts";
 import { ACCOUNT_KEY, ArchiveError, identityOf } from "./record.ts";
 import type { ArchiveRecord, Source } from "./record.ts";
 import { planWrites } from "./writes.ts";
 
 const SOURCES: readonly Source[] = ["api", "import"];
-const YEAR_FILE = /^\d{4}\.json$/;
 
 const isMissing = (error: unknown): boolean =>
   error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT";
@@ -25,16 +24,20 @@ const entries = async (dir: string): Promise<Dirent[]> => {
   }
 };
 
+// A name that failed its pattern may be anything, so no message here repeats one. Each
+// says what was found and where, using only names that have already passed.
 const checkLocation = (account: string, source: string): void => {
-  if (!ACCOUNT_KEY.test(account)) throw new ArchiveError(`${account} is not an account key`);
-  if (!SOURCES.includes(source as Source)) throw new ArchiveError(`${source} is not a source`);
+  if (!ACCOUNT_KEY.test(account)) throw new ArchiveError("the account is not a valid key");
+  if (!SOURCES.includes(source as Source)) {
+    throw new ArchiveError("the source is neither api nor import");
+  }
 };
 
 const yearFileNames = async (dir: string, label: string): Promise<string[]> => {
   const found = await entries(dir);
   for (const entry of found) {
     if (!entry.isFile() || !YEAR_FILE.test(entry.name)) {
-      throw new ArchiveError(`${label}/${entry.name} does not belong in the archive`);
+      throw new ArchiveError(`${label} holds something that is not a year file`);
     }
   }
   return found.map((entry) => entry.name).toSorted();
@@ -65,13 +68,15 @@ export const readAccountSource = async (
 export const readArchive = async (dataDir: string): Promise<ArchiveRecord[]> => {
   const records: ArchiveRecord[] = [];
   for (const account of await entries(dataDir)) {
-    if (!account.isDirectory())
-      throw new ArchiveError(`${account.name} does not belong in the archive`);
-    if (!ACCOUNT_KEY.test(account.name))
-      throw new ArchiveError(`${account.name} is not an account key`);
+    if (!account.isDirectory()) {
+      throw new ArchiveError("the archive holds a file where account directories belong");
+    }
+    if (!ACCOUNT_KEY.test(account.name)) {
+      throw new ArchiveError("a directory in the archive is not an account key");
+    }
     for (const source of await entries(join(dataDir, account.name))) {
       if (!source.isDirectory() || !SOURCES.includes(source.name as Source)) {
-        throw new ArchiveError(`${account.name}/${source.name} does not belong in the archive`);
+        throw new ArchiveError(`${account.name} holds something that is not api or import`);
       }
       records.push(...(await readAccountSource(dataDir, account.name, source.name as Source)));
     }
@@ -98,7 +103,8 @@ export const writeYearFiles = async (
   }
   const steps = planWrites(existing, files, { account, source });
 
-  await mkdir(dir, { recursive: true });
+  // Nothing to do creates nothing, not even the directory.
+  if (steps.length > 0) await mkdir(dir, { recursive: true });
   const written = new Set<string>();
   const removed: string[] = [];
   for (const step of steps) {

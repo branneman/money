@@ -65,7 +65,12 @@ const rejected: [string, string, RegExp][] = [
     /another source/,
   ],
   ["records out of order", JSON.stringify([b, a]), /out of order/],
-  ["the same id twice", JSON.stringify([a, a]), /out of order|twice/],
+  ["the same record twice", JSON.stringify([a, a]), /out of order/],
+  [
+    "the same id on two dates",
+    JSON.stringify([a, { ...a, date: "2025-01-03" }]),
+    /holds an id twice/,
+  ],
   ["a malformed record", JSON.stringify([{ ...a, date: "soon" }]), /record 1: date/],
 ];
 

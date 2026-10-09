@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { anApiRaw, anApiRecord, anImportRecord } from "../../testing/factories.ts";
-import { ArchiveError, checkRecord, identityOf } from "./record.ts";
+import { ArchiveError, checkRecord, compareRecords, identityOf } from "./record.ts";
 
 test("identity is account, source and id", () => {
   assert.equal(identityOf(anApiRecord({ account: "bnka-joint", id: "7" })), "bnka-joint/api/7");
@@ -43,6 +43,11 @@ const broken: [string, unknown, RegExp][] = [
   ["an empty id", { ...anApiRecord(), id: "" }, /id/],
   ["an impossible date", { ...anApiRecord(), date: "2025-02-30" }, /date/],
   ["a first_seen that is not UTC", { ...anApiRecord(), first_seen: "2025-01-01" }, /first_seen/],
+  [
+    "a first_seen with fractional seconds",
+    { ...anApiRecord(), first_seen: "2025-01-03T03:00:00.123Z" },
+    /first_seen/,
+  ],
   ["revisions that are not a list", { ...anApiRecord(), revisions: {} }, /revisions/],
   [
     "a revision without raw",
@@ -67,6 +72,11 @@ const broken: [string, unknown, RegExp][] = [
   ],
   ["a raw that is not an object", { ...anApiRecord(), raw: "x" }, /raw/],
   ["an import record without a format", { ...anImportRecord(), format: undefined }, /format/],
+  [
+    "an import record whose format is not a key",
+    { ...anImportRecord(), format: "Example Export" },
+    /format is not a valid key/,
+  ],
   ["an import cell that is not text", { ...anImportRecord(), raw: { Amount: 10 } }, /raw/],
 ];
 
@@ -81,3 +91,18 @@ for (const [name, value, message] of broken) {
     );
   });
 }
+
+test("records order by date, then by id", () => {
+  const early = anApiRecord({ id: "z", date: "2025-01-01" });
+  const a = anApiRecord({ id: "a", date: "2025-01-02" });
+  const b = anApiRecord({ id: "b", date: "2025-01-02" });
+  assert.deepEqual(
+    [b, a, early].toSorted(compareRecords).map((record) => record.id),
+    ["z", "a", "b"],
+  );
+  assert.equal(compareRecords(a, a), 0);
+});
+
+test("an archive error carries its class name", () => {
+  assert.equal(new ArchiveError("x").name, "ArchiveError");
+});

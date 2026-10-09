@@ -1,10 +1,14 @@
-import { isIsoDate } from "../util/dates.ts";
+import { isIsoDate, isTimestamp } from "../util/dates.ts";
 import { deepEqual } from "../util/equal.ts";
-import { identityOf } from "./record.ts";
+import { compareRecords, identityOf } from "./record.ts";
 import type { ApiRaw, ArchiveRecord, ImportRaw } from "./record.ts";
 
 // One transaction on its way into the archive. Whoever fetched or imported it has already
 // read its identifier and booking date out of `raw`.
+//
+// `raw` must be JSON-clean: a value JSON.parse could have produced. It is compared with a
+// stored copy that has been through JSON, so a value that does not survive JSON (undefined,
+// a Date, NaN, a number that changes when written out) would read as a change every night.
 export type Incoming = {
   readonly id: string;
   readonly date: string;
@@ -22,10 +26,9 @@ export type MergeResult = {
   unchanged: number;
 };
 
-export class MergeError extends Error {}
-
-export const compareRecords = (a: ArchiveRecord, b: ArchiveRecord): number =>
-  a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+export class MergeError extends Error {
+  override name = "MergeError";
+}
 
 // The object literals fix the key order that year files are written in.
 const create = (target: Target, item: Incoming, now: string): ArchiveRecord =>
@@ -66,6 +69,8 @@ export const merge = (
   target: Target,
   now: string,
 ): MergeResult => {
+  if (!isTimestamp(now)) throw new MergeError("now is not a UTC time in whole seconds");
+
   const byId = new Map<string, ArchiveRecord>();
   for (const record of stored) {
     if (record.account !== target.account || record.source !== target.source) {

@@ -1,7 +1,15 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-export type Workspace = { dir: string; name: string; dependencies: Record<string, string> };
+type Dependencies = Record<string, string>;
+
+export type Workspace = {
+  dir: string;
+  name: string;
+  dependencies: Dependencies;
+  optionalDependencies: Dependencies;
+  peerDependencies: Dependencies;
+};
 
 export const readWorkspaces = (root: string): Workspace[] => {
   const rootPackage = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
@@ -10,9 +18,17 @@ export const readWorkspaces = (root: string): Workspace[] => {
   return (rootPackage.workspaces ?? []).map((dir) => {
     const manifest = JSON.parse(readFileSync(join(root, dir, "package.json"), "utf8")) as {
       name: string;
-      dependencies?: Record<string, string>;
+      dependencies?: Dependencies;
+      optionalDependencies?: Dependencies;
+      peerDependencies?: Dependencies;
     };
-    return { dir, name: manifest.name, dependencies: manifest.dependencies ?? {} };
+    return {
+      dir,
+      name: manifest.name,
+      dependencies: manifest.dependencies ?? {},
+      optionalDependencies: manifest.optionalDependencies ?? {},
+      peerDependencies: manifest.peerDependencies ?? {},
+    };
   });
 };
 
@@ -43,7 +59,12 @@ export const dependencyProblems = (workspaces: readonly Workspace[]): string[] =
   workspaces
     .filter((workspace) => SERVER_WORKSPACES.includes(workspace.dir))
     .flatMap((workspace) =>
-      Object.keys(workspace.dependencies)
+      // Optional and peer dependencies are installed and loaded at run time too.
+      [
+        ...Object.keys(workspace.dependencies),
+        ...Object.keys(workspace.optionalDependencies),
+        ...Object.keys(workspace.peerDependencies),
+      ]
         .filter((dependency) => !dependency.startsWith("@money/"))
         .map(
           (dependency) =>

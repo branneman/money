@@ -1,12 +1,10 @@
 // The order in which year files must change on disk. Pure: it decides, the store does.
-import { parseYearFile, renderYearFiles } from "./files.ts";
+import { parseYearFile, renderYearFiles, YEAR_FILE } from "./files.ts";
 import { ArchiveError } from "./record.ts";
 import type { ArchiveRecord, Source } from "./record.ts";
 
 export type WriteStep =
   { kind: "write"; name: string; text: string } | { kind: "remove"; name: string };
-
-const YEAR_FILE = /^(\d{4})\.json$/;
 
 type Where = { account: string; source: Source };
 

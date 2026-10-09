@@ -1,4 +1,5 @@
 import { isIsoDate, isTimestamp } from "../util/dates.ts";
+import { isObject, isText } from "../util/guards.ts";
 
 export type Source = "api" | "import";
 
@@ -36,15 +37,16 @@ export type ArchiveRecord = ApiRecord | ImportRecord;
 
 export const ACCOUNT_KEY = /^[a-z0-9-]+$/;
 
-export class ArchiveError extends Error {}
+export class ArchiveError extends Error {
+  override name = "ArchiveError";
+}
 
 export const identityOf = (record: { account: string; source: Source; id: string }): string =>
   `${record.account}/${record.source}/${record.id}`;
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-const isText = (value: unknown): value is string => typeof value === "string" && value !== "";
+// The order of records in a year file, and of everything merge returns: date, then id.
+export const compareRecords = (a: ArchiveRecord, b: ArchiveRecord): number =>
+  a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 
 const isRaw = (value: unknown, source: Source): boolean =>
   isObject(value) &&
@@ -61,7 +63,9 @@ export const checkRecord = (value: unknown, where: string): ArchiveRecord => {
   if (!isText(account) || !ACCOUNT_KEY.test(account)) return fail("account is not a valid key");
   if (source !== "api" && source !== "import") return fail("source is neither api nor import");
   if (!isText(id)) return fail("id is missing");
-  if (source === "import" && !isText(format)) return fail("format is missing");
+  if (source === "import" && (!isText(format) || !ACCOUNT_KEY.test(format))) {
+    return fail("format is not a valid key");
+  }
   if (!isText(date) || !isIsoDate(date)) return fail("date is not a calendar date");
   if (!isText(first_seen) || !isTimestamp(first_seen)) return fail("first_seen is not a UTC time");
   if (!Array.isArray(revisions)) return fail("revisions is not a list");

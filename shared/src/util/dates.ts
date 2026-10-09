@@ -5,9 +5,10 @@ export const isIsoDate = (text: string): boolean => {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === text;
 };
 
+// UTC, in whole seconds: exactly YYYY-MM-DDTHH:MM:SSZ. One notation, so timestamps sort as
+// text.
 export const isTimestamp = (text: string): boolean =>
-  /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?Z$/.test(text) &&
-  isIsoDate(text.slice(0, 10));
+  /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d:[0-5]\dZ$/.test(text) && isIsoDate(text.slice(0, 10));
 
 export const DATE_FORMATS = {
   "YYYY-MM-DD": /^(?<y>\d{4})-(?<m>\d{2})-(?<d>\d{2})$/,

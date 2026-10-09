@@ -16,7 +16,6 @@ test("a date that does not exist is rejected", () => {
 
 test("only UTC timestamps are accepted", () => {
   assert.ok(isTimestamp("2026-10-07T03:00:00Z"));
-  assert.ok(isTimestamp("2026-10-07T03:00:00.123Z"));
   assert.ok(!isTimestamp("2026-10-07T03:00:00+02:00"));
   assert.ok(!isTimestamp("2026-10-07"));
 });
@@ -28,7 +27,13 @@ test("a time of day that does not exist is rejected", () => {
   assert.ok(!isTimestamp("2026-10-07T03:60:00Z"));
   assert.ok(!isTimestamp("2026-10-07T03:00:60Z"));
   assert.ok(isTimestamp("2026-10-07T23:59:59Z"));
-  assert.ok(isTimestamp("2026-10-07T23:59:59.999Z"));
+});
+
+test("a timestamp is in whole seconds", () => {
+  assert.ok(!isTimestamp("2026-10-07T03:00:00.123Z"));
+  assert.ok(!isTimestamp("2026-10-07T23:59:59.999Z"));
+  assert.ok(!isTimestamp("2026-10-07T03:00:00.Z"));
+  assert.ok(!isTimestamp("2026-10-07T03:00Z"));
 });
 
 test("each supported notation parses to an ISO date", () => {

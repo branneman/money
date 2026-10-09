@@ -1,8 +1,10 @@
-import { compareRecords } from "./merge.ts";
-import { ArchiveError, checkRecord } from "./record.ts";
+import { ArchiveError, checkRecord, compareRecords } from "./record.ts";
 import type { ArchiveRecord, Source } from "./record.ts";
 
 export type FileLocation = { account: string; source: Source; year: string };
+
+// A year file's name. The one group is the year.
+export const YEAR_FILE = /^(\d{4})\.json$/;
 
 // File name to exact file text, for the records of one account and source. A year with no
 // records gets no file.

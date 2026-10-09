@@ -7,6 +7,7 @@ import { afterEach, beforeEach, test } from "node:test";
 import { anApiRecord, anImportRecord } from "../../testing/factories.ts";
 import { renderYearFiles } from "./files.ts";
 import { ArchiveError } from "./record.ts";
+import type { Source } from "./record.ts";
 import { readAccountSource, readArchive, writeYearFiles } from "./store.ts";
 
 let dir = "";
@@ -75,37 +76,45 @@ test("dot-prefixed names are skipped at every level", async () => {
   assert.deepEqual(await readArchive(dir), [a]);
 });
 
-const strays: [string, (root: string) => Promise<unknown>, RegExp][] = [
+// Each stray is reported by what it is, never by its name: a name that failed its pattern
+// may be anything.
+const strays: [string, (root: string) => Promise<unknown>, string, string][] = [
   [
     "a directory that is not an account key",
     (root) => mkdir(join(root, "Not A Key")),
-    /Not A Key is not an account key/,
+    "a directory in the archive is not an account key",
+    "Not A Key",
   ],
   [
     "a file where accounts belong",
     (root) => writeFile(join(root, "notes.txt"), "x"),
-    /notes\.txt does not belong/,
+    "the archive holds a file where account directories belong",
+    "notes",
   ],
   [
     "an unknown source directory",
     (root) => mkdir(join(root, "bnka-current", "csv"), { recursive: true }),
-    /bnka-current\/csv does not belong/,
+    "bnka-current holds something that is not api or import",
+    "csv",
   ],
   [
     "a file that is not a year file",
     (root) => writeFile(join(root, "bnka-current", "api", "2025.json.bak"), "x"),
-    /2025\.json\.bak does not belong/,
+    "bnka-current/api holds something that is not a year file",
+    "bak",
   ],
 ];
 
-for (const [name, make, message] of strays) {
-  test(`${name} is reported, not ignored`, async () => {
+for (const [name, make, message, offending] of strays) {
+  test(`${name} is reported, not ignored, and not repeated`, async () => {
     await write([a]);
     await make(dir);
-    await assert.rejects(
-      readArchive(dir),
-      (error: unknown) => error instanceof ArchiveError && message.test(error.message),
-    );
+    await assert.rejects(readArchive(dir), (error: unknown) => {
+      assert.ok(error instanceof ArchiveError);
+      assert.equal(error.message, message);
+      assert.ok(!error.message.includes(offending));
+      return true;
+    });
   });
 }
 
@@ -132,11 +141,52 @@ test("written text is exactly the rendered text", async () => {
 });
 
 test("an account that is not a key is refused, and nothing is written", async () => {
-  const files = renderYearFiles([a]);
-  await assert.rejects(writeYearFiles(dir, "../..", "api", files), ArchiveError);
-  await assert.rejects(readAccountSource(dir, "../..", "api"), ArchiveError);
+  // The data directory sits two levels below a fresh parent, so "../.." would land in the
+  // parent, and the parent's whole listing shows whether anything was written.
+  const parent = await mkdtemp(join(tmpdir(), "money-store-parent-"));
+  try {
+    const dataDir = join(parent, "one", "two");
+    await mkdir(dataDir, { recursive: true });
+    const before = (await readdir(parent, { recursive: true })).toSorted();
+    const refused = (error: unknown): boolean => {
+      assert.ok(error instanceof ArchiveError);
+      assert.equal(error.message, "the account is not a valid key");
+      assert.ok(!error.message.includes(".."));
+      return true;
+    };
+    await assert.rejects(writeYearFiles(dataDir, "../..", "api", renderYearFiles([a])), refused);
+    await assert.rejects(readAccountSource(dataDir, "../..", "api"), refused);
+    assert.deepEqual((await readdir(parent, { recursive: true })).toSorted(), before);
+    assert.deepEqual(before, ["one", join("one", "two")]);
+  } finally {
+    await rm(parent, { recursive: true, force: true });
+  }
+});
+
+test("a source that is neither api nor import is refused without repeating it", async () => {
+  const refused = (error: unknown): boolean => {
+    assert.ok(error instanceof ArchiveError);
+    assert.equal(error.message, "the source is neither api nor import");
+    assert.ok(!error.message.includes("csv"));
+    return true;
+  };
+  await assert.rejects(readAccountSource(dir, "bnka-current", "csv" as Source), refused);
+  await assert.rejects(
+    writeYearFiles(dir, "bnka-current", "csv" as Source, renderYearFiles([a])),
+    refused,
+  );
   assert.deepEqual(await readdir(dir), []);
-  assert.deepEqual(await readdir(dirname(dir)).then((names) => names.includes("api")), false);
+});
+
+test("no directory is created when there is nothing to write", async () => {
+  await write([a]);
+  const before = (await readdir(dir, { recursive: true })).toSorted();
+  assert.deepEqual(await write([a]), { written: [], removed: [] });
+  assert.deepEqual((await readdir(dir, { recursive: true })).toSorted(), before);
+
+  const empty = await writeYearFiles(dir, "bnka-joint", "api", new Map());
+  assert.deepEqual(empty, { written: [], removed: [] });
+  assert.deepEqual((await readdir(dir, { recursive: true })).toSorted(), before);
 });
 
 test("a file name that is not a year file is refused, and nothing is written", async () => {

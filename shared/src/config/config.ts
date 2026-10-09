@@ -1,6 +1,7 @@
 import { ACCOUNT_KEY } from "../archive/record.ts";
 import { DATE_FORMATS } from "../util/dates.ts";
 import type { DateFormat } from "../util/dates.ts";
+import { isObject, isText } from "../util/guards.ts";
 
 export const ENCODINGS = ["utf-8", "windows-1252", "iso-8859-15"] as const;
 
@@ -35,9 +36,6 @@ export type Config = {
 
 export type ConfigResult = { ok: true; config: Config } | { ok: false; problems: string[] };
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-const isText = (value: unknown): value is string => typeof value === "string" && value !== "";
 const isColumn = (value: unknown): value is Record<string, unknown> =>
   isObject(value) && isText(value.column);
 
