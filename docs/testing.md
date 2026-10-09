@@ -167,5 +167,5 @@ npm run fixtures    # regenerate fixtures/archive/ after changing the generator
 | Pre-commit hook                          | in place (`.githooks/pre-commit`, set by `npm install`) |
 | Pinned test timezone                     | in place (`npm test`)                                   |
 | Workspace-link check, dependency rule    | in place                                                |
-| CI                                       | in place, first run pending                             |
+| CI                                       | in place                                                |
 | Tier 1 and Tier 2 suites                 | arrive with the code they test                          |
