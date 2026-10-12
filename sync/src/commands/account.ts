@@ -1,8 +1,8 @@
 // One account's fetch, shared by auth and sync. Two phases joined only by the inbox:
 // receive writes pages to disk, and the merge reads them from disk. A fresh fetch and one
 // left behind by a run that died therefore take the same path.
-import { merge, renderYearFiles } from "@money/shared";
-import type { Config } from "@money/shared";
+import { merge, MergeError, renderYearFiles } from "@money/shared";
+import type { Config, MergeResult } from "@money/shared";
 import { readAccountSource, recoverAccountSource, writeYearFiles } from "@money/shared/node";
 
 import type { Context } from "../context.ts";
@@ -14,7 +14,7 @@ import {
   ResponseError,
 } from "../enablebanking/responses.ts";
 import { ApiError, isExpected, SyncError } from "../errors.ts";
-import { completeRun, listRuns, removeRun, writePage } from "../inbox.ts";
+import { completeRun, listRuns, removeRun, RunError, writePage } from "../inbox.ts";
 import { missingIds, newlyMissing } from "../missing.ts";
 import { readState, withSuccess, writeState } from "../state.ts";
 import { runNameOf, timestampOf } from "../time.ts";
@@ -63,6 +63,36 @@ const receive = async (
   deps.checkpoint("received");
 };
 
+// The booked transactions of a page in the inbox. A page the code cannot read is the run's
+// failure: the run stays, and the error carries its name.
+const readPage = (
+  run: string,
+  text: string,
+  where: string,
+): ReturnType<typeof readTransactions> => {
+  try {
+    return readTransactions(checkPage(parseExact(text, where), where), where);
+  } catch (error) {
+    if (error instanceof ResponseError) throw new RunError(run, error.message);
+    throw error;
+  }
+};
+
+// One page's merge. The stored records were validated when read and every incoming
+// transaction when the page was, so the one thing the merge can still refuse is a
+// transaction that is on the page twice with different contents. Its own message names the
+// transaction by an identifier that has come from a response and is stored nowhere yet,
+// and the run stays in the inbox, so that message would be printed every night. The page
+// is named instead.
+const mergePage = (run: string, where: string, merging: () => MergeResult): MergeResult => {
+  try {
+    return merging();
+  } catch (error) {
+    if (!(error instanceof MergeError)) throw error;
+    throw new RunError(run, `${where} holds the same transaction twice with different contents`);
+  }
+};
+
 // Phase two. Merges every run in the account's inbox, oldest first, and removes each once
 // its data is written. An incomplete run is merged too: each page present is whole and is
 // what the bank sent, and a partial batch cannot do harm because merge never deletes. Only
@@ -80,8 +110,10 @@ const drainInbox = async (context: Context, bank: string, account: string): Prom
     // later page revises the earlier one instead of contradicting it.
     run.pages.forEach((text, index) => {
       const where = `${account}, run ${run.name}, page ${index + 1}`;
-      const page = readTransactions(checkPage(parseExact(text, where), where), where);
-      const result = merge(records, page.booked, { account, source: "api" }, now);
+      const page = readPage(run.name, text, where);
+      const result = mergePage(run.name, where, () =>
+        merge(records, page.booked, { account, source: "api" }, now),
+      );
       records = result.records;
       counts.added += result.added.length;
       counts.revised += result.revised.length;
@@ -106,6 +138,13 @@ const drainInbox = async (context: Context, bank: string, account: string): Prom
       const absent =
         window.strategy === "default" ? missingIds(records, fetched, window) : entry.missing;
       const fresh = window.strategy === "default" ? newlyMissing(absent, entry.missing) : [];
+      // Said before the state remembers them: once it does, no later run finds them newly
+      // missing, so a run that died in between would have dropped the only alert.
+      if (fresh.length > 0) {
+        deps.out(
+          `${account}: ${fresh.length} stored record(s) were absent from a fetch that should hold them. They are kept.`,
+        );
+      }
       await writeState(
         settings.stateDir,
         bank,
@@ -114,11 +153,6 @@ const drainInbox = async (context: Context, bank: string, account: string): Prom
       deps.checkpoint("state-written");
       missing = absent.length;
       newly += fresh.length;
-      if (fresh.length > 0) {
-        deps.out(
-          `${account}: ${fresh.length} stored record(s) were absent from a fetch that should hold them. They are kept.`,
-        );
-      }
     }
     await removeRun(settings.dataDir, account, run.name);
     log("merged", {
@@ -131,6 +165,18 @@ const drainInbox = async (context: Context, bank: string, account: string): Prom
     });
   }
   return newly;
+};
+
+// What is printed when an account stops. A run that cannot be read stops its account every
+// night, so its failure also says where the run is and that it is still there.
+const failureLines = (account: string, error: Error): string[] => {
+  const lines = [`${account}: ${error.message}`];
+  if (error instanceof RunError) {
+    lines.push(
+      `${account}: run ${error.run} stays in .inbox/${account}/${error.run} and stops this account until it can be read. Nothing has been removed.`,
+    );
+  }
+  return lines;
 };
 
 // Repairs a record that an interrupted write left in two year files. Writes only then.
@@ -152,7 +198,7 @@ export const readAhead = async (context: Context, account: string): Promise<void
     await listRuns(settings.dataDir, account);
   } catch (error) {
     if (!isExpected(error)) throw error;
-    throw new SyncError(`${account}: ${error.message}`);
+    throw new SyncError(failureLines(account, error).join("\n"));
   }
 };
 
@@ -206,7 +252,7 @@ export const fetchAccounts = async (
     } catch (error) {
       if (!isExpected(error)) throw error;
       failed.push(account);
-      deps.out(`${account}: ${error.message}`);
+      for (const line of failureLines(account, error)) deps.out(line);
       if (error instanceof ApiError && error.code === "WRONG_TRANSACTIONS_PERIOD") {
         deps.out(`${account}: the bank does not serve that period unattended. Run: auth ${bank}`);
       }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import type { TestContext } from "node:test";
@@ -160,14 +160,79 @@ test("a page the code cannot read is kept, and stops its account until it is dea
   );
   assert.equal((await world.inbox(ACCOUNT)).length, 1);
   assert.deepEqual(await idsOf(world), []);
+  // What blocks the account, where it is, and that it is still there.
+  const way =
+    "bnka-current: run 20260301T030000Z stays in .inbox/bnka-current/20260301T030000Z and " +
+    "stops this account until it can be read. Nothing has been removed.";
+  assert.deepEqual(world.lines.slice(-2), [
+    "bnka-current: bnka-current, run 20260301T030000Z, page 1, transaction 2 is booked without an entry_reference",
+    way,
+  ]);
 
   // The next night does not ask the bank: fetching past the run could put revisions in
   // the wrong order, and removing it would discard something a bank sent.
   world.at("2026-03-02T03:00:00Z");
   world.bank.requests.length = 0;
+  world.lines.length = 0;
   assert.deepEqual(await fetchOne(world, uids), { failed: [ACCOUNT], newlyMissing: 0 });
   assert.equal(world.transactionRequests().length, 0);
   assert.equal((await world.inbox(ACCOUNT)).length, 1);
+  assert.equal(world.lines.at(-1), way);
+});
+
+test("a run whose marker or pages are not what the sync wrote names the same way out", async (t) => {
+  const { world, uids } = await start(t);
+  const run = join(world.dataDir, ".inbox", ACCOUNT, "20260228T030000Z");
+  await mkdir(run, { recursive: true });
+  await writeFile(join(run, "2.json"), '{"transactions":[]}');
+  assert.deepEqual(await fetchOne(world, uids), { failed: [ACCOUNT], newlyMissing: 0 });
+  assert.deepEqual(world.lines, [
+    "bnka-current: bnka-current, run 20260228T030000Z: page 1 is absent",
+    "bnka-current: run 20260228T030000Z stays in .inbox/bnka-current/20260228T030000Z and " +
+      "stops this account until it can be read. Nothing has been removed.",
+  ]);
+  assert.equal(world.transactionRequests().length, 0);
+});
+
+test("a failure that is not a run's names no run", async (t) => {
+  const { world, uids } = await start(t);
+  world.bank.failRequest(1, { status: 500, error: "ASPSP_ERROR" });
+  assert.deepEqual(await fetchOne(world, uids), { failed: [ACCOUNT], newlyMissing: 0 });
+  assert.ok(!world.lines.join("\n").includes("stays in"));
+});
+
+test("one transaction twice on a page with different contents stops the account, unnamed", async (t) => {
+  const { world, uids } = await start(t);
+  world.add(IBAN, booked("twice", "2026-02-20", { note: "first" }));
+  world.add(IBAN, booked("twice", "2026-02-20", { note: "second" }));
+  assert.deepEqual(await fetchOne(world, uids), { failed: [ACCOUNT], newlyMissing: 0 });
+  assert.equal(
+    world.lines.at(-2),
+    "bnka-current: bnka-current, run 20260301T030000Z, page 1 holds the same transaction twice with different contents",
+  );
+  assert.match(world.lines.at(-1) ?? "", /^bnka-current: run 20260301T030000Z stays in /);
+  assert.ok(!world.lines.join("\n").includes("twice/"));
+  assert.ok(!world.lines.join("\n").includes("/twice"));
+  assert.equal((await world.inbox(ACCOUNT)).length, 1);
+  assert.deepEqual(await idsOf(world), []);
+});
+
+test("a newly missing record is reported even when the run dies right after recording it", async (t) => {
+  const { world, uids } = await start(t);
+  const versions = world.add(IBAN, booked("gone", "2026-02-20"));
+  await fetchOne(world, uids);
+
+  world.at("2026-03-02T03:00:00Z");
+  versions.push({ from: "2026-03-01T12:00:00Z", raw: null });
+  world.crashAt = "state-written";
+  await assert.rejects(fetchOne(world, uids), Crash);
+  // The state already remembers the record as missing, so no later run finds it newly so.
+  assert.deepEqual((await world.state("bnka"))?.accounts[ACCOUNT].missing, ["gone"]);
+
+  world.at("2026-03-03T03:00:00Z");
+  assert.deepEqual(await fetchOne(world, uids), { failed: [], newlyMissing: 0 });
+  const alerts = world.lines.filter((line) => line.includes("were absent from a fetch"));
+  assert.equal(alerts.length, 1);
 });
 
 test("a transaction that is not booked is skipped and counted", async (t) => {

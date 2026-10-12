@@ -169,6 +169,38 @@ test("a request that gets no answer is an expected failure that says so", async 
   });
 });
 
+test("a request that runs out of time says so by the error's name, not its class", async () => {
+  const timeout = new DOMException("The operation timed out: Recognisable", "TimeoutError");
+  const refusing: Fetch = () => Promise.reject(timeout);
+  await assert.rejects(makeClient(refusing, () => "t").findAspsp("Example Bank", "NL"), (error) => {
+    assert.ok(error instanceof SyncError);
+    assert.equal(error.message, "no answer from Enable Banking (TimeoutError)");
+    return true;
+  });
+});
+
+test("an answer whose body never arrives is no answer", async () => {
+  const timeout = new DOMException("The operation timed out", "TimeoutError");
+  const halfway: Fetch = () =>
+    Promise.resolve({ status: 200, text: () => Promise.reject(timeout) });
+  await assert.rejects(makeClient(halfway, () => "t").findAspsp("Example Bank", "NL"), (error) => {
+    assert.ok(error instanceof SyncError);
+    assert.equal(error.message, "no answer from Enable Banking (TimeoutError)");
+    return true;
+  });
+});
+
+test("an error whose name is not a plain word is described by its class", async () => {
+  const odd = new Error("anything");
+  odd.name = "Recognisable name: with text";
+  const refusing: Fetch = () => Promise.reject(odd);
+  await assert.rejects(makeClient(refusing, () => "t").findAspsp("Example Bank", "NL"), (error) => {
+    assert.ok(error instanceof SyncError);
+    assert.equal(error.message, "no answer from Enable Banking (Error)");
+    return true;
+  });
+});
+
 const AUTH_REQUEST = {
   aspsp: { name: "Example Bank", country: "NL" },
   state: "state-1",

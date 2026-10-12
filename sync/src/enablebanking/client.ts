@@ -73,7 +73,13 @@ export const makeClient = (fetch: Fetch, token: () => string): Client => {
       status = response.status;
       text = await response.text();
     } catch (error) {
-      const kind = error instanceof Error ? error.constructor.name : "unknown";
+      // A timeout is a DOMException whose name says what happened. A name is free text,
+      // so only a plain word is printed, and otherwise the class.
+      const kind = !(error instanceof Error)
+        ? "unknown"
+        : /^[A-Za-z]+$/.test(error.name)
+          ? error.name
+          : error.constructor.name;
       throw new SyncError(`no answer from Enable Banking (${kind})`);
     }
     if (status !== 200) throw new ApiError(status, errorCodeOf(text));

@@ -15,6 +15,18 @@ export type Marker = { started: string; window: Window; pages: number };
 
 export type InboxRun = { name: string; marker: Marker | null; pages: string[] };
 
+// A run in the inbox that cannot be read or merged. It stays where it is, and stops its
+// account until it can be: `run` is its name, so the message can say where to look.
+export class RunError extends SyncError {
+  override name = "RunError";
+  readonly run: string;
+
+  constructor(run: string, message: string) {
+    super(message);
+    this.run = run;
+  }
+}
+
 const RUN = /^\d{8}T\d{6}Z$/;
 const PAGE = /^([1-9]\d*)\.json$/;
 const MARKER = "complete.json";
@@ -113,8 +125,39 @@ const readMarker = (text: string, where: string): Marker => {
   return { started, window, pages };
 };
 
+const readRun = async (root: string, account: string, name: string): Promise<InboxRun> => {
+  const where = `${account}, run ${name}`;
+  const files = await visible(join(root, name));
+  const numbers: number[] = [];
+  for (const file of files) {
+    if (file === MARKER) continue;
+    const match = PAGE.exec(file);
+    if (match === null) throw new SyncError(`${where} holds something that is not a page`);
+    numbers.push(Number(match[1]));
+  }
+  numbers.sort((a, b) => a - b);
+  numbers.forEach((number, index) => {
+    if (number !== index + 1) throw new SyncError(`${where}: page ${index + 1} is absent`);
+  });
+  const pages: string[] = [];
+  for (const number of numbers) {
+    pages.push(await readFile(join(root, name, `${number}.json`), "utf8"));
+  }
+  let marker: Marker | null = null;
+  if (files.includes(MARKER)) {
+    marker = readMarker(await readFile(join(root, name, MARKER), "utf8"), where);
+    if (marker.pages !== pages.length) {
+      throw new SyncError(
+        `${where}: the marker counts ${marker.pages} pages and ${pages.length} are there`,
+      );
+    }
+  }
+  return { name, marker, pages };
+};
+
 // Every run in an account's inbox, oldest first, with the text of each page. A run's name
-// is its start time in a fixed width, so sorting the names sorts the runs.
+// is its start time in a fixed width, so sorting the names sorts the runs. A run that is
+// not what the sync wrote is refused with a RunError.
 export const listRuns = async (dataDir: string, account: string): Promise<InboxRun[]> => {
   const root = join(dataDir, ".inbox", account);
   const runs: InboxRun[] = [];
@@ -122,33 +165,12 @@ export const listRuns = async (dataDir: string, account: string): Promise<InboxR
     if (!RUN.test(name)) {
       throw new SyncError(`the inbox of ${account} holds something that is not a run`);
     }
-    const where = `${account}, run ${name}`;
-    const files = await visible(join(root, name));
-    const numbers: number[] = [];
-    for (const file of files) {
-      if (file === MARKER) continue;
-      const match = PAGE.exec(file);
-      if (match === null) throw new SyncError(`${where} holds something that is not a page`);
-      numbers.push(Number(match[1]));
+    try {
+      runs.push(await readRun(root, account, name));
+    } catch (error) {
+      if (error instanceof SyncError) throw new RunError(name, error.message);
+      throw error;
     }
-    numbers.sort((a, b) => a - b);
-    numbers.forEach((number, index) => {
-      if (number !== index + 1) throw new SyncError(`${where}: page ${index + 1} is absent`);
-    });
-    const pages: string[] = [];
-    for (const number of numbers) {
-      pages.push(await readFile(join(root, name, `${number}.json`), "utf8"));
-    }
-    let marker: Marker | null = null;
-    if (files.includes(MARKER)) {
-      marker = readMarker(await readFile(join(root, name, MARKER), "utf8"), where);
-      if (marker.pages !== pages.length) {
-        throw new SyncError(
-          `${where}: the marker counts ${marker.pages} pages and ${pages.length} are there`,
-        );
-      }
-    }
-    runs.push({ name, marker, pages });
   }
   return runs;
 };

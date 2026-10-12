@@ -79,11 +79,14 @@ const fromTransaction = (kind: string, item: typeof DEBIT): Planted[] => [
 ];
 
 const PLANTED_CODE = "planted-code-7f3a9c1e";
+const PLANTED_TWICE = "twice-held-4c81d0e2";
 
 const PLANTED: Planted[] = [
   ...fromTransaction("debit", DEBIT),
   ...fromTransaction("credit", CREDIT),
+  // Every identifier planted below starts with this, so one entry covers them all.
   ["a transaction's identifier", "ref-secret"],
+  ["the identifier of a transaction a page held twice", PLANTED_TWICE],
   ["text from a bank's reply", "Recognisable"],
   ["an IBAN", "NL00"],
   ["the one-time code in a pasted address", PLANTED_CODE],
@@ -241,6 +244,32 @@ test("nothing a bank sent, and nothing that identifies a session, is printed on 
   ]) {
     assert.match(printed, outcome);
   }
+  await scan();
+});
+
+test("a page the merge refuses is reported by run and page, never by the transaction's identifier", async (t) => {
+  const world = await makeWorld();
+  t.after(world.cleanup);
+  const scan = watch(world);
+  await world.openSession("bnka");
+  await world.openSession("bnkb");
+  // One identifier, twice on one page, with different contents. It has come from a response
+  // and is stored nowhere yet.
+  world.add(A, debit(PLANTED_TWICE, "2026-02-20"));
+  world.add(A, credit(PLANTED_TWICE, "2026-02-20"));
+  assert.equal(await world.run("sync"), 1);
+
+  // The run stays in the inbox, so the next night says it again.
+  world.at("2026-03-02T03:00:00Z");
+  assert.equal(await world.run("sync"), 1);
+
+  const reports = world.lines.filter((line) =>
+    /^bnka-current: bnka-current, run 20260301T030000Z, page 1 holds the same transaction twice with different contents$/.test(
+      line,
+    ),
+  );
+  assert.equal(reports.length, 2);
+  assert.equal((await world.inbox("bnka-current")).length, 1);
   await scan();
 });
 
