@@ -31,11 +31,17 @@ sync (nightly)              import (by hand)
 | `status`                 | either      | Consent expiry and last successful sync, per bank.      |
 | `import <format> <file>` | the user    | Merges an exported file into the archive.               |
 
-Every command exits non-zero on any failure, with a message that says what to do.
+`auth` and `sync` take a lock in `STATE_DIR`, so only one of them writes at a time. `status` reads only.
+
+Every command exits non-zero on any failure, with a message that says what to do. The exit code is 0 or 1.
 
 ## Configuration
 
-**Environment variables** hold what is secret or specific to one machine: `EB_APP_ID`, the Enable Banking private key, `EB_REDIRECT_URL`, `CONFIG_PATH`, `DATA_DIR`, `STATE_DIR`, `LOOKBACK_DAYS` (default 30) and `CONSENT_WARN_DAYS` (default 14).
+**Environment variables** hold what is secret or specific to one machine: `EB_APP_ID`, `EB_PRIVATE_KEY` (the PEM file, base64-encoded), `EB_REDIRECT_URL`, `CONFIG_PATH`, `DATA_DIR`, `STATE_DIR`, `LOOKBACK_DAYS` (default 30) and `CONSENT_WARN_DAYS` (default 14). The two numbers are whole, 0 or more. `.env.example` documents each one.
+
+`DATA_DIR` and `STATE_DIR` must exist. Neither is ever created, so a missing mount is an error and never an empty archive.
+
+Every command checks all of this at startup, in two stages, and stops at the first stage that finds something. First the environment: every problem in it is reported together. Then, once the environment is sound, the two directories and the configuration file: every problem there is reported together. A message names a variable and never repeats its value.
 
 **A configuration file**, at `CONFIG_PATH`, holds what is structured: the banks, the accounts and the import formats.
 
@@ -73,46 +79,112 @@ One Enable Banking application serves all banks. It is registered once, in produ
 
 Interactive, run by the user in production, at most every 180 days per bank.
 
-1. Start an authorisation for the bank (`POST /auth`) and print the URL. Ask for the longest consent the bank supports, taken from `maximum_consent_validity`.
-2. The user approves with the bank. The browser lands on the redirect URL; the page does not load, which is expected. The user pastes the full URL back.
-3. Verify `state` and exchange the code for a session (`POST /sessions`).
-4. Match the session's accounts to the configured ones by IBAN. A configured, open account that the consent does not cover is an error that names it.
+1. Read the bank's entry from `GET /aspsps` by its exact configured name and country. It gives `maximum_consent_validity`, in seconds, and the PSU headers the bank lists as required, which are printed. Start an authorisation (`POST /auth`) for a personal consent, for transactions only, lasting that long, and print the URL.
+2. The user approves with the bank. The browser lands on the redirect URL; the page does not load, which is expected. The user pastes the full URL back. If the input ends without an answer, as it does without a terminal, the command fails with "no address was given", exits 1 and releases the lock.
+3. Verify `state` and exchange the code for a session (`POST /sessions`). The session's `valid_until` must be an RFC 3339 time, with `Z` or a numeric offset and a real calendar date. Anything else stops the command. It is stored as a UTC timestamp in whole seconds.
+4. Match the session's accounts to the configured ones by IBAN, ignoring spaces and case. A configured, open account that the consent does not cover, or covers without a `uid`, is an error that names it, and nothing is stored. So is a configured account whose IBAN matches more than one account in the consent: `auth` never picks one. Accounts in the consent that are not configured are counted and ignored.
 5. Store the session, its expiry and the account mapping under `STATE_DIR`.
-6. **Backfill at once**, before returning. See below.
+6. **Fetch at once**, before returning. See below. If a fetch fails here the session is already stored, the command exits non-zero, and `sync` continues the fetch.
+
+State that is already there for the bank is read before step 1, so state the sync cannot use stops the command before the user goes to the bank.
 
 ## The backfill
 
 Under PSD2, a bank may serve older history only while the user has just authenticated, and afterwards only the most recent 90 days. Some banks go further and allow the full history to be fetched once. So the fetch that follows an authorisation can reach further back than any later one, and may not be repeatable.
 
-- `auth` therefore fetches every account immediately, asking for the longest period the bank will give (`strategy=longest`).
-- It does this for each account that has no API records yet. A renewal for an account that already has data fetches from its last successful sync, like a nightly run.
+- An account with **no recorded success** is fetched over the longest period the bank will give (`strategy=longest`, no dates), by whichever command reaches it first. `auth` fetches every account immediately, so for a new account that is the fetch with the user present.
+- "No recorded success" rather than "no records": a backfill that died halfway, or a lost state volume, must get the deep fetch again. A renewal for an account that has a success fetches from it, like a nightly run.
+- `auth` decides this from the state as it finds it. An account that had no recorded success then is asked for the longest period, even when a completed run left in the inbox has just recorded one. So after lost state, `auth` always reaches as far back as the bank gives.
 - The first authorisation at a bank is not a test run. Do it only when the sync is finished and tested.
 
 Whether a deep backfill needs the PSU headers that mark the user as present is not yet known. See Open questions.
 
 ## Fetching: the inbox
 
-Every fetch, backfill or nightly, has two phases, so that nothing a bank returned can be lost between receiving it and merging it.
+Every fetch, backfill or nightly, has two phases, so that nothing a bank returned can be lost between receiving it and merging it. The inbox is the only way data moves from the first to the second: the merge reads pages from disk, never from memory, so a fresh fetch and one left by a run that died take the same path.
 
-1. **Receive.** Each page is written, exactly as received, to `$DATA_DIR/.inbox/<account key>/<run>/<n>.json` before the next page is requested. When the last page is in, a marker file completes the run.
-2. **Merge.** A completed run is merged into the year files, and then removed.
+```text
+$DATA_DIR/.inbox/<account key>/<run>/
+  1.json  2.json  ...     the pages, as received
+  complete.json           the marker
+```
 
-At startup, a completed run left in the inbox is merged first. An incomplete one is reported and left alone: for a nightly run it is fetched again, and for a backfill the pages that did arrive are still there.
+`<run>` is the run's start time, `YYYYMMDDTHHMMSSZ`.
+
+1. **Receive.** Each response with status 200 that parses as JSON is written, as received, by temporary file and rename, before the next page is requested. Any other response is not a page and is not kept. When the last page is in, the marker is written: the run's start time, its window and its page count.
+2. **Merge.** A run is merged into the year files, page by page, and then removed. Runs are merged oldest first. Merging one page at a time means that a transaction that changed at the bank between two pages becomes a revision instead of a contradiction.
+
+Before fetching, whatever the inbox already holds for the account is merged first:
+
+- **A completed run** is merged as if it had just been fetched, and its success is recorded with the start time in its marker. The bank is not asked again.
+- **An incomplete run is merged too.** Each page present is whole and is what the bank sent, and a partial batch cannot do harm, because the merge never deletes. No success is recorded for it and no missing-record check is made. A half-finished backfill's pages therefore reach the archive.
+- **A run the code cannot read stays, and stops its account**, every night, until the code is taught to read it or the user removes it by hand. Fetching past it could put revisions in the wrong order; removing it would discard something a bank sent.
+
+Details that matter when something goes wrong:
+
+- **"As received" means the text the response decodes to as UTF-8.** A byte order mark is dropped, and a byte sequence that is not valid UTF-8 becomes U+FFFD. The inbox is a buffer against a run dying, not a forensic copy.
+- **A merged run is removed in two steps.** Its directory is renamed to `.removed-<run>` and then deleted, and any `.removed-*` left by an earlier removal is deleted first. A run is therefore whole or hidden, never half there. Names starting with a dot are never listed as runs or pages.
+- **Durability.** Pages, markers and state are written to a temporary name, flushed, and renamed. The directory is not flushed after the rename, so the guarantee is against the process dying, not against power loss.
 
 ## The nightly run: `sync`
 
-For each bank, and each of its open accounts that the API can reach:
+One JWT is minted for the run. Then, for each bank, and each of its open accounts that the API can reach:
 
-1. Mint a fresh JWT.
-2. Fetch booked transactions from _last successful sync minus `LOOKBACK_DAYS`_ through today, following `continuation_key` until it is absent. Because the window is anchored on the last success, missed nights catch up on their own.
+1. Repair a record that an interrupted write left in two year files ([archive-format.md](archive-format.md)), and merge whatever the inbox holds.
+2. Fetch booked transactions from _last successful sync minus `LOOKBACK_DAYS`_ through today, following `continuation_key` until it is absent. Because the window is anchored on the last success, missed nights catch up on their own. An account with no recorded success is asked for the longest period instead.
 3. Send no PSU headers. The run is unattended.
-4. Merge, as defined in [archive-format.md](archive-format.md). The merge cannot tell that a stored record is missing from a fetch; the sync knows the window, so it is the sync that checks, keeps the record and logs a warning. Record the success in `STATE_DIR` only after the data is written.
+4. Merge, as defined in [archive-format.md](archive-format.md). Record the success in `STATE_DIR` only after the data is written. The success is the run's **start** time, so a transaction booked while the run was in progress falls inside the next window.
 
 Then:
 
-- **Banks fail separately.** An expired consent at one bank does not stop the others. The run finishes them, then exits non-zero and names what failed.
-- **Consent warnings.** `sync` and `status` warn when any consent expires within `CONSENT_WARN_DAYS`. In production a warning nobody sees is useless, so `status` exits non-zero inside that window. See [infra.md](infra.md).
-- **Logs hold counts, dates and keys only.** No amounts, account numbers, names or descriptions.
+- **Banks fail separately, and so do accounts.** An expired consent at one bank, or an error on one account, does not stop the others. The run finishes them, then exits non-zero and names what failed. A consent known to have expired makes no request at all. An error that says the consent is gone stops the rest of that bank's accounts.
+- **That holds for failures the code expects:** an API error, an expired or absent consent, a response that fails validation, state the sync did not write. An error it did not anticipate, such as a filesystem error or a bug, stops the whole run, later banks included, and exits non-zero.
+- **Missing records.** A stored record whose date lies inside a completed window and that the fetch did not return is kept, and makes the run exit non-zero, **once**: the account's state remembers which ids are missing, and only a newly missing one alerts. It means a bank withdrew a booking or changed an identifier. A backfill makes no such check, since its reach is not known.
+- **No clamp.** If a bank refuses a window that reaches further back than it serves unattended, the account fails with a message that says to run `auth`.
+- **A consent near its end** is logged by `sync` when it expires within `CONSENT_WARN_DAYS`, and that does not change the exit code. In production a line nobody reads is useless, so it is `status` that exits non-zero inside that window. See below, and [infra.md](infra.md).
+- **Logs hold counts, dates and keys only.** No amounts, account numbers, names or descriptions. The handler at the top prints a message only for the project's own errors. Any other error prints its class and code and nothing else, because a filesystem error carries a host path and a JSON syntax error quotes the text it failed on.
+
+## State
+
+One file per bank, `$STATE_DIR/<bank key>.json`, written by temporary file and rename, and validated when read.
+
+```json
+{
+  "session_id": "00000000-0000-4000-8000-000000000000",
+  "valid_until": "2027-04-09T10:00:00Z",
+  "accounts": {
+    "bnka-current": {
+      "uid": "00000000-0000-4000-8000-000000000001",
+      "last_success": "2026-10-11T03:00:00Z",
+      "missing": []
+    }
+  }
+}
+```
+
+- `auth` writes the session, its expiry and each `uid`. A renewal replaces those and keeps `last_success` and `missing`.
+- `last_success` is absent until the account's first completed fetch has been written.
+- **State is written after the data it describes.** A run that dies between the two leaves a completed run in the inbox, and the next run records the success without asking the bank.
+- **Losing it loses nothing permanent.** After a new `auth`, every account is fetched as far back as the bank gives, into the existing archive.
+- A file that is not what the sync wrote fails its bank, with a message that says to remove it and run `auth`.
+
+### The lock
+
+`auth` and `sync` take `$STATE_DIR/lock`, which holds the process id of the run, and release it when they end. The store assumes one writer per account and source; without the lock, a manual run overlapping the nightly one could overwrite what the other had just written.
+
+- **A lock whose process is alive stops the command**, with a message that says so.
+- **A lock whose process is gone is taken over.** So is one whose content is not a plain positive integer.
+- **It is never seen empty.** Its content is written to a temporary file that is then linked to the lock's name, which fails if the lock exists. `STATE_DIR` must therefore be on a filesystem with hard links.
+- **Taking over** renames the lock aside, and checks that what was moved is what was judged stale. If it is not, it is put back and the command stops.
+- **Releasing** removes the lock only if it still holds this process's id.
+
+One limit, stated plainly: **the lock only excludes runs that share a process-id namespace.** Whether a holder is alive is judged by its process id, and a lock naming the command's own id is treated as stale, because ids repeat inside a container. If the nightly job and a manual `auth` each run as process 1 in separate containers over one `STATE_DIR`, neither excludes the other. How the commands are run is the host's decision; the requirement is in [infra.md](infra.md).
+
+## Checking: `status`
+
+Makes no request and takes no lock. For each bank it prints the date the consent ends and the days left, and for each account the date of its last full fetch.
+
+It exits non-zero when a bank that has an account to fetch has no stored consent, or its consent has expired or expires within `CONSENT_WARN_DAYS`. The exit code is the warning.
 
 ## Bank constraints
 
@@ -126,12 +198,19 @@ These differ per bank. The sync assumes the strictest case and reads a bank's re
 
 ## Enable Banking details
 
-- **JWT:** RS256, header `kid` set to the application id, claims `iss: "enablebanking.com"`, `aud: "api.enablebanking.com"`, `iat` and `exp`. The lifetime may not exceed 24 hours; mint one per run.
+- **JWT:** RS256, header `kid` set to the application id, claims `iss: "enablebanking.com"`, `aud: "api.enablebanking.com"`, `iat` and `exp`. The API allows a lifetime of at most 24 hours. Each command mints one token, valid for an hour.
+- **One address.** Sandbox and production share `https://api.enablebanking.com`. Which one a request reaches is decided by the application the token names.
 - **Account `uid`s live only as long as their session** and change with every new consent. They are session state, never identity.
 - **Dates:** `date_from` and `date_to` are UTC dates.
+- **Booked only.** Transactions are requested with `transaction_status=BOOK`, and anything else that arrives is skipped and counted.
+- **`strategy=longest`** is sent without dates. It ignores `date_to`.
 - **Amount sign:** `transaction_amount` is unsigned; `credit_debit_indicator` gives the direction.
 - **Redirect URL** must be HTTPS. The registered one is `https://localhost/auth-callback`.
-- **Validate on arrival.** A response of an unexpected shape stops the run. A booked transaction without `entry_reference` or `booking_date` is such a response.
+- **Validate on arrival.** Each response is checked for the fields the code reads, by type as well as presence. One of an unexpected shape fails its account, or stops `auth`. A booked transaction without `entry_reference`, or without a `booking_date` that is a real date, is such a response.
+- **Numbers.** A page holding a number that JSON would write back differently is refused, since the stored copy would then differ from every later fetch.
+- **Paging.** A `continuation_key` the bank has already given during the same fetch stops the account with an error. Following it would never end.
+- **Errors.** A failed response is reduced to its HTTP status and its `error` code. Its `message` and `detail` are never kept. `EXPIRED_SESSION`, `REVOKED_SESSION`, `CLOSED_SESSION` and `SESSION_DOES_NOT_EXIST` mean the consent is gone.
+- **No retries, and a time limit on every request.**
 
 ## Import: `import <format> <file>`
 
@@ -160,17 +239,10 @@ Where an import overlaps what the API has fetched, both are stored and the reade
 
 ## What the sync and the import owe the archive
 
-The archive-format slice left these to the code that calls it:
+The archive-format slice left these to the import:
 
-- Check at startup that `DATA_DIR` exists. A missing directory reads as an empty archive.
-- A recovery path for a record found in two year files after an interrupted write. Reading reports it and stops.
-- Timestamps passed to `merge` are truncated to whole seconds.
-- Validate API responses at the boundary by type as well as presence: a value date that is a number, numbers that would not survive JSON unchanged. Hand `merge` only JSON-clean `raw`.
-- A stored record absent from a fetch window that should contain it is noticed here, since `merge` cannot see the window.
-- Filesystem errors carry host paths in their messages. The top-level handler decides what is logged.
-- The configuration validator should reject unknown keys, so a mistyped column name cannot silently yield nulls (import slice).
+- The configuration validator should reject unknown keys, so a mistyped column name cannot silently yield nulls.
 - An import format's `id` column must not point at a sensitive column, since identities appear in messages.
-- A new workspace's tests are not run until the root `test` script and `tsconfig.json` list it.
 
 The power-loss and single-writer limits are stated in [archive-format.md](archive-format.md).
 

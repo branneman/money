@@ -48,7 +48,7 @@ Only tiers 0 to 2 are needed for the sync. The rest arrive with the dashboard an
 
 Covers:
 
-- **the fetch window**: first run, a normal night, missed nights catching up, the two-year clamp, the year boundary, and UTC date handling;
+- **the fetch window**: an account with no recorded success, a normal night, missed nights catching up, the year boundary, and UTC date handling;
 - **merge**: new, known and unchanged, known and changed (the old version moves to `revisions`), the same id twice in a batch or in storage, and a timestamp without a real time of day;
 - **identity**: account, source and `id`, and nothing else. Two transactions that look identical on the same day stay two transactions;
 - **partitioning and ordering**: per account and source, by `booking_date` into years, sorted by date and `id`, with a missing booking date as an error;
@@ -67,7 +67,7 @@ Covers:
 
 **The timezone is pinned.** `npm test` sets `TZ=Europe/Amsterdam`. Bank dates are calendar dates in UTC, and the people reading them are an hour or two ahead of it. Under UTC, a test of that boundary passes against the very bug it exists to catch: a transaction booked on the 1st showing up on the 31st, or the other way round. Pinned to a zone that differs from UTC, the assertion means something. Tests that are about this boundary say so, and use instants just before and after midnight in both zones.
 
-**Logging is behaviour, so it is tested.** Logs may hold counts, dates and keys only, and job output leaves the production host on every run (see [infra.md](infra.md)). A unit test runs a sync over transactions with recognisable amounts, IBANs, names and descriptions, captures everything logged, and asserts none of those values appear.
+**Logging is behaviour, so it is tested.** Logs may hold counts, dates and keys only, and job output leaves the production host on every run (see [infra.md](infra.md)). `sync/src/leak.test.ts` drives the real commands over transactions with recognisable amounts, IBANs, names and descriptions, and with a recognisable key, session, account `uid`s and error texts, captures everything printed, and asserts none of those values appear. It covers runs that work and runs that fail, a refused authorisation, `status` in every state, a failed request and a refused start. Each test also checks that the path it scans was actually reached, so a scan of nothing cannot pass.
 
 ## Tier 2: sync convergence
 
@@ -82,6 +82,16 @@ In the archive-format slice these are stated over the pure core, before any sync
 - **Any order without revisions.** For histories whose transactions never change, overlapping batches in any order give the same view, and merging a batch again changes nothing.
 - **Source overlap.** The expected visible set is computed from the generated data, never from the code under test, and the view must match it exactly.
 
+With the sync built they are also stated over the real commands, in `sync/src/convergence.test.ts`: a generated bank history, a random schedule of nights, and runs that die at a named checkpoint or meet a failed request, ending with lost state and a new authorisation. Because that last backfill would repair a transaction a nightly run had wrongly skipped, the test also checks the archive just before it.
+
+- **Size.** 9 seeds of 20 nights each, crossing a year boundary, with one bank and one account. It takes about half a minute, which is most of the suite's time. Isolation between accounts and between banks is left to the named scenarios.
+- **The schedule is biased on purpose.** A night that leaves something in the inbox is usually followed by a change at the bank to a transaction served during that interrupted run. Those are the only schedules in which losing an inbox run loses a version, and chance alone almost never arranges them. The base schedule depends on the seed alone.
+- **What it asserts.** Every version the bank's own log says it served is in the archive. The archive holds no version the bank did not serve, and no record's history holds the same version twice in a row. The current version of every record is the last one served. The final archive equals what the bank holds, computed from the generator's own record, and equals the first fetch of a fresh world. And before the final backfill, every transaction that never changed and lies inside the nightly window is already held.
+- **Coverage guards.** The test fails if its schedules stop exercising what it exists for: runs dying at each of the four checkpoints, failed requests, incomplete runs of two or more pages, revised records, withdrawn records, and plain successful runs.
+- **The breaks it was seen to fail under**, each on the property's own assertion: dropping an incomplete run, merging only the run just received, ignoring the lookback, and merging only the first page of an incomplete run. Where a failure lands depends on the requests production makes, so a change to the generator or to how the sync asks means trying the breaks again.
+
+**A run that dies is reproduced with a checkpoint.** The commands call an injected function at four named points between their steps: after a page is written, after the run is received in full, after the data is written, and after the state is written. Production passes one that does nothing; a test passes one that throws at the point it wants. Nothing else about a crash is simulated: the files on disk are exactly what a real one would leave.
+
 These are expressed **property-based**: generate a random bank history and a random schedule of runs (skipped nights, repeated runs, runs on both sides of a year boundary, windows of different lengths, imports of overlapping files in between), run them, and compare the result against a single run over the full history. The normalised view must come out the same whatever the order. The generator is a small seeded PRNG, so a failure prints its seed and replays exactly. No property-testing library is needed for this.
 
 **A property test is not trusted until it has failed.** Before relying on one, break the code under test in a named way (for example, drop the revision, ignore the date, take the first of two duplicates) and see the property fail. Keep that habit for every new property.
@@ -89,22 +99,32 @@ These are expressed **property-based**: generate a random bank history and a ran
 Named scenarios pin the edges a generator reaches only by luck:
 
 - a second run with nothing new leaves every file **byte-for-byte identical**;
-- pagination: `continuation_key` is followed to the end, and a page that fails halfway writes nothing;
+- pagination: `continuation_key` is followed to the end, a repeated key stops the account, and a page that fails halfway writes nothing to the archive, while the pages that arrived are merged by the next run;
 - a transaction changes at the bank between two runs;
-- a transaction disappears from a window it falls inside: kept, and warned about (the merge cannot see this; the sync, which knows the window, does);
+- a transaction disappears from a window it falls inside: kept, and the run exits non-zero for it once (the merge cannot see this; the sync, which knows the window, does);
 - a run that dies between the temporary write and the rename leaves the previous file intact;
 - a run that dies after receiving pages and before merging is finished from the inbox by the next run, without asking the bank again;
-- a backfill that dies halfway keeps the pages it received;
+- a backfill that dies halfway keeps the session and the pages it received, and `sync` continues it;
 - one bank's consent has expired: the other banks are synced in full, and the run still exits non-zero;
+- accounts fail separately: one account's error leaves the rest synced, unless it says the consent is gone;
+- an error nobody expected stops the whole run and prints only its class and code;
+- a run in the inbox that the code cannot read stops its account, and stays;
+- a record left in two year files by an interrupted write is repaired before the account is read;
+- a lock held by a live run stops `auth` and `sync`, one left by a dead run does not, and `status` ignores it;
+- `auth` end to end: a first authorisation, a renewal, a pasted address with another `state`, an account the consent does not cover, two accounts under one IBAN, input that ends at the prompt, and lost state with a completed run still in the inbox;
 - state is written after data, so a crash between the two is repaired by the next run and never skips a window;
-- an expired consent exits non-zero, says to run `auth`, and writes nothing;
+- an expired consent exits non-zero, says to run `auth`, and makes no request;
 - no PSU headers are sent, asserted on the requests the fake bank received.
 
-**The fake bank** is a real implementation of the Enable Banking endpoints the sync uses, held in memory and handed to the code as its `fetch`. It holds a transaction history, serves pages with continuation keys, and records the requests it received. It can be told to fail on the nth call. It is not a table of canned responses: the sync asks it questions and it answers from its state, which is what lets the property tests generate histories freely.
+**The fake bank** is a real implementation of the Enable Banking endpoints the sync uses, held in memory and handed to the code as its `fetch`. It holds a transaction history, serves pages with continuation keys, and records the requests it received. It can be told to fail on the nth call. It is not a table of canned responses: the sync asks it questions and it answers from its state, which is what lets the property tests generate histories freely. It lives in `sync/testing/fake-bank.ts`, and returns error responses whose `message` and `detail` are recognisable, so any test can assert that neither was printed. `sync/testing/world.ts` wraps it with a temporary directory and a clock the test moves.
+
+**The fake bank is strict**, because a lenient one would let the commands' tests pass for the wrong reason. It verifies the token on every request: its signature, application id, issuer, audience and lifetime. It records each continuation key it issues, and accepts one only for the same account and the exact same query. It works out a paged answer once, at its first page, so later pages do not shift under a change at the bank. It refuses unknown or malformed query parameters.
 
 **A slice that adds a behaviour to the sync adds it to the generator, not only to the scenarios.** A case absent from the generator has no property coverage, however many scenarios name it.
 
 **What this tier cannot prove** is that the fake matches the real API. Validation at the boundary limits the damage, since an unexpected shape fails loudly instead of being stored wrong. Closing the gap properly is Tier 4's job.
+
+**`sync/src/cli.ts` is not run by any test.** It is the only edge: it supplies the real environment, clock, network and terminal, and the tests call the function below it with fakes. What covers it is the type-check, and running the commands by hand against the sandbox.
 
 ## Test data
 
@@ -168,4 +188,4 @@ npm run fixtures    # regenerate fixtures/archive/ after changing the generator
 | Pinned test timezone                     | in place (`npm test`)                                   |
 | Workspace-link check, dependency rule    | in place                                                |
 | CI                                       | in place                                                |
-| Tier 1 and Tier 2 suites                 | arrive with the code they test                          |
+| Tier 1 and Tier 2 suites                 | in place for `shared` and `sync`                        |

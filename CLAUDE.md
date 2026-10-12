@@ -25,7 +25,7 @@ The production system handles real bank data. That data must stay in the EU, so 
 - `npm run lint`: ESLint. `npm run format`: Prettier, writing. `npm run format:check`: Prettier, checking.
 - `npm run fixtures`: regenerate `fixtures/archive/` after changing the generator. Never edit the year files by hand; a test fails if they drift from the generator.
 - The pre-commit hook (`.githooks/pre-commit`) runs typecheck, lint, format check and tests on the whole repo. Never bypass it with `--no-verify`.
-- Once `sync` exists: `node --env-file=.env.sandbox sync/src/cli.ts <auth <bank> | sync | status | import <format> <file>>`, against the sandbox only.
+- `node --env-file=.env.sandbox sync/src/cli.ts <auth <bank> | sync | status>`, against the sandbox only. `import` arrives with its slice.
 
 ## Code conventions
 

@@ -57,7 +57,7 @@ The store (`@money/shared/node`) is the only code that touches the files. It wri
 Limits, stated plainly:
 
 - The guarantee covers a process crash. For power loss it relies on the filesystem keeping directory operations in order, because the directory is not flushed.
-- After a crash a record can sit in two year files. Reading reports it and stops. Repair is manual until the sync adds a recovery path.
+- After a crash a record can sit in two year files. Reading reports it and stops. The sync repairs this before it reads an account, when the two copies are what an interrupted write leaves: the later one is the earlier one plus one or more revisions, the first of them holding the earlier one's `raw`. One write can add several revisions, because a fetch is merged page by page. Any other pair is reported and left alone.
 - The store assumes one writer per account and source, which the layout already gives it.
 
 ## Records
