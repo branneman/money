@@ -104,7 +104,7 @@ Named scenarios pin the edges a generator reaches only by luck:
 - a transaction disappears from a window it falls inside: kept, and the run exits non-zero for it once (the merge cannot see this; the sync, which knows the window, does);
 - a run that dies between the temporary write and the rename leaves the previous file intact;
 - a run that dies after receiving pages and before merging is finished from the inbox by the next run, without asking the bank again;
-- a backfill that dies halfway keeps the session and the pages it received, and `sync` continues it;
+- a backfill that dies halfway keeps the session and the pages it received, and `sync` continues it, with what the bank serves unattended, which is why `auth` is to be run again first ([sync.md](sync.md));
 - one bank's consent has expired: the other banks are synced in full, and the run still exits non-zero;
 - accounts fail separately: one account's error leaves the rest synced, unless it says the consent is gone;
 - an error nobody expected stops the whole run and prints only its class and code;
