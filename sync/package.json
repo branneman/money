@@ -1,0 +1,8 @@
+{
+  "name": "@money/sync",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@money/shared": "*"
+  }
+}
