@@ -139,6 +139,13 @@ export const checkAuthStart = (value: unknown): { url: string } => {
   return { url: value.url };
 };
 
+const RFC_3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+
+// Date.parse guesses (no offset reads as the host local time, a bare year parses), so the
+// shape is checked first.
+const isTimestamp = (text: string): boolean =>
+  RFC_3339.test(text) && isIsoDate(text.slice(0, 10)) && !Number.isNaN(Date.parse(text));
+
 export type Session = {
   sessionId: string;
   validUntil: string;
@@ -152,7 +159,7 @@ export const checkSession = (value: unknown): Session => {
     throw new ResponseError("the session has no usable session_id");
   }
   const until = isObject(value.access) ? value.access.valid_until : undefined;
-  if (!isText(until) || Number.isNaN(Date.parse(until))) {
+  if (!isText(until) || !isTimestamp(until)) {
     throw new ResponseError("the session has no usable access.valid_until");
   }
   if (!Array.isArray(value.accounts)) {

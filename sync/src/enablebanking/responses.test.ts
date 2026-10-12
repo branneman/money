@@ -237,3 +237,22 @@ test("a session of an unexpected shape is refused", () => {
     "the session's accounts, entry 1 is not an object",
   );
 });
+
+// Date.parse guesses: no offset reads as the host local time, and "2027" or "5" parse too.
+test("an expiry that is not a full RFC 3339 timestamp is refused, not guessed", () => {
+  for (const text of [
+    "2027-04-09T10:00:00",
+    "2027",
+    "2027-04-09",
+    "April 9, 2027",
+    "5",
+    "session 7",
+    "2027-04-09T10:00Z",
+    "2027-02-30T10:00:00Z",
+  ]) {
+    refused(
+      () => checkSession(session({ access: { valid_until: text } })),
+      "the session has no usable access.valid_until",
+    );
+  }
+});
