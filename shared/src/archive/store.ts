@@ -3,9 +3,10 @@ import type { Dirent } from "node:fs";
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { parseYearFile, YEAR_FILE } from "./files.ts";
+import { parseYearFile, renderYearFiles, YEAR_FILE } from "./files.ts";
 import { ACCOUNT_KEY, ArchiveError, identityOf } from "./record.ts";
 import type { ArchiveRecord, Source } from "./record.ts";
+import { laterCopy } from "./recover.ts";
 import { planWrites } from "./writes.ts";
 
 const SOURCES: readonly Source[] = ["api", "import"];
@@ -43,18 +44,29 @@ const yearFileNames = async (dir: string, label: string): Promise<string[]> => {
   return found.map((entry) => entry.name).toSorted();
 };
 
-export const readAccountSource = async (
+// Every record in every year file of one account and source, as stored. One record may
+// appear twice here; readAccountSource is what refuses that.
+const readYearFiles = async (
   dataDir: string,
   account: string,
   source: Source,
 ): Promise<ArchiveRecord[]> => {
-  checkLocation(account, source);
   const dir = join(dataDir, account, source);
   const records: ArchiveRecord[] = [];
   for (const name of await yearFileNames(dir, `${account}/${source}`)) {
     const text = await readFile(join(dir, name), "utf8");
     records.push(...parseYearFile(text, { account, source, year: name.slice(0, 4) }));
   }
+  return records;
+};
+
+export const readAccountSource = async (
+  dataDir: string,
+  account: string,
+  source: Source,
+): Promise<ArchiveRecord[]> => {
+  checkLocation(account, source);
+  const records = await readYearFiles(dataDir, account, source);
   const seen = new Set<string>();
   for (const record of records) {
     if (seen.has(record.id)) {
@@ -119,4 +131,35 @@ export const writeYearFiles = async (
     written.add(step.name);
   }
   return { written: [...written].toSorted(), removed };
+};
+
+// Repairs what a write interrupted between two year files leaves behind: a revised record
+// in its new year and its earlier version still in the old one. Keeps the revised copy and
+// rewrites through the ordinary plan. Returns how many records it resolved. Anything else
+// stored twice is reported and nothing is written.
+export const recoverAccountSource = async (
+  dataDir: string,
+  account: string,
+  source: Source,
+): Promise<number> => {
+  checkLocation(account, source);
+  const copies = Map.groupBy(await readYearFiles(dataDir, account, source), (record) => record.id);
+  const kept: ArchiveRecord[] = [];
+  let recovered = 0;
+  for (const found of copies.values()) {
+    if (found.length === 1) {
+      kept.push(found[0]);
+      continue;
+    }
+    const later = found.length === 2 ? laterCopy(found[0], found[1]) : null;
+    if (later === null) {
+      throw new ArchiveError(
+        `${identityOf(found[0])} is stored in more than one year file, and not in the way an interrupted write leaves it`,
+      );
+    }
+    kept.push(later);
+    recovered += 1;
+  }
+  if (recovered > 0) await writeYearFiles(dataDir, account, source, renderYearFiles(kept));
+  return recovered;
 };

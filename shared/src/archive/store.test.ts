@@ -8,7 +8,7 @@ import { anApiRecord, anImportRecord } from "../../testing/factories.ts";
 import { renderYearFiles } from "./files.ts";
 import { ArchiveError } from "./record.ts";
 import type { Source } from "./record.ts";
-import { readAccountSource, readArchive, writeYearFiles } from "./store.ts";
+import { readAccountSource, readArchive, recoverAccountSource, writeYearFiles } from "./store.ts";
 
 let dir = "";
 beforeEach(async () => {
@@ -211,4 +211,51 @@ test("a record that moves while another stays ends up stored exactly once", asyn
   const moved = { ...a, date: "2026-03-01" };
   await write([c, moved]);
   assert.deepEqual(await readAccountSource(dir, "bnka-current", "api"), [c, moved]);
+});
+
+const revisedInto2026 = {
+  ...a,
+  date: "2026-06-01",
+  revisions: [{ replaced_at: "2026-06-02T03:00:00Z", raw: a.raw }],
+  raw: { ...a.raw, booking_date: "2026-06-01" },
+};
+const leaveDoubled = async (copy: typeof a): Promise<void> => {
+  const text = renderYearFiles([copy]).get("2026.json") ?? "";
+  await writeFile(join(dir, "bnka-current", "api", "2026.json"), text);
+};
+
+test("an archive with nothing doubled is left exactly as it is", async () => {
+  await write([a, b]);
+  const before = (await stat(join(dir, "bnka-current", "api", "2025.json"))).mtimeMs;
+  assert.equal(await recoverAccountSource(dir, "bnka-current", "api"), 0);
+  assert.equal((await stat(join(dir, "bnka-current", "api", "2025.json"))).mtimeMs, before);
+  assert.equal(await recoverAccountSource(dir, "bnka-joint", "api"), 0);
+});
+
+test("a record left in two year files by an interrupted write is recovered", async () => {
+  const stays = anApiRecord({ id: "c", date: "2025-07-01" });
+  await write([a, stays]);
+  await leaveDoubled(revisedInto2026);
+  await assert.rejects(readAccountSource(dir, "bnka-current", "api"), ArchiveError);
+
+  assert.equal(await recoverAccountSource(dir, "bnka-current", "api"), 1);
+  assert.deepEqual(await readAccountSource(dir, "bnka-current", "api"), [stays, revisedInto2026]);
+});
+
+test("recovery removes a year file that held only the earlier copy", async () => {
+  await write([a]);
+  await leaveDoubled(revisedInto2026);
+  assert.equal(await recoverAccountSource(dir, "bnka-current", "api"), 1);
+  assert.deepEqual(await readdir(join(dir, "bnka-current", "api")), ["2026.json"]);
+});
+
+test("two copies that an interrupted write does not explain are reported and left alone", async () => {
+  await write([a]);
+  await leaveDoubled({ ...a, date: "2026-06-01" });
+  const before = (await readdir(dir, { recursive: true })).toSorted();
+  await assert.rejects(
+    recoverAccountSource(dir, "bnka-current", "api"),
+    /bnka-current\/api\/a is stored in more than one year file, and not in the way an interrupted write leaves it/,
+  );
+  assert.deepEqual((await readdir(dir, { recursive: true })).toSorted(), before);
 });
