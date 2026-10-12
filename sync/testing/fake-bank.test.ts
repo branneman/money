@@ -425,3 +425,23 @@ test("a body that is not JSON is a bad request, not a broken connection", async 
     "WRONG_REQUEST_PARAMETERS",
   );
 });
+
+test("two first pages in the same instant get keys of their own", async () => {
+  const { aspsp, bank, call, uidOf } = setup(threeInOrder({ note: "old" }));
+  const uid = await uidOf();
+  bank.pageSize = 1;
+  const path = `/accounts/${uid}/transactions?strategy=longest`;
+  const notes = (body: Record<string, unknown>) =>
+    (body.transactions as { note: string }[]).map((item) => item.note);
+  const firstRun = await call("GET", path);
+  aspsp.accounts[0].transactions[1].push({
+    from: "2026-03-01T03:00:00Z",
+    raw: booked("b", "2026-02-10", { note: "new" }),
+  });
+  const secondRun = await call("GET", path);
+  assert.notEqual(firstRun.body.continuation_key, secondRun.body.continuation_key);
+  const more = (run: { body: Record<string, unknown> }) =>
+    call("GET", `${path}&continuation_key=${String(run.body.continuation_key)}`);
+  assert.deepEqual(notes((await more(secondRun)).body), ["new"]);
+  assert.deepEqual(notes((await more(firstRun)).body), ["old"]);
+});

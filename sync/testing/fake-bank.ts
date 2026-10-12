@@ -88,9 +88,10 @@ export const makeFakeBank = (options: {
   // pages through, fixed when the first page was asked.
   const issued = new Map<
     string,
-    { uid: string; query: string; list: Record<string, unknown>[] }[]
+    { uid: string; query: string; asOf: number; offset: number; list: Record<string, unknown>[] }
   >();
   let counter = 0;
+  let keys = 0;
   let received = 0;
 
   const nextId = (): string => {
@@ -282,10 +283,11 @@ export const makeFakeBank = (options: {
     );
     const key = query.get("continuation_key");
     if (key !== null) {
-      const match = /^k-(\d+)-(\d+)$/.exec(key);
-      const entry = issued.get(key)?.find((item) => item.uid === uid && item.query === requested);
-      if (match === null || entry === undefined) return refuse(400, "WRONG_CONTINUATION_KEY");
-      return page(entry.list, Number(match[1]), Number(match[2]), uid, requested, account);
+      const entry = issued.get(key);
+      if (entry?.uid !== uid || entry.query !== requested) {
+        return refuse(400, "WRONG_CONTINUATION_KEY");
+      }
+      return page(entry.list, entry.offset, entry.asOf, uid, requested, account);
     }
 
     const today = new Date(now).toISOString().slice(0, 10);
@@ -330,8 +332,10 @@ export const makeFakeBank = (options: {
     const items = list.slice(offset, end);
     for (const raw of items) bank.served.push({ iban: account.iban, raw });
     if (end >= list.length) return answer(200, { transactions: items, continuation_key: null });
-    const key = `k-${end}-${asOf}`;
-    issued.set(key, [...(issued.get(key) ?? []), { uid, query, list }]);
+    // The counter makes every key unique, even for two first pages in one instant.
+    keys += 1;
+    const key = `k-${end}-${asOf}-${keys}`;
+    issued.set(key, { uid, query, asOf, offset: end, list });
     return answer(200, { transactions: items, continuation_key: key });
   };
 
