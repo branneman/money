@@ -3,7 +3,7 @@ import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { booked, makeWorld } from "../testing/world.ts";
+import { booked, makeWorld, REDIRECT_URL, worldAspsps } from "../testing/world.ts";
 
 const A = "NL00BNKA0000000001";
 const B = "NL00BNKB0000000001";
@@ -95,6 +95,93 @@ test("nothing a bank sent, and nothing that identifies a session, is ever printe
     ...sessions,
   ];
   for (const text of forbidden) {
+    assert.ok(!printed.includes(text), `something printed holds ${text.slice(0, 8)}...`);
+  }
+});
+
+const PLANTED_CODE = "planted-code-7f3a9c1e";
+
+test("a refused authorisation never prints what was pasted, nor what identifies an account", async (t) => {
+  const aspsps = worldAspsps();
+  aspsps[0].accounts.push({ iban: A, transactions: [] });
+  const world = await makeWorld({ aspsps: aspsps.slice(0, 1) });
+  t.after(world.cleanup);
+  const pastes: string[] = [];
+  const pasting = (text: string): void => {
+    world.paste = () => text;
+    pastes.push(text);
+  };
+
+  // An address of this application, for another authorisation, carrying a one-time code.
+  pasting(`${REDIRECT_URL}?state=another-state&code=${PLANTED_CODE}`);
+  assert.equal(await world.run("auth", "bnka"), 1);
+
+  // Not an address at all.
+  pasting(`not an address ${PLANTED_CODE}`);
+  assert.equal(await world.run("auth", "bnka"), 1);
+
+  // An address, but of some other site.
+  pasting(`https://elsewhere.example/auth-callback?state=state-from-the-test&code=${PLANTED_CODE}`);
+  assert.equal(await world.run("auth", "bnka"), 1);
+
+  // The bank refused, and said why in a way that is not ours to print.
+  pasting(`${REDIRECT_URL}?error=access_denied&error_description=${PLANTED_CODE}`);
+  assert.equal(await world.run("auth", "bnka"), 1);
+
+  // A consent that holds two accounts with one iban.
+  world.paste = (url) => world.bank.approve(url);
+  assert.equal(await world.run("auth", "bnka"), 1);
+
+  // A consent that leaves an account out.
+  world.paste = (url) => world.bank.approve(url, { only: ["NL00BNKA0000000002"] });
+  assert.equal(await world.run("auth", "bnka"), 1);
+
+  const printed = world.lines.join("\n");
+  for (const outcome of [
+    /that address belongs to another authorisation/,
+    /that is not an address/,
+    /that is not the redirect address of this application/,
+    /the bank did not grant the consent/,
+    /bnka-current: the consent covers more than one account with its iban/,
+    /bnka-current: the consent does not cover it/,
+  ]) {
+    assert.match(printed, outcome);
+  }
+
+  const forbidden = [PLANTED_CODE, "another-state", "elsewhere.example", "NL00", ...pastes];
+  for (const text of forbidden) {
+    assert.ok(!printed.includes(text), `something printed holds ${text.slice(0, 8)}...`);
+  }
+});
+
+test("status never prints a session or an account, however things stand", async (t) => {
+  const world = await makeWorld();
+  t.after(world.cleanup);
+
+  // A bank never authorised, next to one that was.
+  const uids = Object.values(await world.openSession("bnka"));
+  assert.equal(await world.run("status"), 1);
+
+  // Both inside the warning window.
+  uids.push(...Object.values(await world.openSession("bnkb")));
+  world.at("2026-08-25T03:00:00Z");
+  assert.equal(await world.run("status"), 1);
+
+  // Both expired.
+  world.at("2026-09-30T03:00:00Z");
+  assert.equal(await world.run("status"), 1);
+
+  const printed = world.lines.join("\n");
+  for (const outcome of [/no consent is stored/, /days from now\. Run: auth/, /expired on/]) {
+    assert.match(printed, outcome);
+  }
+
+  const sessions = [await world.state("bnka"), await world.state("bnkb")].flatMap((state) =>
+    state === null ? [] : [state.session_id],
+  );
+  assert.equal(sessions.length, 2);
+  assert.equal(uids.length, 3);
+  for (const text of ["NL00", ...sessions, ...uids]) {
     assert.ok(!printed.includes(text), `something printed holds ${text.slice(0, 8)}...`);
   }
 });
