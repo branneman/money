@@ -33,6 +33,8 @@ sync (nightly)              import (by hand)
 
 `auth` and `sync` take a lock in `STATE_DIR`, so only one of them writes at a time. `status` reads only.
 
+Under the lock, and before any request, `auth` and `sync` prove that `DATA_DIR` can be written where a fetch writes first: they create `DATA_DIR/.inbox` if it is absent, write a dot-prefixed file in it, and remove it. Startup checks only that the directory exists, and everything before the first page only reads, so without this a data volume mounted read-only would be found after the bank had answered. A failure says `DATA_DIR cannot be written`, with the error's code, and never the path.
+
 Every command exits non-zero on any failure, with a message that says what to do. The exit code is 0 or 1.
 
 ## Configuration
@@ -84,9 +86,13 @@ Interactive, run by the user in production, at most every 180 days per bank.
 3. Verify `state` and exchange the code for a session (`POST /sessions`). The session's `valid_until` must be an RFC 3339 time, with `Z` or a numeric offset and a real calendar date. Anything else stops the command. It is stored as a UTC timestamp in whole seconds.
 4. Match the session's accounts to the configured ones by IBAN, ignoring spaces and case. A configured, open account that the consent does not cover, or covers without a `uid`, is an error that names it, and nothing is stored. So is a configured account whose IBAN matches more than one account in the consent: `auth` never picks one. Accounts in the consent that are not configured are counted and ignored.
 5. Store the session, its expiry and the account mapping under `STATE_DIR`.
-6. **Fetch at once**, before returning. See below. If a fetch fails here the session is already stored, the command exits non-zero, and `sync` continues the fetch.
+6. **Fetch at once**, before returning. See below. If a fetch fails here the session is already stored, and the command exits non-zero and names the accounts not fetched in full. It says to run `auth` again now, and why: see "When the first fetch is not whole", below. An error the code did not expect stops the command as it does anywhere, but the same line is printed first, naming every account of the bank, since the user has been to the bank and must learn that the consent is kept.
 
-State that is already there for the bank is read before step 1, so state the sync cannot use stops the command before the user goes to the bank.
+A renewing `auth`, like `sync`, exits 1 when a stored record is newly missing from a window that should hold it.
+
+**What can be found out before the bank visit is.** Before step 1, `auth` reads the state that is already there for the bank, and for each account it is about to fetch does what the fetch does first anyway: repairs a record left in two year files, reads the account's API records, and lists the runs in its inbox. State the sync cannot use, a year file it cannot read, or an inbox run that is not what the sync wrote, therefore stops the command before the user goes to the bank, with the message the fetch would have given. Nothing is merged at this point, and nothing is written unless a record needed repair.
+
+**A token per request.** The user may take longer at the bank than a token lasts, and a deep backfill may too, so no token is kept: each request carries one minted for it.
 
 ## The backfill
 
@@ -98,6 +104,22 @@ Under PSD2, a bank may serve older history only while the user has just authenti
 - The first authorisation at a bank is not a test run. Do it only when the sync is finished and tested.
 
 Whether a deep backfill needs the PSU headers that mark the user as present is not yet known. See Open questions.
+
+### When the first fetch is not whole
+
+If `auth` ends with an account not fetched in full, **run `auth <bank>` again, at once, before the nightly job runs.** The command says so:
+
+```text
+The consent is stored. Not fetched in full: bnka-current. Run auth bnka again now: only then can the bank be asked for the whole history. The nightly sync will otherwise continue with what the bank serves unattended.
+```
+
+The reason is what the nightly `sync` would do with such an account. It has no recorded success, so `sync` asks for the longest period, but by then the bank no longer treats the user as present and gives only what it serves unattended. That fetch completes, and a completed fetch records the account's success. From then on every `auth` is a renewal with a dated window, and the older history is never asked for again. A second `auth` finds the account still without a success, and asks for the longest period with the user present.
+
+What arrived before the failure is not lost either way: the pages are in the inbox, and whichever command runs next merges them.
+
+One case where the dated window is harmless: a completed run left in the inbox records its success when it is merged, so if `auth`'s own longest fetch then dies, the next `sync` sends a dated window for that account. The archive already holds the earlier history in that case, from the run that completed.
+
+Whether an unattended longest-period fetch that completes should count as the account's first success at all is an open question for the owner. See Open questions.
 
 ## Fetching: the inbox
 
@@ -116,19 +138,21 @@ $DATA_DIR/.inbox/<account key>/<run>/
 
 Before fetching, whatever the inbox already holds for the account is merged first:
 
-- **A completed run** is merged as if it had just been fetched, and its success is recorded with the start time in its marker. The bank is not asked again.
+- **A completed run** is merged as if it had just been fetched, and its success is recorded with the start time in its marker. The bank is not asked for it again.
 - **An incomplete run is merged too.** Each page present is whole and is what the bank sent, and a partial batch cannot do harm, because the merge never deletes. No success is recorded for it and no missing-record check is made. A half-finished backfill's pages therefore reach the archive.
-- **A run the code cannot read stays, and stops its account**, every night, until the code is taught to read it or the user removes it by hand. Fetching past it could put revisions in the wrong order; removing it would discard something a bank sent.
+- **A run the code cannot read stays, and stops its account**, every night, until the code is taught to read it or the user removes it by hand. Fetching past it could put revisions in the wrong order; removing it would discard something a bank sent. The account's failure is followed by a line that names the way out: the run's name, that it stays in `.inbox/<account>/<run>` and stops the account until it can be read, and that nothing has been removed. That holds for a page that fails validation, a page the merge refuses, and a run whose pages or marker are not what the sync wrote.
+- **A page the merge refuses is reported by run and page, never by identifier.** The one thing the merge can still refuse on a validated page is a transaction that appears on it twice with different contents. The message says that, and names the account, the run and the page number. It does not name the transaction: the identifier has come from a response and is stored nowhere yet, and the line is printed every night for as long as the run stays.
+- **Only an account that is fetched has its inbox merged.** The inbox of an account that is closed, that loses its `iban`, or whose bank's consent has expired is not merged until the account can be fetched again, and nothing reports that pages are waiting there.
 
 Details that matter when something goes wrong:
 
 - **"As received" means the text the response decodes to as UTF-8.** A byte order mark is dropped, and a byte sequence that is not valid UTF-8 becomes U+FFFD. The inbox is a buffer against a run dying, not a forensic copy.
 - **A merged run is removed in two steps.** Its directory is renamed to `.removed-<run>` and then deleted, and any `.removed-*` left by an earlier removal is deleted first. A run is therefore whole or hidden, never half there. Names starting with a dot are never listed as runs or pages.
-- **Durability.** Pages, markers and state are written to a temporary name, flushed, and renamed. The directory is not flushed after the rename, so the guarantee is against the process dying, not against power loss.
+- **Durability.** Pages, markers and state are written to a temporary name, flushed, and renamed. The directory is not flushed after the rename, so the guarantee is against the process dying, not against power loss. The ordering relied on spans three directories: the year files, the state and the inbox.
 
 ## The nightly run: `sync`
 
-One JWT is minted for the run. Then, for each bank, and each of its open accounts that the API can reach:
+The run first proves that `DATA_DIR` can be written (see Commands). Every request carries a JWT minted for it. Then, for each bank, and each of its open accounts that the API can reach:
 
 1. Repair a record that an interrupted write left in two year files ([archive-format.md](archive-format.md)), and merge whatever the inbox holds.
 2. Fetch booked transactions from _last successful sync minus `LOOKBACK_DAYS`_ through today, following `continuation_key` until it is absent. Because the window is anchored on the last success, missed nights catch up on their own. An account with no recorded success is asked for the longest period instead.
@@ -139,7 +163,7 @@ Then:
 
 - **Banks fail separately, and so do accounts.** An expired consent at one bank, or an error on one account, does not stop the others. The run finishes them, then exits non-zero and names what failed. A consent known to have expired makes no request at all. An error that says the consent is gone stops the rest of that bank's accounts.
 - **That holds for failures the code expects:** an API error, an expired or absent consent, a response that fails validation, state the sync did not write. An error it did not anticipate, such as a filesystem error or a bug, stops the whole run, later banks included, and exits non-zero.
-- **Missing records.** A stored record whose date lies inside a completed window and that the fetch did not return is kept, and makes the run exit non-zero, **once**: the account's state remembers which ids are missing, and only a newly missing one alerts. It means a bank withdrew a booking or changed an identifier. A backfill makes no such check, since its reach is not known.
+- **Missing records.** A stored record whose date lies inside a completed window and that the fetch did not return is kept, and makes the run exit non-zero, **once**: the account's state remembers which ids are missing, and only a newly missing one alerts. It means a bank withdrew a booking or changed an identifier. The line that reports it is printed before the state remembers the ids, so a run that dies between the two has still said it. A backfill makes no such check, since its reach is not known.
 - **No clamp.** If a bank refuses a window that reaches further back than it serves unattended, the account fails with a message that says to run `auth`.
 - **A consent near its end** is logged by `sync` when it expires within `CONSENT_WARN_DAYS`, and that does not change the exit code. In production a line nobody reads is useless, so it is `status` that exits non-zero inside that window. See below, and [infra.md](infra.md).
 - **Logs hold counts, dates and keys only.** No amounts, account numbers, names or descriptions. The handler at the top prints a message only for the project's own errors. Any other error prints its class and code and nothing else, because a filesystem error carries a host path and a JSON syntax error quotes the text it failed on.
@@ -198,7 +222,7 @@ These differ per bank. The sync assumes the strictest case and reads a bank's re
 
 ## Enable Banking details
 
-- **JWT:** RS256, header `kid` set to the application id, claims `iss: "enablebanking.com"`, `aud: "api.enablebanking.com"`, `iat` and `exp`. The API allows a lifetime of at most 24 hours. Each command mints one token, valid for an hour.
+- **JWT:** RS256, header `kid` set to the application id, claims `iss: "enablebanking.com"`, `aud: "api.enablebanking.com"`, `iat` and `exp`. The API allows a lifetime of at most 24 hours. A token is minted for each request, valid for an hour, so a command that runs longer than that, as an `auth` can, never sends an expired one.
 - **One address.** Sandbox and production share `https://api.enablebanking.com`. Which one a request reaches is decided by the application the token names.
 - **Account `uid`s live only as long as their session** and change with every new consent. They are session state, never identity.
 - **Dates:** `date_from` and `date_to` are UTC dates.
@@ -207,7 +231,9 @@ These differ per bank. The sync assumes the strictest case and reads a bank's re
 - **Amount sign:** `transaction_amount` is unsigned; `credit_debit_indicator` gives the direction.
 - **Redirect URL** must be HTTPS. The registered one is `https://localhost/auth-callback`.
 - **Validate on arrival.** Each response is checked for the fields the code reads, by type as well as presence. One of an unexpected shape fails its account, or stops `auth`. A booked transaction without `entry_reference`, or without a `booking_date` that is a real date, is such a response.
-- **Numbers.** A page holding a number that JSON would write back differently is refused, since the stored copy would then differ from every later fetch.
+- **Numbers.** A page holding a number that JSON would write back differently is refused, since the stored copy would then differ from every later fetch. The rule is for pages only, because only pages are stored: the list of banks, an authorisation and a session are parsed as plain JSON, so a number in a field nobody reads cannot refuse a session after its one-time code is spent.
+- **The list of banks.** Only the entry asked for is checked. Any other entry is passed over, including one that is not an object.
+- **No answer.** A request that fails without a response is reported as no answer, with the error's name when that is a plain word, such as `TimeoutError`, and otherwise its class.
 - **Paging.** A `continuation_key` the bank has already given during the same fetch stops the account with an error. Following it would never end.
 - **Errors.** A failed response is reduced to its HTTP status and its `error` code. Its `message` and `detail` are never kept. `EXPIRED_SESSION`, `REVOKED_SESSION`, `CLOSED_SESSION` and `SESSION_DOES_NOT_EXIST` mean the consent is gone.
 - **No retries, and a time limit on every request.**
@@ -253,3 +279,7 @@ Each needs a real response or a real file to answer. None can be settled from do
 - **Does every bank supply `entry_reference`, and is it stable?** Fetch the same period on two different days and compare.
 - **Does `strategy=longest` unlock a bank's one-time full history?** The first production backfill will show how far back it reached.
 - **Are PSU headers needed for a deep backfill?** They assert that the user is present, which is true during `auth`, but there is no browser to take them from.
+
+One is for the owner to decide, not for a response to answer:
+
+- **Should an unattended longest-period fetch that completes count as an account's first success?** Today it does. When a first `auth` leaves an account not fetched in full and the nightly `sync` reaches it before a second `auth` does, the account's success is recorded on whatever the bank served unattended, and the older history is never asked for again. The message and the runbook say to run `auth` again first; nothing enforces it.

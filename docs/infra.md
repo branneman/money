@@ -104,7 +104,7 @@ What losing each one costs:
 How the app finds them:
 
 - **The app only knows directories and one file.** `DATA_DIR`, `STATE_DIR` and `RULES_DIR` name the directories, `CONFIG_PATH` the configuration file. The code reads and writes nothing outside them. In development they point into `tmp/` and `fixtures/`.
-- **The commands never create `DATA_DIR` or `STATE_DIR`.** They refuse to start when either is not an existing directory, so a missing mount is an error on every run.
+- **The commands never create `DATA_DIR` or `STATE_DIR`.** They refuse to start when either is not an existing directory, so a missing mount is an error on every run. `auth` and `sync` also refuse a `DATA_DIR` they cannot write, before asking a bank for anything.
 - **Infra decides what is behind them.** Its compose file mounts each volume at a path inside the container and sets the variable to that path. Volume names and mount modes live there, not here.
 - **Access is enforced by the mounts, not by the code.** The web container cannot write to the archive even if it has a bug, and it cannot see a bank session at all. The sync container cannot touch the rules.
 - **The image runs as a non-root user**, and creates the directories owned by that user. A new volume takes its ownership from the directory it is first mounted over, so each container can write without any setup on the host. Both containers use the same image and therefore the same user, so the web container can read what the sync wrote.
@@ -113,7 +113,9 @@ How the app finds them:
 
 `auth <bank>` is interactive and runs at most every 180 days per bank. The user runs it by hand inside the running container, over SSH, and pastes the redirected URL back as usual. That includes the very first authorisation: there is no local production setup to do it from. The exact command is documented in the infra repo, because it names the host.
 
-`auth` also fetches each new account's history before it returns, and that fetch may not be repeatable ([sync.md](sync.md)). If that fetch fails, the session is kept and the next `sync` continues it, asking for the longest period again. The data volume and its backup must be in place before the first authorisation at any bank.
+`auth` also fetches each new account's history before it returns, and that fetch may not be repeatable ([sync.md](sync.md)). The data volume and its backup must be in place before the first authorisation at any bank, and the volume must be writable by the container's user: `auth` and `sync` check that before any request, and `auth` also reads each account's archive and inbox before it sends the user to the bank.
+
+**If the first `auth` at a bank does not fetch every account in full, run `auth` for that bank again, at once, before the nightly job does.** The session is kept and the command says which accounts are affected. The nightly `sync` would otherwise reach those accounts first, when the bank no longer treats the user as present. It asks for the longest period and gets only what the bank serves unattended, and because that fetch completes it is recorded as the account's first success. Every later `auth` is then a renewal with a dated window, and the older history is never asked for again. Whether such an unattended fetch should count as a first success is an open question for the owner ([sync.md](sync.md)). Until it is settled, the order of the two commands is the only safeguard, so a first authorisation is best done with time in hand before the nightly run.
 
 ### Import
 
