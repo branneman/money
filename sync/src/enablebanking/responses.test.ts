@@ -139,12 +139,14 @@ test("required headers may be absent, and only the bank asked for is checked", (
   assert.deepEqual(findAspsp(value, "Example Bank", "NL")?.requiredPsuHeaders, []);
 });
 
+test("an entry of the list that is not an object is passed over, like any other bank's oddity", () => {
+  const value = { aspsps: ["x", null, 7, listed()] };
+  assert.equal(findAspsp(value, "Example Bank", "NL")?.name, "Example Bank");
+  assert.equal(findAspsp({ aspsps: ["x"] }, "Example Bank", "NL"), null);
+});
+
 test("a list of banks of an unexpected shape is refused", () => {
   refused(() => findAspsp({}, "Example Bank", "NL"), "the list of banks is not a list");
-  refused(
-    () => findAspsp({ aspsps: ["x"] }, "Example Bank", "NL"),
-    "the list of banks, entry 1 is not an object",
-  );
   for (const validity of [undefined, "15552000", 0, 1.5]) {
     refused(
       () =>

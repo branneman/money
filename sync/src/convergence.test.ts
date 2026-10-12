@@ -6,8 +6,11 @@ import assert from "node:assert/strict";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
+// The oracle compares with Node's own equality, so it shares no helper with the merge it
+// judges.
+import { isDeepStrictEqual } from "node:util";
 
-import { deepEqual, view } from "@money/shared";
+import { view } from "@money/shared";
 import type { ArchiveRecord, Config } from "@money/shared";
 import { makeRandom } from "@money/shared/testing";
 import type { Random } from "@money/shared/testing";
@@ -120,7 +123,7 @@ const changeServed = (
 ): number => {
   const earlier = served.slice(0, since).map((item) => item.raw);
   const given = served.slice(since).map((item) => item.raw);
-  const first = given.filter((raw) => !earlier.some((old) => deepEqual(old, raw)));
+  const first = given.filter((raw) => !earlier.some((old) => isDeepStrictEqual(old, raw)));
   const chosen = random.shuffle(first.length > 0 ? first : given).slice(0, random.int(1, 2));
   for (const raw of chosen) {
     const id = String(raw.entry_reference);
@@ -370,7 +373,7 @@ const checkFinal = async (scene: Scene, fresh: World): Promise<void> => {
     const versions =
       record === undefined ? [] : [record.raw, ...record.revisions.map((item) => item.raw)];
     assert.ok(
-      versions.some((version) => deepEqual(version, raw)),
+      versions.some((version) => isDeepStrictEqual(version, raw)),
       `seed ${seed}: a version the bank returned is not in the archive`,
     );
   }
@@ -383,15 +386,17 @@ const checkFinal = async (scene: Scene, fresh: World): Promise<void> => {
     const returned = served.get(record.id) ?? [];
     const versions = [...record.revisions.map((item) => item.raw), record.raw];
     assert.ok(
-      versions.every((version) => returned.some((raw) => deepEqual(raw, version))),
+      versions.every((version) => returned.some((raw) => isDeepStrictEqual(raw, version))),
       `seed ${seed}: the archive holds a version the bank never returned`,
     );
     assert.ok(
-      deepEqual(record.raw, returned.at(-1)),
+      isDeepStrictEqual(record.raw, returned.at(-1)),
       `seed ${seed}: a record's current version is not the last the bank returned`,
     );
     assert.ok(
-      versions.every((version, index) => index === 0 || !deepEqual(version, versions[index - 1])),
+      versions.every(
+        (version, index) => index === 0 || !isDeepStrictEqual(version, versions[index - 1]),
+      ),
       `seed ${seed}: the archive holds a version twice in a row`,
     );
   }

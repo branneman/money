@@ -57,6 +57,30 @@ test("new transactions at every bank are stored", async (t) => {
   );
 });
 
+test("the success recorded is the moment the fetch began, however long it took", async (t) => {
+  const world = await authorised(t);
+  world.add(A, booked("a2", "2026-03-01"));
+  // Half an hour passes while the bank answers the first transactions request.
+  const real = world.deps.fetch;
+  let moved = false;
+  world.deps.fetch = async (url, init) => {
+    const answer = await real(url, init);
+    if (!moved && url.includes("/transactions")) {
+      moved = true;
+      world.at("2026-03-02T03:30:00Z");
+    }
+    return answer;
+  };
+  assert.equal(await world.run("sync"), 0);
+  assert.ok(moved);
+  // The first account began before the clock moved, the second after it.
+  const state = await world.state("bnka");
+  assert.equal(state?.accounts["bnka-current"].last_success, "2026-03-02T03:00:00Z");
+  assert.equal(state?.accounts["bnka-joint"].last_success, "2026-03-02T03:30:00Z");
+  // What the first fetch stored was first seen when it was merged, after the answer.
+  assert.equal((await world.records("bnka-current"))[1].first_seen, "2026-03-02T03:30:00Z");
+});
+
 test("a bank that was never authorised fails, and the others are synced", async (t) => {
   const world = await makeWorld();
   t.after(world.cleanup);

@@ -25,7 +25,8 @@ const readConfig = async (path: string, problems: string[]): Promise<Config | nu
   try {
     text = await readFile(path, "utf8");
   } catch (error) {
-    if (codeOf(error) !== "ENOENT" && codeOf(error) !== "EISDIR") throw error;
+    // No such file, a directory in its place, or a file where one of its parents belongs.
+    if (!["ENOENT", "EISDIR", "ENOTDIR"].includes(codeOf(error) ?? "")) throw error;
     problems.push("CONFIG_PATH does not name a file");
     return null;
   }

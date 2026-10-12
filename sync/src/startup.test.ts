@@ -72,6 +72,11 @@ test("a missing configuration file is reported", async () => {
   assert.equal(await failure(), "CONFIG_PATH does not name a file");
 });
 
+test("a configuration path under something that is not a directory is reported the same way", async () => {
+  env.CONFIG_PATH = join(dir, "config.json", "config.json");
+  assert.equal(await failure(), "CONFIG_PATH does not name a file");
+});
+
 test("a configuration file that is not JSON is reported without quoting it", async () => {
   await writeFile(join(dir, "config.json"), '{ "banks": NL00BNKA0000000001');
   assert.equal(await failure(), "the configuration file is not valid JSON");

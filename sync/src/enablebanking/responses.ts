@@ -111,11 +111,8 @@ export const findAspsp = (value: unknown, name: string, country: string): Aspsp 
   if (!isObject(value) || !Array.isArray(value.aspsps)) {
     throw new ResponseError("the list of banks is not a list");
   }
-  for (const [index, item] of (value.aspsps as unknown[]).entries()) {
-    if (!isObject(item)) {
-      throw new ResponseError(`the list of banks, entry ${index + 1} is not an object`);
-    }
-    if (item.name !== name || item.country !== country) continue;
+  for (const item of value.aspsps as unknown[]) {
+    if (!isObject(item) || item.name !== name || item.country !== country) continue;
     const validity = item.maximum_consent_validity;
     if (typeof validity !== "number" || !Number.isInteger(validity) || validity <= 0) {
       throw new ResponseError(
@@ -155,7 +152,7 @@ const RFC_3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2}
 
 // Date.parse guesses (no offset reads as the host local time, a bare year parses), so the
 // shape is checked first.
-const isTimestamp = (text: string): boolean =>
+const isRfc3339 = (text: string): boolean =>
   RFC_3339.test(text) && isIsoDate(text.slice(0, 10)) && !Number.isNaN(Date.parse(text));
 
 export type Session = {
@@ -171,7 +168,7 @@ export const checkSession = (value: unknown): Session => {
     throw new ResponseError("the session has no usable session_id");
   }
   const until = isObject(value.access) ? value.access.valid_until : undefined;
-  if (!isText(until) || !isTimestamp(until)) {
+  if (!isText(until) || !isRfc3339(until)) {
     throw new ResponseError("the session has no usable access.valid_until");
   }
   if (!Array.isArray(value.accounts)) {
