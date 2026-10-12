@@ -325,7 +325,9 @@ test("status never prints a session or an account, however things stand", async 
 });
 
 test("sync never prints a session or an account when a consent is absent, near its end or over", async (t) => {
-  const world = await makeWorld();
+  // The banks reach back far enough for a run half a year after the last one to succeed.
+  const aspsps = worldAspsps().map((aspsp) => ({ ...aspsp, unattendedDays: 400 }));
+  const world = await makeWorld({ aspsps });
   t.after(world.cleanup);
   const scan = watch(world);
   world.add(A, debit("ref-secret-1", "2026-02-20"));
@@ -335,9 +337,11 @@ test("sync never prints a session or an account when a consent is absent, near i
   await world.openSession("bnka");
   assert.equal(await world.run("sync"), 1);
 
-  // Near its end: the run goes on, and warns.
+  // Near its end: the run goes on, and warns. The other bank has a consent by now, so a
+  // clean exit shows the fetch itself worked.
+  await world.openSession("bnkb");
   world.at("2026-08-25T03:00:00Z");
-  await world.run("sync");
+  assert.equal(await world.run("sync"), 0);
 
   // Over.
   world.at("2026-09-30T03:00:00Z");
@@ -382,7 +386,12 @@ test("a failed fetch never prints a request, a response or a header", async (t) 
   // Scanned first: a line that leaks may be the very line the outcomes below look for.
   await scan([["an error code that is no code", "Recognisable-odd"]]);
   const printed = world.lines.join("\n");
-  for (const outcome of [/Enable Banking answered 401/, /Enable Banking answered 429/]) {
+  for (const outcome of [
+    /no answer from Enable Banking \(/,
+    /Enable Banking answered 401/,
+    /Enable Banking answered 429/,
+    /Enable Banking answered 400$/m,
+  ]) {
     assert.match(printed, outcome);
   }
 });
@@ -417,7 +426,9 @@ test("a start that is refused never prints a setting, a path or what a file held
     assert.equal(await runWith(world, env, "status"), 1);
     assert.match(world.lines.slice(before).join("\n"), outcome);
   }
+  const before = world.lines.length;
   assert.equal(await runWith(world, world.env, "sync", "extra"), 1);
+  assert.match(world.lines.slice(before).join("\n"), /usage: auth <bank> \| sync \| status/);
 
   await scan([
     ["the app id given to a refused start", appId],
