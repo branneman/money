@@ -55,12 +55,18 @@ export const runAuth = async (context: Context, bank: string): Promise<number> =
   const uids: Record<string, string> = {};
   const problems: string[] = [];
   for (const account of accounts) {
-    const iban = plain(config.accounts[account].iban ?? "");
-    const found = session.accounts.find((item) => item.iban !== null && plain(item.iban) === iban);
-    if (found === undefined) problems.push(`${account}: the consent does not cover it`);
-    else if (found.uid === null) {
+    const configured = config.accounts[account].iban;
+    if (configured === undefined) throw new SyncError(`${account} has no iban`);
+    const iban = plain(configured);
+    const matching = session.accounts.filter(
+      (item) => item.iban !== null && plain(item.iban) === iban,
+    );
+    if (matching.length === 0) problems.push(`${account}: the consent does not cover it`);
+    else if (matching.length > 1) {
+      problems.push(`${account}: the consent covers more than one account with its iban`);
+    } else if (matching[0].uid === null) {
       problems.push(`${account}: the consent covers it but gives no way to fetch it`);
-    } else uids[account] = found.uid;
+    } else uids[account] = matching[0].uid;
   }
   if (problems.length > 0) throw new SyncError(problems.join("\n"));
 

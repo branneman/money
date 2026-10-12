@@ -3,14 +3,20 @@
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 
-import { describeError } from "./errors.ts";
+import { describeError, SyncError } from "./errors.ts";
 import { main } from "./main.ts";
 
+// When the input ends before an answer (Ctrl-D, or no stdin), question() never settles and
+// the process would exit 0 with the lock held, so the end of input is a failure.
 const readLine = async (prompt: string): Promise<string> => {
   const terminal = createInterface({ input: process.stdin, output: process.stdout });
+  const ended = new Promise<never>((_, reject) => {
+    terminal.once("close", () => reject(new SyncError("no address was given")));
+  });
   try {
-    return await terminal.question(prompt);
+    return await Promise.race([terminal.question(prompt), ended]);
   } finally {
+    terminal.removeAllListeners("close");
     terminal.close();
   }
 };

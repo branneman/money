@@ -13,6 +13,7 @@ import {
   worldConfig,
 } from "../../testing/world.ts";
 import type { World } from "../../testing/world.ts";
+import { SyncError } from "../errors.ts";
 
 const IBAN = "NL00BNKA0000000001";
 const JOINT = "NL00BNKA0000000002";
@@ -247,6 +248,30 @@ test("a lock held by a live run stops auth, and a finished auth leaves no lock",
   world.alive.clear();
   assert.equal(await world.run("auth", "bnka"), 0);
   assert.deepEqual(await readdir(world.stateDir), ["bnka.json"]);
+});
+
+test("a consent that covers two accounts under one IBAN stores nothing and guesses nothing", async (t) => {
+  const aspsps = worldAspsps();
+  aspsps[0].accounts.push({ iban: IBAN, transactions: [] });
+  const world = await start(t, { aspsps });
+  assert.equal(await world.run("auth", "bnka"), 1);
+  assert.match(
+    printed(world),
+    /bnka-current: the consent covers more than one account with its iban/,
+  );
+  assert.equal(await world.state("bnka"), null);
+  assert.equal(world.transactionRequests().length, 0);
+});
+
+test("input that ends at the prompt fails the run, stores nothing and frees the lock", async (t) => {
+  const world = await start(t);
+  world.paste = () => {
+    throw new SyncError("no address was given");
+  };
+  assert.equal(await world.run("auth", "bnka"), 1);
+  assert.equal(world.lines[world.lines.length - 1], "no address was given");
+  assert.equal(await world.state("bnka"), null);
+  assert.deepEqual(await readdir(world.stateDir), []);
 });
 
 test("an error nobody expected stops the run, prints only its class and code, and frees the lock", async (t) => {
