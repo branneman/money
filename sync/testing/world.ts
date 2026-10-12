@@ -12,10 +12,12 @@ import { anApiRaw } from "@money/shared/testing";
 import type { Checkpoint, Context, Deps } from "../src/context.ts";
 import { makeClient } from "../src/enablebanking/client.ts";
 import { readSettings } from "../src/env.ts";
+import { describeError } from "../src/errors.ts";
 import { listRuns } from "../src/inbox.ts";
 import type { InboxRun } from "../src/inbox.ts";
 import { mintToken } from "../src/jwt.ts";
 import { makeLog } from "../src/log.ts";
+import { main } from "../src/main.ts";
 import { readState, renewed, writeState } from "../src/state.ts";
 import type { BankState } from "../src/state.ts";
 import { timestampOf } from "../src/time.ts";
@@ -94,6 +96,9 @@ export type World = {
   // can add a later one.
   add: (iban: string, raw: Record<string, unknown>, from?: string) => FakeVersion[];
   context: () => Context;
+  // Runs a command the way cli.ts does. Returns CRASHED when a checkpoint stopped the run,
+  // and otherwise the exit code, with any error described into `lines`.
+  run: (...argv: string[]) => Promise<number>;
   // Authorises at the fake bank without the auth command, and stores the state.
   openSession: (bank: string) => Promise<Record<string, string>>;
   records: (account: string) => Promise<ArchiveRecord[]>;
@@ -193,6 +198,15 @@ export const makeWorld = async (
         deps: world.deps,
         log: makeLog(world.deps.out),
       };
+    },
+    run: async (...argv) => {
+      try {
+        return await main(argv, env, world.deps);
+      } catch (error) {
+        if (error instanceof Crash) return CRASHED;
+        world.lines.push(describeError(error));
+        return 1;
+      }
     },
     openSession: async (bankKey) => {
       const { client } = world.context();
