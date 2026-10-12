@@ -138,3 +138,22 @@ test("a marker that disagrees with the pages, or is not a marker, is reported", 
     await refused("bnka-current, run 20261011T030000Z: the marker is not one the sync wrote");
   }
 });
+
+test("removing a run leaves nothing of it, not even a dot-prefixed directory", async () => {
+  await writePage(dir, ACCOUNT, RUN, 1, "one");
+  await removeRun(dir, ACCOUNT, RUN);
+  assert.deepEqual(await readdir(join(dir, ".inbox", ACCOUNT)), []);
+});
+
+test("a removal that was interrupted is finished by the next one", async () => {
+  await writePage(dir, ACCOUNT, RUN, 1, "one");
+  const leftover = join(dir, ".inbox", ACCOUNT, ".removed-20261009T030000Z");
+  await mkdir(leftover);
+  await writeFile(join(leftover, "1.json"), "half removed");
+  assert.deepEqual(
+    (await listRuns(dir, ACCOUNT)).map((run) => run.name),
+    [RUN],
+  );
+  await removeRun(dir, ACCOUNT, RUN);
+  assert.deepEqual(await readdir(join(dir, ".inbox", ACCOUNT)), []);
+});

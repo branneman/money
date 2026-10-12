@@ -1,7 +1,7 @@
 // The sync's working area, $DATA_DIR/.inbox. Every page a bank returns is written here, as
 // received, before the next one is asked for, and merged from here afterwards. Nothing a
 // bank sent can then be lost between receiving it and merging it.
-import { mkdir, readdir, readFile, rm } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { isIsoDate, isObject, isTimestamp } from "@money/shared";
@@ -42,8 +42,20 @@ export const completeRun = (
 ): Promise<void> =>
   writeAtomic(join(runDir(dataDir, account, run), MARKER), `${JSON.stringify(marker, null, 2)}\n`);
 
-export const removeRun = (dataDir: string, account: string, run: string): Promise<void> =>
-  rm(runDir(dataDir, account, run), { recursive: true });
+const REMOVED = ".removed-";
+
+// A recursive remove that stops partway would leave a run that is neither whole nor gone.
+// The rename is atomic, so the run is whole until it is hidden, and what is hidden is never
+// read. A removal that was interrupted is finished by the next one.
+export const removeRun = async (dataDir: string, account: string, run: string): Promise<void> => {
+  const root = join(dataDir, ".inbox", account);
+  for (const name of await readdir(root)) {
+    if (name.startsWith(REMOVED)) await rm(join(root, name), { recursive: true });
+  }
+  const hidden = join(root, `${REMOVED}${run}`);
+  await rename(runDir(dataDir, account, run), hidden);
+  await rm(hidden, { recursive: true });
+};
 
 // A directory's names, without anything dot-prefixed. A missing directory is empty.
 const visible = async (dir: string): Promise<string[]> => {
