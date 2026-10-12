@@ -14,13 +14,26 @@ import type { Checkpoint } from "./context.ts";
 import { addDays, dateOf, timestampOf } from "./time.ts";
 
 const SEEDS = 8;
-const NIGHTS = 45;
+const NIGHTS = 20;
 const DAY = 86_400_000;
-// Early December, so that the nights cross a year boundary.
-const START = Date.parse("2025-12-05T03:00:00Z");
+// Late December, so that the nights cross a year boundary.
+const START = Date.parse("2025-12-22T03:00:00Z");
 const IBAN = "NL00BNKA0000000001";
 const ACCOUNT = "bnka-current";
-const POINTS: Checkpoint[] = ["page-written", "received", "data-written", "state-written"];
+// Where a run dies. The two deaths that leave a run in the inbox come up most: an
+// incomplete one at `page-written`, a completed one at `received`. The other two leave
+// nothing there to lose.
+const POINTS: Checkpoint[] = [
+  "page-written",
+  "page-written",
+  "page-written",
+  "page-written",
+  "received",
+  "received",
+  "received",
+  "data-written",
+  "state-written",
+];
 
 const config: Config = {
   banks: { bnka: { aspsp: { name: "Example Bank", country: "NL" } } },
@@ -86,8 +99,9 @@ const history = (random: Random, lookback: number): History => {
 // Losing a run left in the inbox loses a version only when the bank changes a transaction
 // that run was given before any later run asks for it again. Chance alone almost never
 // arranges that, so it is arranged: after a run that leaves something in the inbox, the bank
-// changes or withdraws one or two of the transactions it has just served, preferring a
-// version it had never served before. Returns how many it changed.
+// changes or withdraws one or two of the transactions it has just served. It prefers a
+// version it had never served before, because one the archive already holds is not lost
+// with the run. Returns how many it changed.
 const changeServed = (
   random: Random,
   made: History,
@@ -121,7 +135,11 @@ const shown = (records: readonly ArchiveRecord[]) =>
   view(records, {}).map((item) => ({ ...item, first_seen: "", revised: false }));
 
 type Tally = {
-  crashes: number;
+  // Runs that died, by where.
+  diedPageWritten: number;
+  diedReceived: number;
+  diedDataWritten: number;
+  diedStateWritten: number;
   failures: number;
   // Transactions the bank changed right after a run that left something in the inbox.
   followed: number;
@@ -129,6 +147,25 @@ type Tally = {
   revised: number;
   withdrawnKept: number;
 };
+
+const DIED: Record<Checkpoint, keyof Tally> = {
+  "page-written": "diedPageWritten",
+  received: "diedReceived",
+  "data-written": "diedDataWritten",
+  "state-written": "diedStateWritten",
+};
+
+const nothing = (): Tally => ({
+  diedPageWritten: 0,
+  diedReceived: 0,
+  diedDataWritten: 0,
+  diedStateWritten: 0,
+  failures: 0,
+  followed: 0,
+  leftovers: 0,
+  revised: 0,
+  withdrawnKept: 0,
+});
 
 const converge = async (seed: number): Promise<Tally> => {
   const random = makeRandom(seed);
@@ -146,14 +183,7 @@ const converge = async (seed: number): Promise<Tally> => {
     aspsps: [bankWith(made.transactions)],
     start: stamp(NIGHTS),
   });
-  const tally: Tally = {
-    crashes: 0,
-    failures: 0,
-    followed: 0,
-    leftovers: 0,
-    revised: 0,
-    withdrawnKept: 0,
-  };
+  const tally: Tally = nothing();
   try {
     world.bank.pageSize = random.int(1, 5);
     assert.equal(await world.run("auth", "bnka"), 0, `seed ${seed}: the first authorisation`);
@@ -163,9 +193,15 @@ const converge = async (seed: number): Promise<Tally> => {
       const runs = random.chance(0.15) ? 2 : 1;
       for (let run = 0; run < runs; run++) {
         world.at(stamp(night, run * 5));
-        if (random.chance(0.3)) {
+        let point: Checkpoint | null = null;
+        // Mostly small pages: a run that dies or fails part-way then leaves some pages
+        // behind and not others.
+        world.bank.pageSize = random.chance(0.7) ? random.int(1, 2) : random.int(3, 5);
+        // Half the runs are disturbed: an undisturbed run costs as much and shows less.
+        if (random.chance(0.5)) {
           if (random.chance(0.5)) {
-            world.crashAt = random.pick(POINTS);
+            point = random.pick(POINTS);
+            world.crashAt = point;
           } else {
             const failure = random.chance(0.5)
               ? { status: 500, error: "ASPSP_ERROR" }
@@ -174,18 +210,19 @@ const converge = async (seed: number): Promise<Tally> => {
             tally.failures += 1;
           }
           // A run that is about to be disturbed is usually given something the archive
-          // does not hold yet: a transaction booked that day, a minute before the run.
+          // does not hold yet, because only that can be lost with the run: a transaction
+          // that appears a minute before it, booked inside the lookback like any other.
           if (random.chance(0.8)) {
             const id = `t${made.transactions.length}`;
-            const today = dateOf(stamp(night));
+            const date = addDays(dateOf(stamp(night)), -random.int(0, lookback));
             made.transactions.push([
-              { from: stamp(night, run * 5 - 1), raw: booked(id, today, amount(random)) },
+              { from: stamp(night, run * 5 - 1), raw: booked(id, date, amount(random)) },
             ]);
             made.steady.add(id);
           }
         }
         const since = world.bank.served.length;
-        if ((await world.run("sync")) === CRASHED) tally.crashes += 1;
+        if ((await world.run("sync")) === CRASHED && point !== null) tally[DIED[point]] += 1;
         world.crashAt = null;
         if ((await world.inbox(ACCOUNT)).length > 0 && random.chance(0.7)) {
           const from = stamp(night, run * 5 + 1);
@@ -246,28 +283,23 @@ const converge = async (seed: number): Promise<Tally> => {
 };
 
 test("however the nights fall and wherever a run dies, the archive converges and nothing is lost", async () => {
-  const total: Tally = {
-    crashes: 0,
-    failures: 0,
-    followed: 0,
-    leftovers: 0,
-    revised: 0,
-    withdrawnKept: 0,
-  };
+  const total: Tally = nothing();
   for (let seed = 1; seed <= SEEDS; seed++) {
     const tally = await converge(seed);
     for (const key of Object.keys(total) as (keyof Tally)[]) total[key] += tally[key];
   }
   // Without these the property could pass on worlds that never test it. Observed with the
-  // generator as written, over 8 seeds of 45 nights: 30 runs died at a checkpoint, 26
-  // request failures were scheduled, 19 transactions were changed right after a run that
-  // left something in the inbox, 10 incomplete runs were merged later, 18 records were
-  // revised, 8 withdrawn records kept.
+  // generator as written, over 8 seeds of 20 nights: 7 runs died at `page-written`, 5 at
+  // `received`, 4 at `data-written` and 1 at `state-written`, 17 request failures were
+  // scheduled, 19 transactions were changed right after a run that left something in the
+  // inbox, 12 incomplete runs were merged later, 16 records were revised, 10 withdrawn
+  // records kept. The test takes about 25 seconds beside the rest of the suite.
   // Each of three deliberate breaks made the property itself fail, in at least two seeds,
-  // before this check was reached. Dropping an incomplete run: seeds 6 and 8, "a version
+  // before this check was reached. Dropping an incomplete run: seeds 1, 7 and 8, "a version
   // the bank returned is not in the archive". Merging only the run just received: seeds 1,
-  // 5, 6 and 8, with the same message. Ignoring the lookback: seeds 4 and 5, "was at the
-  // bank by the last full fetch and is not in the archive".
+  // 2, 3, 7 and 8, with the same message. Ignoring the lookback: seeds 1 to 5, "was at the
+  // bank by the last full fetch and is not in the archive". Change the generator, and the
+  // breaks have to be tried again.
   for (const [what, count] of Object.entries(total)) {
     assert.ok(count > 0, `no run in ${SEEDS} seeds had any ${what}`);
   }
