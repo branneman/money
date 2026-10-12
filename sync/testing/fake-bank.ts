@@ -1,7 +1,7 @@
 // A bank behind the Enable Banking API, held in memory and handed to the code as its
 // fetch. It answers from its state rather than from canned responses, so tests can
-// generate histories freely. Its shapes follow the API reference, corrected against the
-// sandbox. Everything in it is invented.
+// generate histories freely. Its shapes are taken from the API reference and are still to
+// be checked against the sandbox. Everything in it is invented.
 import { createVerify } from "node:crypto";
 import type { KeyObject } from "node:crypto";
 
@@ -62,6 +62,12 @@ type Session = {
 };
 
 const HOUR = 3_600_000;
+const QUERY_NAMES = ["date_from", "date_to", "strategy", "transaction_status", "continuation_key"];
+const STATUSES = ["BOOK", "CNCL", "HOLD", "OTHR", "PDNG", "RJCT", "SCHD"];
+
+const isCalendarDate = (value: string): boolean =>
+  /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+  new Date(`${value}T00:00:00Z`).toISOString().startsWith(value);
 
 export const makeFakeBank = (options: {
   clock: Clock;
@@ -78,6 +84,12 @@ export const makeFakeBank = (options: {
   >();
   const sessions = new Map<string, Session>();
   const failures = new Map<number, Failure>();
+  // Every continuation key the bank issued, with what it was issued for and the list it
+  // pages through, fixed when the first page was asked.
+  const issued = new Map<
+    string,
+    { uid: string; query: string; list: Record<string, unknown>[] }[]
+  >();
   let counter = 0;
   let received = 0;
 
@@ -152,6 +164,9 @@ export const makeFakeBank = (options: {
       return `${redirectUrl}?${query.toString()}`;
     },
     failRequest: (n, failure) => {
+      if (!Number.isInteger(n) || n < 1) {
+        throw new Error("failRequest needs a positive whole number of requests");
+      }
       failures.set(received + n, failure);
     },
     clearFailures: () => {
@@ -176,8 +191,7 @@ export const makeFakeBank = (options: {
         })),
     });
 
-  const startAuth = (text: string | undefined): Answer => {
-    const body: unknown = JSON.parse(text ?? "null");
+  const startAuth = (body: unknown): Answer => {
     if (!isObject(body) || !isObject(body.aspsp) || !isObject(body.access)) {
       return refuse(400, "WRONG_REQUEST_PARAMETERS");
     }
@@ -200,8 +214,7 @@ export const makeFakeBank = (options: {
     });
   };
 
-  const createSession = (text: string | undefined): Answer => {
-    const body: unknown = JSON.parse(text ?? "null");
+  const createSession = (body: unknown): Answer => {
     const code = isObject(body) && typeof body.code === "string" ? body.code : "";
     const approved = codes.get(code);
     if (approved === undefined) return refuse(400, "WRONG_AUTHORIZATION_CODE");
@@ -244,51 +257,92 @@ export const makeFakeBank = (options: {
     if (session.revoked) return refuse(401, "REVOKED_SESSION");
     if (now >= session.validUntil) return refuse(401, "EXPIRED_SESSION");
 
-    let offset = 0;
-    let asOf = now;
+    for (const name of query.keys()) {
+      if (!QUERY_NAMES.includes(name)) return refuse(422, "WRONG_REQUEST_PARAMETERS");
+    }
+    const strategy = query.get("strategy");
+    const status = query.get("transaction_status");
+    const asked = query.get("date_from");
+    const until = query.get("date_to");
+    if (strategy !== null && strategy !== "default" && strategy !== "longest") {
+      return refuse(422, "WRONG_REQUEST_PARAMETERS");
+    }
+    if (status !== null && !STATUSES.includes(status)) {
+      return refuse(422, "WRONG_REQUEST_PARAMETERS");
+    }
+    for (const date of [asked, until]) {
+      if (date !== null && !isCalendarDate(date)) return refuse(422, "WRONG_REQUEST_PARAMETERS");
+    }
+    if (asked !== null && until !== null && asked > until) {
+      return refuse(422, "WRONG_TRANSACTIONS_PERIOD");
+    }
+
+    const requested = JSON.stringify(
+      [...query].filter(([name]) => name !== "continuation_key").toSorted(),
+    );
     const key = query.get("continuation_key");
     if (key !== null) {
       const match = /^k-(\d+)-(\d+)$/.exec(key);
-      if (match === null) return refuse(400, "WRONG_CONTINUATION_KEY");
-      offset = Number(match[1]);
-      asOf = Number(match[2]);
+      const entry = issued.get(key)?.find((item) => item.uid === uid && item.query === requested);
+      if (match === null || entry === undefined) return refuse(400, "WRONG_CONTINUATION_KEY");
+      return page(entry.list, Number(match[1]), Number(match[2]), uid, requested, account);
     }
 
     const today = new Date(now).toISOString().slice(0, 10);
     const fresh = now - session.authorisedAt < HOUR;
     const reach = fresh ? "0000-01-01" : addDays(today, -session.aspsp.unattendedDays);
-    const longest = query.get("strategy") === "longest";
-    const asked = query.get("date_from");
-    if (!longest && asked !== null && asked < reach)
+    const longest = strategy === "longest";
+    if (!longest && asked !== null && asked < reach) {
       return refuse(422, "WRONG_TRANSACTIONS_PERIOD");
+    }
     const from = asked === null || asked < reach ? reach : asked;
-    const to = longest ? "9999-12-31" : (query.get("date_to") ?? "9999-12-31");
-    const status = session.aspsp.ignoresStatusFilter ? null : query.get("transaction_status");
+    const to = longest ? "9999-12-31" : (until ?? "9999-12-31");
+    const filter = session.aspsp.ignoresStatusFilter ? null : status;
 
     const text = (value: unknown): string => (typeof value === "string" ? value : "");
-    const matching = account.transactions
+    const list = account.transactions
       .flatMap((versions) => {
-        const version = versions.findLast((item) => Date.parse(item.from) <= asOf);
+        const version = versions.findLast((item) => Date.parse(item.from) <= now);
         return version === undefined || version.raw === null ? [] : [version.raw];
       })
       .filter((raw) => {
         const date = raw.booking_date;
         return typeof date !== "string" || (date >= from && date <= to);
       })
-      .filter((raw) => status === null || raw.status === status)
+      .filter((raw) => filter === null || raw.status === filter)
       .toSorted((a, b) => {
         const left = `${text(a.booking_date)} ${text(a.entry_reference)}`;
         const right = `${text(b.booking_date)} ${text(b.entry_reference)}`;
         return left < right ? -1 : left > right ? 1 : 0;
       });
+    return page(list, 0, now, uid, requested, account);
+  };
 
+  const page = (
+    list: Record<string, unknown>[],
+    offset: number,
+    asOf: number,
+    uid: string,
+    query: string,
+    account: FakeAccount,
+  ): Answer => {
     const end = offset + bank.pageSize;
-    const page = matching.slice(offset, end);
-    for (const raw of page) bank.served.push({ iban: account.iban, raw });
-    return answer(200, {
-      transactions: page,
-      continuation_key: end < matching.length ? `k-${end}-${asOf}` : null,
-    });
+    const items = list.slice(offset, end);
+    for (const raw of items) bank.served.push({ iban: account.iban, raw });
+    if (end >= list.length) return answer(200, { transactions: items, continuation_key: null });
+    const key = `k-${end}-${asOf}`;
+    issued.set(key, [...(issued.get(key) ?? []), { uid, query, list }]);
+    return answer(200, { transactions: items, continuation_key: key });
+  };
+
+  // Undefined when the body is not JSON.
+  const parseBody = (text: string | undefined): { value: unknown } | undefined => {
+    try {
+      return { value: JSON.parse(text ?? "null") };
+    } catch (error) {
+      if (error instanceof SyntaxError) return undefined;
+      throw error;
+    }
   };
 
   const handle = (url: string, init: Parameters<Fetch>[1]): Answer => {
@@ -316,8 +370,11 @@ export const makeFakeBank = (options: {
 
     const route = `${init.method} ${address.pathname}`;
     if (route === "GET /aspsps") return listAspsps(address.searchParams);
-    if (route === "POST /auth") return startAuth(init.body);
-    if (route === "POST /sessions") return createSession(init.body);
+    if (route === "POST /auth" || route === "POST /sessions") {
+      const body = parseBody(init.body);
+      if (body === undefined) return refuse(400, "WRONG_REQUEST_PARAMETERS");
+      return route === "POST /auth" ? startAuth(body.value) : createSession(body.value);
+    }
     const account = /^\/accounts\/([^/]+)\/transactions$/.exec(address.pathname);
     if (init.method === "GET" && account !== null) {
       return transactions(decodeURIComponent(account[1]), address.searchParams);

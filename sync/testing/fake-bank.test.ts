@@ -163,15 +163,21 @@ test("transactions come in pages, in order, under keys the bank checks", async (
   const first = await call("GET", `/accounts/${uid}/transactions?strategy=longest`);
   assert.deepEqual(ids(first.body), ["a", "b"]);
   const key = String(first.body.continuation_key);
-  const second = await call("GET", `/accounts/${uid}/transactions?continuation_key=${key}`);
+  const second = await call(
+    "GET",
+    `/accounts/${uid}/transactions?strategy=longest&continuation_key=${key}`,
+  );
   assert.deepEqual(ids(second.body), ["c", "d"]);
   const third = await call(
     "GET",
-    `/accounts/${uid}/transactions?continuation_key=${String(second.body.continuation_key)}`,
+    `/accounts/${uid}/transactions?strategy=longest&continuation_key=${String(second.body.continuation_key)}`,
   );
   assert.deepEqual(ids(third.body), ["e"]);
   assert.equal(third.body.continuation_key, null);
-  assert.deepEqual(page(bank).query, { continuation_key: String(second.body.continuation_key) });
+  assert.deepEqual(page(bank).query, {
+    strategy: "longest",
+    continuation_key: String(second.body.continuation_key),
+  });
 
   const wrong = await call("GET", `/accounts/${uid}/transactions?continuation_key=nonsense`);
   assert.equal(wrong.body.error, "WRONG_CONTINUATION_KEY");
@@ -299,4 +305,123 @@ test("every request is recorded, with lower-case header names", async () => {
   assert.equal(bank.requests[0].path, "/aspsps");
   assert.deepEqual(bank.requests[0].query, { country: "NL" });
   assert.match(bank.requests[0].headers.authorization, /^Bearer /);
+});
+
+const threeInOrder = (extra: Record<string, unknown> = {}) =>
+  ["a", "b", "c"].map((id) => [
+    { from: "2026-01-01T00:00:00Z", raw: booked(id, "2026-02-10", extra) },
+  ]);
+
+test("a continuation key works only for the account and query it was issued for", async () => {
+  const { bank, call, authorise } = setup(threeInOrder());
+  const { session } = await authorise();
+  const [uid, otherUid] = (session.body.accounts as { uid: string }[]).map((item) => item.uid);
+  bank.pageSize = 1;
+  const base = `/accounts/${uid}/transactions?strategy=longest`;
+  const first = await call("GET", base);
+  const key = String(first.body.continuation_key);
+  const refused = async (path: string) => {
+    const response = await call("GET", path);
+    assert.equal(response.status, 400);
+    assert.equal(response.body.error, "WRONG_CONTINUATION_KEY");
+  };
+  await refused(`/accounts/${uid}/transactions?continuation_key=${key}`);
+  await refused(`${base}&date_from=2026-01-01&continuation_key=${key}`);
+  await refused(`/accounts/${otherUid}/transactions?strategy=longest&continuation_key=${key}`);
+  await refused(`${base}&continuation_key=k-0-${Date.UTC(2027, 0, 1)}`);
+  await refused(`${base}&continuation_key=k-99-${key.split("-")[2]}`);
+  assert.equal((await call("GET", `${base}&continuation_key=${key}`)).status, 200);
+});
+
+test("pages are one list as it stood at the first page, however the clock and the bank move", async () => {
+  const { bank, call, uidOf, time } = setup([
+    [{ from: "2020-01-01T00:00:00Z", raw: booked("old", "2024-06-01") }],
+    [
+      { from: "2020-01-01T00:00:00Z", raw: booked("a", "2026-02-10") },
+      { from: "2026-03-01T03:30:00Z", raw: null },
+    ],
+    [{ from: "2020-01-01T00:00:00Z", raw: booked("b", "2026-02-11") }],
+  ]);
+  const uid = await uidOf();
+  bank.pageSize = 1;
+  const path = `/accounts/${uid}/transactions?strategy=longest`;
+  const first = await call("GET", path);
+  assert.deepEqual(ids(first.body), ["old"]);
+  time.now = new Date(time.now.getTime() + 61 * 60_000);
+  const second = await call(
+    "GET",
+    `${path}&continuation_key=${String(first.body.continuation_key)}`,
+  );
+  assert.deepEqual(ids(second.body), ["a"]);
+  const third = await call(
+    "GET",
+    `${path}&continuation_key=${String(second.body.continuation_key)}`,
+  );
+  assert.deepEqual(ids(third.body), ["b"]);
+  assert.equal(third.body.continuation_key, null);
+});
+
+test("pages do not shift when the reach moves across midnight", async () => {
+  const { bank, call, uidOf, time } = setup([
+    [{ from: "2020-01-01T00:00:00Z", raw: booked("x", "2025-12-01") }],
+    [{ from: "2020-01-01T00:00:00Z", raw: booked("y", "2026-02-10") }],
+    [{ from: "2020-01-01T00:00:00Z", raw: booked("z", "2026-02-11") }],
+  ]);
+  const uid = await uidOf();
+  bank.pageSize = 1;
+  time.now = new Date("2026-03-01T23:30:00Z");
+  const path = `/accounts/${uid}/transactions?strategy=longest`;
+  const first = await call("GET", path);
+  assert.deepEqual(ids(first.body), ["x"]);
+  time.now = new Date("2026-03-02T00:30:00Z");
+  const second = await call(
+    "GET",
+    `${path}&continuation_key=${String(first.body.continuation_key)}`,
+  );
+  assert.deepEqual(ids(second.body), ["y"]);
+  const third = await call(
+    "GET",
+    `${path}&continuation_key=${String(second.body.continuation_key)}`,
+  );
+  assert.deepEqual(ids(third.body), ["z"]);
+});
+
+test("query parameters the bank does not know or understand are refused", async () => {
+  const { call, uidOf } = setup(threeInOrder());
+  const uid = await uidOf();
+  const base = `/accounts/${uid}/transactions`;
+  const wrong = async (query: string, error = "WRONG_REQUEST_PARAMETERS") => {
+    const response = await call("GET", `${base}?${query}`);
+    assert.equal(response.status, 422, query);
+    assert.equal(response.body.error, error, query);
+  };
+  await wrong("date_form=2026-02-01");
+  await wrong("strategy=longst");
+  await wrong("transaction_status=BOOKED");
+  await wrong("date_from=yesterday");
+  await wrong("date_to=2026-2-28");
+  await wrong("date_to=2026-02-30");
+  await wrong("date_from=2026-02-20&date_to=2026-02-10", "WRONG_TRANSACTIONS_PERIOD");
+  assert.equal((await call("GET", `${base}?strategy=default&transaction_status=PDNG`)).status, 200);
+});
+
+test("failRequest needs a positive whole number", () => {
+  const { bank } = setup();
+  for (const n of [0, -1, 1.5, Number.NaN]) {
+    assert.throws(() => bank.failRequest(n, { network: true }));
+  }
+});
+
+test("a body that is not JSON is a bad request, not a broken connection", async () => {
+  const { bank, time } = setup();
+  const response = await bank.fetch("https://api.enablebanking.com/auth", {
+    method: "POST",
+    headers: { authorization: `Bearer ${mintToken(privateKey, APP_ID, time.now)}` },
+    body: "{not json",
+  });
+  assert.equal(response.status, 400);
+  assert.equal(
+    (JSON.parse(await response.text()) as { error: string }).error,
+    "WRONG_REQUEST_PARAMETERS",
+  );
 });
