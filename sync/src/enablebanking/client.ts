@@ -2,7 +2,7 @@ import { isObject } from "@money/shared";
 
 import { ApiError, SyncError } from "../errors.ts";
 import type { Window } from "../window.ts";
-import { checkAuthStart, checkSession, findAspsp, parseExact } from "./responses.ts";
+import { checkAuthStart, checkSession, findAspsp, parseJson } from "./responses.ts";
 import type { Aspsp, Session } from "./responses.ts";
 
 // As much of `fetch` as the client uses. The built-in fetch satisfies it, and so does the
@@ -52,10 +52,12 @@ const errorCodeOf = (text: string): string | null => {
     : null;
 };
 
-export const makeClient = (fetch: Fetch, token: string): Client => {
+// `token` is asked for a token with every request. One minted when the command starts would
+// expire under a user who takes an hour at the bank, or under a long backfill.
+export const makeClient = (fetch: Fetch, token: () => string): Client => {
   const send = async (method: "GET" | "POST", path: string, body?: unknown): Promise<string> => {
     const headers: Record<string, string> = {
-      authorization: `Bearer ${token}`,
+      authorization: `Bearer ${token()}`,
       accept: "application/json",
     };
     if (body !== undefined) headers["content-type"] = "application/json";
@@ -81,7 +83,7 @@ export const makeClient = (fetch: Fetch, token: string): Client => {
   return {
     findAspsp: async (name, country) => {
       const text = await send("GET", `/aspsps?${new URLSearchParams({ country }).toString()}`);
-      return findAspsp(parseExact(text, "the list of banks"), name, country);
+      return findAspsp(parseJson(text, "the list of banks"), name, country);
     },
     startAuth: async (request) => {
       const text = await send("POST", "/auth", {
@@ -91,11 +93,11 @@ export const makeClient = (fetch: Fetch, token: string): Client => {
         redirect_url: request.redirectUrl,
         psu_type: "personal",
       });
-      return checkAuthStart(parseExact(text, "the authorisation"));
+      return checkAuthStart(parseJson(text, "the authorisation"));
     },
     createSession: async (code) => {
       const text = await send("POST", "/sessions", { code });
-      return checkSession(parseExact(text, "the session"));
+      return checkSession(parseJson(text, "the session"));
     },
     transactionsPage: (uid, window, continuationKey) => {
       const query = new URLSearchParams({ transaction_status: "BOOK" });

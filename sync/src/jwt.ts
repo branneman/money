@@ -1,8 +1,8 @@
 import { createSign } from "node:crypto";
 import type { KeyObject } from "node:crypto";
 
-// Enable Banking allows at most 24 hours. A run takes minutes, and a token is minted per
-// run, so an hour is ample and a leaked one is soon worthless.
+// Enable Banking allows at most 24 hours. A token is minted for each request, so an hour is
+// ample and a leaked one is soon worthless.
 export const TOKEN_LIFETIME_SECONDS = 3600;
 
 const encode = (value: unknown): string => Buffer.from(JSON.stringify(value)).toString("base64url");

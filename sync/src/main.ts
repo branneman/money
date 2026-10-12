@@ -5,6 +5,7 @@ import type { Context, Deps } from "./context.ts";
 import { makeClient } from "./enablebanking/client.ts";
 import type { Environment } from "./env.ts";
 import { SyncError } from "./errors.ts";
+import { checkWritable } from "./inbox.ts";
 import { mintToken } from "./jwt.ts";
 import { takeLock } from "./lock.ts";
 import { makeLog } from "./log.ts";
@@ -26,11 +27,13 @@ export const main = async (
   if (!known) throw new SyncError(USAGE);
 
   const { settings, config } = await loadStartup(env);
-  const token = mintToken(settings.privateKey, settings.appId, deps.clock());
   const context: Context = {
     settings,
     config,
-    client: makeClient(deps.fetch, token),
+    // A token for each request: an authorisation can outlast any one token.
+    client: makeClient(deps.fetch, () =>
+      mintToken(settings.privateKey, settings.appId, deps.clock()),
+    ),
     deps,
     log: makeLog(deps.out),
   };
@@ -39,6 +42,7 @@ export const main = async (
   // auth and sync both write the archive. One at a time.
   const release = await takeLock(settings.stateDir, deps.pid, deps.isAlive);
   try {
+    await checkWritable(settings.dataDir);
     return command === "auth" ? await runAuth(context, rest[0]) : await runSync(context);
   } finally {
     await release();

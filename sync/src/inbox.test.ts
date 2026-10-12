@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 
 import { SyncError } from "./errors.ts";
-import { completeRun, listRuns, removeRun, writePage } from "./inbox.ts";
+import { checkWritable, completeRun, listRuns, removeRun, writePage } from "./inbox.ts";
 import type { Marker } from "./inbox.ts";
 
 let dir = "";
@@ -156,4 +156,37 @@ test("a removal that was interrupted is finished by the next one", async () => {
   );
   await removeRun(dir, ACCOUNT, RUN);
   assert.deepEqual(await readdir(join(dir, ".inbox", ACCOUNT)), []);
+});
+
+test("the write check creates the inbox, and leaves nothing else behind", async () => {
+  await checkWritable(dir);
+  assert.deepEqual(await readdir(dir), [".inbox"]);
+  assert.deepEqual(await readdir(join(dir, ".inbox")), []);
+  // And again, with the inbox there and a run in it.
+  await writePage(dir, ACCOUNT, RUN, 1, "{}");
+  await checkWritable(dir);
+  assert.deepEqual(await readdir(join(dir, ".inbox")), [ACCOUNT]);
+  assert.equal((await listRuns(dir, ACCOUNT)).length, 1);
+});
+
+test("a data directory that cannot be written is refused by the variable's name, with the code", async () => {
+  const refusal = async (): Promise<string> => {
+    try {
+      await checkWritable(dir);
+    } catch (error) {
+      assert.ok(error instanceof SyncError);
+      assert.ok(!error.message.includes(dir));
+      return error.message;
+    }
+    return assert.fail("the write check should have failed");
+  };
+  await mkdir(join(dir, ".inbox"));
+  try {
+    // The inbox is there, and is the part that cannot be written.
+    await chmod(join(dir, ".inbox"), 0o555);
+    await assert.rejects(writeFile(join(dir, ".inbox", "probe"), ""), { code: "EACCES" });
+    assert.equal(await refusal(), "DATA_DIR cannot be written (EACCES)");
+  } finally {
+    await chmod(join(dir, ".inbox"), 0o755);
+  }
 });

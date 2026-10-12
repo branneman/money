@@ -39,6 +39,18 @@ export const parseExact = (text: string, where: string): unknown => {
   }
 };
 
+// Parses a response that is read and never stored: the list of banks, an authorisation, a
+// session. The exact-number rule protects what is stored, and here it could only refuse an
+// answer over a field nobody reads, in a session's case after the one-time code is spent.
+export const parseJson = (text: string, where: string): unknown => {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    // The parser's own message can quote the text.
+    throw new ResponseError(`${where} is not valid JSON`);
+  }
+};
+
 export type Page = { transactions: readonly unknown[]; continuationKey: string | null };
 
 export const checkPage = (value: unknown, where: string): Page => {

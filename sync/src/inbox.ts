@@ -1,7 +1,7 @@
 // The sync's working area, $DATA_DIR/.inbox. Every page a bank returns is written here, as
 // received, before the next one is asked for, and merged from here afterwards. Nothing a
 // bank sent can then be lost between receiving it and merging it.
-import { mkdir, readdir, readFile, rename, rm } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { isIsoDate, isObject, isTimestamp } from "@money/shared";
@@ -21,6 +21,25 @@ const MARKER = "complete.json";
 
 const runDir = (dataDir: string, account: string, run: string): string =>
   join(dataDir, ".inbox", account, run);
+
+// Proves the data directory can be written where a fetch writes first, before a bank is
+// asked for anything: a page that cannot be stored is a page lost. Startup checks only that
+// the directory exists, and everything before the first page only reads.
+export const checkWritable = async (dataDir: string): Promise<void> => {
+  const inbox = join(dataDir, ".inbox");
+  // Dot-prefixed, like every name the inbox never lists.
+  const probe = join(inbox, ".write-check");
+  try {
+    await mkdir(inbox, { recursive: true });
+    await writeFile(probe, "");
+    await rm(probe);
+  } catch (error) {
+    const code = error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined;
+    const suffix = typeof code === "string" && /^[A-Z0-9_]+$/.test(code) ? ` (${code})` : "";
+    // The variable is named and the path is not: job output leaves the host.
+    throw new SyncError(`DATA_DIR cannot be written${suffix}`);
+  }
+};
 
 export const writePage = async (
   dataDir: string,

@@ -190,11 +190,10 @@ export const makeWorld = async (
     context: () => {
       const result = readSettings(env);
       if (!result.ok) throw new Error(result.problems.join("; "));
-      const token = mintToken(KEYS.privateKey, APP_ID, time.now);
       return {
         settings: result.settings,
         config,
-        client: makeClient(bank.fetch, token),
+        client: makeClient(bank.fetch, () => mintToken(KEYS.privateKey, APP_ID, time.now)),
         deps: world.deps,
         log: makeLog(world.deps.out),
       };

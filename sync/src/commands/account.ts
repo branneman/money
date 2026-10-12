@@ -133,6 +133,29 @@ const drainInbox = async (context: Context, bank: string, account: string): Prom
   return newly;
 };
 
+// Repairs a record that an interrupted write left in two year files. Writes only then.
+const recover = async (context: Context, account: string): Promise<void> => {
+  const { settings, log } = context;
+  const recovered = await recoverAccountSource(settings.dataDir, account, "api");
+  if (recovered > 0) log("recovered", { account, records: recovered });
+};
+
+// Reads what a fetch of the account reads before it asks the bank for anything: its stored
+// records and the runs in its inbox. Nothing is merged. `auth` does this before the user
+// goes to the bank, so that an archive or an inbox the code cannot read stops it there, with
+// the message the fetch would have given.
+export const readAhead = async (context: Context, account: string): Promise<void> => {
+  const { settings } = context;
+  try {
+    await recover(context, account);
+    await readAccountSource(settings.dataDir, account, "api");
+    await listRuns(settings.dataDir, account);
+  } catch (error) {
+    if (!isExpected(error)) throw error;
+    throw new SyncError(`${account}: ${error.message}`);
+  }
+};
+
 const fetchAccount = async (
   context: Context,
   bank: string,
@@ -141,8 +164,7 @@ const fetchAccount = async (
   backfill: boolean,
 ): Promise<number> => {
   const { settings, deps, log } = context;
-  const recovered = await recoverAccountSource(settings.dataDir, account, "api");
-  if (recovered > 0) log("recovered", { account, records: recovered });
+  await recover(context, account);
 
   // What an earlier run left is merged before the bank is asked for anything new.
   let newly = await drainInbox(context, bank, account);

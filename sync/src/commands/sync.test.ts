@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdir, rm, writeFile } from "node:fs/promises";
+import { chmod, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import type { TestContext } from "node:test";
@@ -210,4 +210,23 @@ test("an error nobody expected stops the whole run and prints only its class and
   assert.equal(await world.run("sync"), 1);
   assert.equal(world.lines[world.lines.length - 1], "unexpected Error ENOTDIR");
   assert.ok(!(await readdir(world.stateDir)).includes("lock"));
+});
+
+test("a data directory that cannot be written stops the run before any request", async (t) => {
+  const world = await makeWorld();
+  t.after(async () => {
+    await chmod(world.dataDir, 0o755);
+    await world.cleanup();
+  });
+  await world.openSession("bnka");
+  await world.openSession("bnkb");
+  world.bank.requests.length = 0;
+  await chmod(world.dataDir, 0o555);
+  // The precondition: this user is in fact refused. Without it the test proves nothing.
+  await assert.rejects(writeFile(join(world.dataDir, "probe"), ""), { code: "EACCES" });
+
+  assert.equal(await world.run("sync"), 1);
+  assert.equal(printed(world), "DATA_DIR cannot be written (EACCES)");
+  assert.equal(world.bank.requests.length, 0);
+  assert.deepEqual(await readdir(world.stateDir), ["bnka.json", "bnkb.json"]);
 });

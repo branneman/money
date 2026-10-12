@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { ApiError, SyncError } from "../errors.ts";
 import { makeClient } from "./client.ts";
 import type { Fetch } from "./client.ts";
+import { ResponseError } from "./responses.ts";
 
 type Call = { url: string; method: string; headers: Record<string, string>; body?: string };
 
@@ -14,7 +15,7 @@ const answering = (status: number, body: string) => {
     calls.push({ url, method: init.method, headers: init.headers, body: init.body });
     return Promise.resolve({ status, text: () => Promise.resolve(body) });
   };
-  return { calls, client: makeClient(fetch, "the-token") };
+  return { calls, client: makeClient(fetch, () => "the-token") };
 };
 
 test("every request carries the token and goes to the one base address", async () => {
@@ -23,6 +24,23 @@ test("every request carries the token and goes to the one base address", async (
   assert.equal(calls[0].method, "GET");
   assert.ok(calls[0].url.startsWith("https://api.enablebanking.com/accounts/uid-1/transactions?"));
   assert.equal(calls[0].headers.authorization, "Bearer the-token");
+});
+
+test("a token is asked for anew with every request", async () => {
+  const sent: string[] = [];
+  const fetch: Fetch = (_url, init) => {
+    sent.push(init.headers.authorization);
+    return Promise.resolve({ status: 200, text: () => Promise.resolve('{"aspsps":[]}') });
+  };
+  let minted = 0;
+  const client = makeClient(fetch, () => {
+    minted += 1;
+    return `token-${minted}`;
+  });
+  assert.equal(minted, 0);
+  await client.findAspsp("Example Bank", "NL");
+  await client.transactionsPage("uid-1", { strategy: "longest" }, null);
+  assert.deepEqual(sent, ["Bearer token-1", "Bearer token-2"]);
 });
 
 test("no PSU header is ever sent", async () => {
@@ -144,11 +162,56 @@ test("an error response without a usable code keeps only its status", async () =
 
 test("a request that gets no answer is an expected failure that says so", async () => {
   const fetch: Fetch = () => Promise.reject(new TypeError("fetch failed"));
-  await assert.rejects(makeClient(fetch, "t").findAspsp("Example Bank", "NL"), (error) => {
+  await assert.rejects(makeClient(fetch, () => "t").findAspsp("Example Bank", "NL"), (error) => {
     assert.ok(error instanceof SyncError);
     assert.equal(error.message, "no answer from Enable Banking (TypeError)");
     return true;
   });
+});
+
+const AUTH_REQUEST = {
+  aspsp: { name: "Example Bank", country: "NL" },
+  state: "state-1",
+  redirectUrl: "https://localhost/auth-callback",
+  validUntil: "2027-04-09T10:00:00Z",
+};
+
+test("a number the code does not read cannot refuse a session, an authorisation or the list of banks", async () => {
+  const session =
+    '{"session_id":"00000000-0000-4000-8000-000000000001",' +
+    '"access":{"valid_until":"2027-04-09T10:00:00Z"},"accounts":[],"rate":1.10,"limit":1e2}';
+  assert.equal(
+    (await answering(200, session).client.createSession("code-1")).sessionId,
+    "00000000-0000-4000-8000-000000000001",
+  );
+
+  const banks =
+    '{"aspsps":[{"name":"Example Bank","country":"NL","maximum_consent_validity":15552000,' +
+    '"fee":1.10,"limit":1e2}]}';
+  assert.equal(
+    (await answering(200, banks).client.findAspsp("Example Bank", "NL"))?.maximumConsentValidity,
+    15_552_000,
+  );
+
+  const started = '{"url":"https://bank.example/approve?authorization=1","ttl":1.10}';
+  assert.deepEqual(await answering(200, started).client.startAuth(AUTH_REQUEST), {
+    url: "https://bank.example/approve?authorization=1",
+  });
+});
+
+test("an answer that is not JSON is refused without quoting it", async () => {
+  const { client } = answering(200, "<html>Recognisable gateway page</html>");
+  for (const [call, message] of [
+    [() => client.findAspsp("Example Bank", "NL"), "the list of banks is not valid JSON"],
+    [() => client.startAuth(AUTH_REQUEST), "the authorisation is not valid JSON"],
+    [() => client.createSession("code-1"), "the session is not valid JSON"],
+  ] as const) {
+    await assert.rejects(call(), (error) => {
+      assert.ok(error instanceof ResponseError);
+      assert.equal(error.message, message);
+      return true;
+    });
+  }
 });
 
 test("every request has a time limit", async () => {
@@ -157,6 +220,6 @@ test("every request has a time limit", async () => {
     signal = init.signal;
     return Promise.resolve({ status: 200, text: () => Promise.resolve('{"aspsps":[]}') });
   };
-  await makeClient(fetch, "t").findAspsp("Example Bank", "NL");
+  await makeClient(fetch, () => "t").findAspsp("Example Bank", "NL");
   assert.ok(signal instanceof AbortSignal);
 });

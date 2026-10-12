@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
+import { writeFileSync } from "node:fs";
+import { chmod, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import type { TestContext } from "node:test";
@@ -187,7 +188,7 @@ test("a backfill that dies keeps the session and what arrived, and says how to c
   assert.equal((await world.inbox("bnka-current"))[0].pages.length, 1);
   assert.match(
     printed(world),
-    /The consent is stored\. Not fetched in full: bnka-current\. Run sync to continue\./,
+    /^The consent is stored\. Not fetched in full: bnka-current\. Run auth bnka again now: only then can the bank be asked for the whole history\. The nightly sync will otherwise continue with what the bank serves unattended\.$/m,
   );
 });
 
@@ -276,11 +277,107 @@ test("input that ends at the prompt fails the run, stores nothing and frees the 
 
 test("an error nobody expected stops the run, prints only its class and code, and frees the lock", async (t) => {
   const world = await start(t);
-  // A file where the account's inbox directory belongs.
-  await mkdir(join(world.dataDir, ".inbox"));
-  await writeFile(join(world.dataDir, ".inbox", "bnka-current"), "Recognisable contents");
+  // A file where the account's inbox directory belongs, appearing while the user is at the
+  // bank: after everything auth reads beforehand, and before the fetch.
+  world.paste = (url) => {
+    writeFileSync(join(world.dataDir, ".inbox", "bnka-current"), "Recognisable contents");
+    return world.bank.approve(url);
+  };
   assert.equal(await world.run("auth", "bnka"), 1);
   assert.equal(world.lines[world.lines.length - 1], "unexpected Error ENOTDIR");
+  // The consent was stored before the fetch failed, and the user is told so.
+  assert.ok((await world.state("bnka"))?.session_id);
+  assert.match(
+    world.lines[world.lines.length - 2],
+    /^The consent is stored\. Not fetched in full: bnka-current, bnka-joint\. Run auth bnka again now: /,
+  );
   assert.ok(!printed(world).includes(world.dataDir));
   assert.ok(!(await readdir(world.stateDir)).includes("lock"));
+});
+
+test("a data directory that cannot be written stops auth before any request", async (t) => {
+  const world = await makeWorld();
+  t.after(async () => {
+    await chmod(world.dataDir, 0o755);
+    await world.cleanup();
+  });
+  await chmod(world.dataDir, 0o555);
+  // The precondition: this user is in fact refused. Without it the test proves nothing.
+  await assert.rejects(writeFile(join(world.dataDir, "probe"), ""), { code: "EACCES" });
+
+  assert.equal(await world.run("auth", "bnka"), 1);
+  assert.equal(printed(world), "DATA_DIR cannot be written (EACCES)");
+  assert.equal(world.bank.requests.length, 0);
+  assert.equal(await world.state("bnka"), null);
+  assert.deepEqual(await readdir(world.stateDir), []);
+});
+
+test("a year file that cannot be read stops auth before the user is sent to the bank", async (t) => {
+  const world = await start(t);
+  await mkdir(join(world.dataDir, "bnka-joint", "api"), { recursive: true });
+  await writeFile(join(world.dataDir, "bnka-joint", "api", "2026.json"), "[ half a fi");
+  assert.equal(await world.run("auth", "bnka"), 1);
+  assert.match(printed(world), /^bnka-joint: .*2026\.json/m);
+  assert.equal(world.bank.requests.length, 0);
+  assert.equal(await world.state("bnka"), null);
+});
+
+test("an inbox run that cannot be read stops auth before the user is sent to the bank", async (t) => {
+  const world = await start(t);
+  const run = join(world.dataDir, ".inbox", "bnka-joint", "20260228T030000Z");
+  await mkdir(run, { recursive: true });
+  await writeFile(join(run, "2.json"), '{"transactions":[]}');
+  assert.equal(await world.run("auth", "bnka"), 1);
+  assert.match(printed(world), /^bnka-joint: bnka-joint, run 20260228T030000Z: page 1 is absent$/m);
+  assert.equal(world.bank.requests.length, 0);
+  assert.equal(await world.state("bnka"), null);
+  // Reading ahead merges nothing and removes nothing.
+  assert.deepEqual(await readdir(run), ["2.json"]);
+});
+
+test("reading ahead writes nothing: an inbox run is left for the fetch to merge", async (t) => {
+  const world = await start(t);
+  const run = join(world.dataDir, ".inbox", "bnka-current", "20260228T030000Z");
+  await mkdir(run, { recursive: true });
+  await writeFile(
+    join(run, "1.json"),
+    JSON.stringify({ transactions: [booked("left", "2026-02-20")] }),
+  );
+  // The command gets no further than the list of banks.
+  world.bank.failRequest(1, { status: 500, error: "ASPSP_ERROR" });
+  assert.equal(await world.run("auth", "bnka"), 1);
+  assert.deepEqual(await readdir(run), ["1.json"]);
+  assert.deepEqual(await readdir(world.dataDir), [".inbox"]);
+});
+
+test("an authorisation that takes longer than a token lasts still completes", async (t) => {
+  const world = await start(t);
+  for (const id of ["a", "b", "c"]) world.add(IBAN, booked(id, "2026-02-20"));
+  world.bank.pageSize = 2;
+  const later = (minutes: number): void => {
+    world.time.now = new Date(world.time.now.getTime() + minutes * 60_000);
+  };
+  // The user spends more than an hour at the bank before pasting the address.
+  world.paste = (url) => {
+    later(61);
+    return world.bank.approve(url);
+  };
+  // And more than an hour passes between the first page of the fetch and the second.
+  const real = world.deps.fetch;
+  let pages = 0;
+  world.deps.fetch = async (url, init) => {
+    const answer = await real(url, init);
+    if (url.includes("/transactions")) {
+      pages += 1;
+      if (pages === 1) later(61);
+    }
+    return answer;
+  };
+
+  assert.equal(await world.run("auth", "bnka"), 0);
+  assert.equal(pages, 3);
+  assert.deepEqual(
+    (await world.records("bnka-current")).map((record) => record.id),
+    ["a", "b", "c"],
+  );
 });
