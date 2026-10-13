@@ -57,7 +57,7 @@ The store (`@money/shared/node`) is the only code that touches the files. It wri
 Limits, stated plainly:
 
 - The guarantee covers a process crash. For power loss it relies on the filesystem keeping directory operations in order, because the directory is not flushed.
-- After a crash a record can sit in two year files. Reading reports it and stops. The sync repairs this before it reads an account, when the two copies are what an interrupted write leaves: the later one is the earlier one plus one or more revisions, the first of them holding the earlier one's `raw`. One write can add several revisions, because a fetch is merged page by page. Any other pair is reported and left alone.
+- After a crash a record can sit in two year files. Reading reports it and stops. The sync, and an import that writes, repair this before they read an account, when the two copies are what an interrupted write leaves: the later one is the earlier one plus one or more revisions, the first of them holding the earlier one's `raw`. One write can add several revisions, because a fetch is merged page by page. Any other pair is reported and left alone.
 - The store assumes one writer per account and source, which the layout already gives it.
 
 ## Records
@@ -121,7 +121,7 @@ The same rules apply to both sources. For each incoming transaction:
 - **The same identity twice in one batch:** stored once if the two are identical, an error if they differ.
 - **The same identity twice in what is already stored:** an error. Merging stops rather than drop one.
 
-`import` is stricter than `merge`: a file with a repeated identifier is rejected whole, while `merge` itself accepts an identical repeat within a batch.
+`import` is stricter than `merge`: a file with a repeated identifier is rejected whole, while `merge` itself accepts an identical repeat within a batch. `import` also rejects a file when a stored record with one of its identifiers was imported under another format: `merge` keeps a record's format key when it revises it, and the new `raw` would be described by the wrong format.
 
 `merge` returns the full, sorted set of records, the identities it added, the identities it revised and a count of those unchanged. It never reports on what a batch lacks: noticing that a stored record is missing from a fetch needs the fetch window, which belongs to the sync ([sync.md](sync.md)). A stored record absent from a fetch is kept either way.
 
@@ -148,7 +148,7 @@ Readers never interpret `raw` directly. One pure function turns a record into a 
 
 - **API records** are normalised by code: the sign comes from `credit_debit_indicator`, and the counterparty is the creditor of a debit or the debtor of a credit. The amount and the instructed amount carry no sign of their own, and a value date, when present, must be a real date. An instructed amount with a currency that cannot be read is an error.
 - **Both sources:** a currency and an original currency must be exactly three capital letters, since the number of decimals depends on it. `original_amount` takes the sign of `amount`. An original amount and an original currency come together or not at all: one without the other is an error. Anything that cannot be read is an error that names the record, never a guess. Description cells are looked up defensively: a column that is absent gives nothing.
-- **Import records** are normalised by their import format (below). Fixing a mistake in a format changes the view at once and rewrites nothing. The exception is the format's `date` column, which is read once, at import, to set the record's `date`.
+- **Import records** are normalised by their import format (below). Fixing a mistake in a format changes the view at once and rewrites nothing. The exception is the format's `date` column, which is read once, at import, to set the record's `date`. The text fields (`counterparty_name`, `counterparty_account`, `code` and each description line) are trimmed of surrounding whitespace, and a cell that is then empty is absent: some banks pad cells, or fill an unused one with a space. Dates, amounts and currencies are not trimmed: a padded one is an error.
 
 ### When both sources cover the same day
 
@@ -181,13 +181,14 @@ An import format describes one bank's export file, as data. It contains no code.
 }
 ```
 
-- `delimiter`, `encoding`, `account`, `id`, `date`, `amount` and `currency` are required.
+- `delimiter`, `encoding`, `account`, `id`, `date`, `amount` and `currency` are required. A field the schema does not have is an error, never ignored.
+- `delimiter` is one character, and not a double quote or a line ending. Cells may be quoted with double quotes, as RFC 4180 describes; no other quote character is read. The header is the first row. [sync.md](sync.md) has the dialect in full.
 - `encoding` is one of `utf-8`, `windows-1252` or `iso-8859-15`, spelled exactly so. It is never guessed. Latin-1 (ISO-8859-1) and plain ASCII files are declared as `windows-1252`, which reads both correctly.
-- Every format must name an identifier column. A bank's export without one cannot be imported.
+- Every format must name an identifier column. A bank's export without one cannot be imported. The `id` column may be named by no other field of the format, since identifiers appear in messages.
 - The other fields may be left out, and the matching field in the view is then null.
-- `account` names the column that says which account a row belongs to. One file may hold rows for several accounts. A row for an account that is not configured rejects the file.
+- `account` names the column that says which account a row belongs to: by its `import_id` exactly, or by its `iban` whatever the spacing and case. One file may hold rows for several accounts. A row for an account that is not configured rejects the file.
 - `amount` is a signed decimal in one column, with an optional leading `+` or `-`. Other notations are added to this schema when a bank needs them.
-- `description` joins several columns, skipping empty ones.
+- `description` joins several columns, skipping blank ones.
 
 This example describes a made-up bank. Real formats name real banks through their column headers, so they are kept with the production configuration and never in this repository.
 

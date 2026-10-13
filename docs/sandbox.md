@@ -90,6 +90,31 @@ node --env-file=.env.sandbox sync/src/cli.ts status
 
 A second `sync` straight after the first should add and revise nothing, and leave every year file byte for byte the same.
 
+## 7. Import a made-up file
+
+The import needs no bank, only a format and a file. Both are made up here: **a real export file is never brought into this directory**, and neither are its column names. Real formats are written on the host.
+
+Add a format to `tmp/sandbox/config.json`, under `imports`. The example in [archive-format.md](archive-format.md) will do, under a key such as `sbxa-export`.
+
+Write a small file by hand under `tmp/`, with the format's header on the first line and one row per line. Every value is invented, except the account cell, which must hold the IBAN of an account in the configuration file:
+
+```text
+Account;Sequence;Booked;Value date;Amount;Currency;Counterparty;Counterparty account;Text 1;Text 2;Text 3;Type;Original amount;Original currency
+<the configured IBAN>;1;2025-01-02;2025-01-02;-12,34;EUR;"Example Shop; Utrecht";;Line one;;;card;;
+<the configured IBAN>;2;2024-12-31;2024-12-31;+5,00;EUR;;;"Said ""so""";;;transfer;;
+```
+
+Check it, read the summary, and only then write:
+
+```sh
+node --env-file=.env.sandbox sync/src/cli.ts import sbxa-export tmp/made-up.csv
+node --env-file=.env.sandbox sync/src/cli.ts import sbxa-export tmp/made-up.csv --write
+```
+
+The check prints one line per account, with `new=2`, and says nothing was written. The write prints the same and one `import-written` line. Running the write again prints `new=0` and `unchanged=2`, and leaves every year file as it was.
+
+A refused file is named by row number and by the format's field, never by its contents. [sync.md](sync.md) lists what is refused.
+
 ## When it fails
 
 Every command exits 1 with one message. The ones a first run meets:

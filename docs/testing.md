@@ -54,9 +54,11 @@ Covers:
 - **partitioning and ordering**: per account and source, by `booking_date` into years, sorted by date and `id`, with a missing booking date as an error;
 - **the normalised view**: for API records and for import records through an import format, including the sign of amounts, decimal notation, and which counterparty is the other side;
 - **source overlap**: import records on or after an account's API start are left out of the view, whatever order things were done in;
-- **import**: a file with an unknown account, a missing identifier or a repeated one is rejected whole, and importing the same file twice changes nothing;
-- **import encodings**: each allowed encoding decodes a file of known bytes to the right text, and each mismatch that can be detected is rejected (UTF-8 declared single-byte, single-byte declared UTF-8, a byte order mark, control characters, a missing header);
-- **configuration**: every way the configuration file can be wrong stops startup with a message that names the problem;
+- **import, decoding**: each allowed encoding decodes a file of known bytes to the right text, a byte order mark on a UTF-8 file is dropped, and each mismatch that can be detected is rejected (UTF-8 declared single-byte, single-byte declared UTF-8, a byte order mark of the wrong kind, control characters, a `windows-1252` euro sign read as `iso-8859-15`);
+- **import, the table**: quoted cells holding the delimiter, a line break and a doubled quote, both line endings, a missing final one, and each thing refused, by row number: an unclosed quote, text after a closing quote, a quote inside a plain cell, a row of the wrong length, a blank line, a bad header, no rows;
+- **import, the rows**: `raw` keeps every column untouched, an account is found by IBAN whatever its spacing and by `import_id` exactly, and a file with an unknown account, a missing or repeated identifier, or a date, amount or currency that cannot be read is rejected whole, with every problem reported together and no cell or header name repeated;
+- **import, size and odd names**: fifty thousand rows are read without trouble, and a column named like an object's own property is an ordinary column;
+- **configuration**: every way the configuration file can be wrong stops startup with a message that names the problem, an unknown field at any level included;
 - **validation at the boundary**: each unexpected API shape fails with a clear message instead of being guessed at;
 - **JWT construction**: header, claims and TTL, signed with a throwaway key generated in the test;
 - **consent**: the warning window and the expired case;
@@ -67,7 +69,7 @@ Covers:
 
 **The timezone is pinned.** `npm test` sets `TZ=Europe/Amsterdam`. Bank dates are calendar dates in UTC, and the people reading them are an hour or two ahead of it. Under UTC, a test of that boundary passes against the very bug it exists to catch: a transaction booked on the 1st showing up on the 31st, or the other way round. Pinned to a zone that differs from UTC, the assertion means something. Tests that are about this boundary say so, and use instants just before and after midnight in both zones.
 
-**Logging is behaviour, so it is tested.** Logs may hold counts, dates and keys only, and job output leaves the production host on every run (see [infra.md](infra.md)). `sync/src/leak.test.ts` drives the real commands over transactions with recognisable identifiers, amounts, IBANs, names and descriptions, and with a recognisable key, session, account `uid`s and error texts, captures everything printed, and asserts none of those values appear. It covers runs that work and runs that fail, a page that holds one transaction twice and is refused by the merge, a refused authorisation, `status` in every state, a failed request and a refused start. Each test also checks that the path it scans was actually reached, so a scan of nothing cannot pass. Two things print text from a response on purpose and are outside it: `banks`, and `auth` with `--show-ibans`.
+**Logging is behaviour, so it is tested.** Logs may hold counts, dates and keys only, and job output leaves the production host on every run (see [infra.md](infra.md)). `sync/src/leak.test.ts` drives the real commands over transactions with recognisable identifiers, amounts, IBANs, names and descriptions, and with a recognisable key, session, account `uid`s and error texts, captures everything printed, and asserts none of those values appear. It covers runs that work and runs that fail, a page that holds one transaction twice and is refused by the merge, a refused authorisation, `status` in every state, a failed request and a refused start. Each test also checks that the path it scans was actually reached, so a scan of nothing cannot pass. Two things print text from a response on purpose and are outside it: `banks`, and `auth` with `--show-ibans`. The test also drives `import`, as a check, a write and every kind of refusal, over a file whose cells, header names and path are all recognisable, and with a format key nobody configured. The list of non-ASCII characters that `import` prints is asserted apart: each of its lines holds a code point, one character and a count, and nothing else.
 
 ## Tier 2: sync convergence
 
@@ -94,6 +96,15 @@ With the sync built they are also stated over the real commands, in `sync/src/co
 
 These are expressed **property-based**: generate a random bank history and a random schedule of runs (skipped nights, repeated runs, runs on both sides of a year boundary, windows of different lengths, imports of overlapping files in between), run them, and compare the result against a single run over the full history. The normalised view must come out the same whatever the order. The generator is a small seeded PRNG, so a failure prints its seed and replays exactly. No property-testing library is needed for this.
 
+The import has a property of its own, in `sync/src/import/convergence.test.ts`, over the real command and a temporary directory. A generated export for two accounts, with dates on both sides of a year boundary, is cut into three files that together hold every row and three more that overlap them at random. Each file is written in a dialect of its own: some cells quoted and some not, CRLF or LF, with or without a final line ending, its rows shuffled. The files are imported in a random order and one of them twice.
+
+- **Size.** 6 seeds of 40 rows and 7 files each. It takes about two seconds.
+- **What it asserts.** Every import exits 0, and the view of the archive equals the generated rows, apart from `first_seen`. The expected view is worked out in the test from what was generated, trimming included, and never through the reader.
+- **The cells are chosen to break a careless reader:** the delimiter, a doubled quote, a line break, padding, letters beyond ASCII, an empty cell and a cell of one space; an IBAN in three spellings; and identifiers that the two accounts share.
+- **Coverage guards.** The test fails if no file held the delimiter inside a cell, none held a line break inside a cell, or every file ended with a line ending.
+- **The breaks it was seen to fail under:** dropping the last row of a file with no final line ending (three of the six seeds; in the others another file held the row), splitting on a delimiter inside quotes, leaving a doubled quote doubled, matching an IBAN only as written, and not trimming in the view (all six seeds each).
+- **What it does not generate:** a row that changes between two exports. Revisions through the import are covered by a named scenario, since the reader refuses a repeated identifier and `merge` itself is covered by the properties above.
+
 **A property test is not trusted until it has failed.** Before relying on one, break the code under test in a named way (for example, drop the revision, ignore the date, take the first of two duplicates) and see the property fail. Keep that habit for every new property.
 
 Named scenarios pin the edges a generator reaches only by luck:
@@ -114,7 +125,8 @@ Named scenarios pin the edges a generator reaches only by luck:
 - `auth` end to end: a first authorisation, a renewal, a pasted address with another `state`, an account the consent does not cover, two accounts under one IBAN, input that ends at the prompt, and lost state with a completed run still in the inbox;
 - state is written after data, so a crash between the two is repaired by the next run and never skips a window;
 - an expired consent exits non-zero, says to run `auth`, and makes no request;
-- no PSU headers are sent, asserted on the requests the fake bank received.
+- no PSU headers are sent, asserted on the requests the fake bank received;
+- `import`: a check writes nothing, not a directory and not a lock; `--write` stores what the view then reads back; the same file twice leaves every year file byte-for-byte identical; a later export that overlaps adds only what is new; a changed row becomes a revision; a file for two accounts lands per account and per year; one bad row among good ones writes nothing; a single-byte file is stored as the text it means; a stored record under another format rejects the file; a held lock stops `--write` and not a check; and a record left in two year files stops a check and is repaired under `--write`.
 
 **The fake bank** is a real implementation of the Enable Banking endpoints the sync uses, held in memory and handed to the code as its `fetch`. It holds a transaction history, serves pages with continuation keys, and records the requests it received. It can be told to fail on the nth call. It is not a table of canned responses: the sync asks it questions and it answers from its state, which is what lets the property tests generate histories freely. It lives in `sync/testing/fake-bank.ts`, and returns error responses whose `message` and `detail` are recognisable, so any test can assert that neither was printed. `sync/testing/world.ts` wraps it with a temporary directory and a clock the test moves.
 
@@ -122,7 +134,7 @@ Named scenarios pin the edges a generator reaches only by luck:
 
 **A slice that adds a behaviour to the sync adds it to the generator, not only to the scenarios.** A case absent from the generator has no property coverage, however many scenarios name it.
 
-**What this tier cannot prove** is that the fake matches the real API. Validation at the boundary limits the damage, since an unexpected shape fails loudly instead of being stored wrong. Closing the gap properly is Tier 4's job.
+**What this tier cannot prove** is that the fake matches the real API, or that the made-up export formats match real ones. What two real export files showed, by structure alone, is in [sync.md](sync.md). Validation at the boundary limits the damage, since an unexpected shape fails loudly instead of being stored wrong. Closing the gap properly is Tier 4's job.
 
 **`sync/src/cli.ts` is not run by any test.** It is the only edge: it supplies the real environment, clock, network and terminal, and the tests call the function below it with fakes. What covers it is the type-check, and running the commands by hand against the sandbox.
 

@@ -30,11 +30,11 @@ sync (nightly)              import (by hand)
 | `sync`                   | the nightly | Fetches, merges and writes, for every bank and account. |
 | `status`                 | either      | Consent expiry and last successful sync, per bank.      |
 | `banks <country>`        | the user    | The bank names Enable Banking lists for one country.    |
-| `import <format> <file>` | the user    | Merges an exported file into the archive.               |
+| `import <format> <file>` | the user    | Checks an exported file; with `--write`, merges it too. |
 
-`auth` and `sync` take a lock in `STATE_DIR`, so only one of them writes at a time. `status` and `banks` read only.
+`auth`, `sync` and `import --write` take a lock in `STATE_DIR`, so only one of them writes at a time. `status`, `banks` and an `import` that only checks take none.
 
-Under the lock, and before any request, `auth` and `sync` prove that `DATA_DIR` can be written where a fetch writes first: they create `DATA_DIR/.inbox` if it is absent, write a dot-prefixed file in it, and remove it. Startup checks only that the directory exists, and everything before the first page only reads, so without this a data volume mounted read-only would be found after the bank had answered. A failure says `DATA_DIR cannot be written`, with the error's code, and never the path.
+Under the lock, and before any request, `auth` and `sync` prove that `DATA_DIR` can be written where a fetch writes first, and `import --write` does the same before it reads the archive: they create `DATA_DIR/.inbox` if it is absent, write a dot-prefixed file in it, and remove it. Startup checks only that the directory exists, and everything before the first page only reads, so without this a data volume mounted read-only would be found after the bank had answered. A failure says `DATA_DIR cannot be written`, with the error's code, and never the path.
 
 Every command exits non-zero on any failure, with a message that says what to do. The exit code is 0 or 1.
 
@@ -72,6 +72,8 @@ Every command checks all of this at startup, in two stages, and stops at the fir
 
 - **Keys.** Bank keys and import format keys match `[a-z0-9-]+`, like account keys.
 - **Identifiers.** An `iban` or an `import_id` that is present must be a non-empty text, even when the other one is valid.
+- **Unknown fields are refused**, at every level: a section, a bank and its `aspsp`, an account, an import format and each of its column objects. A mistyped field would otherwise read as an optional one left out, and yield nulls without a word. The message names the field only when it is made of letters and underscores, so an account number typed where a field belongs is never repeated.
+- **An import format's `id` column may be named by no other field of that format.** Identifiers appear in messages, so the identifier may not also be the account, the amount, a counterparty or a description. Its `delimiter` may not be a double quote or a line ending.
 - **Messages never contain a value from the file.** They name keys and fields. An unknown bank is reported without its name, and an entry whose key is malformed is named by its position, such as `accounts, entry 2`.
 
 The file is validated at startup, and anything wrong with it stops the command. Both containers read it; neither writes it. The real file names real banks and accounts, so it lives with the production configuration. This repository holds only a made-up example, which the tests use.
@@ -197,9 +199,9 @@ One file per bank, `$STATE_DIR/<bank key>.json`, written by temporary file and r
 
 ### The lock
 
-`auth` and `sync` take `$STATE_DIR/lock`, which holds the process id of the run, and release it when they end. The store assumes one writer per account and source; without the lock, a manual run overlapping the nightly one could overwrite what the other had just written.
+`auth`, `sync` and `import --write` take `$STATE_DIR/lock`, which holds the process id of the run, and release it when they end. The store assumes one writer per account and source; without the lock, a manual run overlapping the nightly one could overwrite what the other had just written.
 
-- **A lock whose process is alive stops the command**, with a message that says so.
+- **A lock whose process is alive stops the command**, with a message that says so. An `import` that only checks takes no lock and is not stopped.
 - **A lock whose process is gone is taken over.** So is one whose content is not a plain positive integer.
 - **It is never seen empty.** Its content is written to a temporary file that is then linked to the lock's name, which fails if the lock exists. `STATE_DIR` must therefore be on a filesystem with hard links.
 - **Taking over** renames the lock aside, and checks that what was moved is what was judged stale. If it is not, it is put back and the command stops.
@@ -249,39 +251,88 @@ These differ per bank. The sync assumes the strictest case and reads a bank's re
 - **Errors.** A failed response is reduced to its HTTP status and its `error` code. Its `message` and `detail` are never kept. `EXPIRED_SESSION`, `REVOKED_SESSION`, `CLOSED_SESSION` and `SESSION_DOES_NOT_EXIST` mean the consent is gone.
 - **No retries, and a time limit on every request.**
 
-## Import: `import <format> <file>`
+## Import: `import <format> <file> [--write]`
 
 Run by the user in production: copy the exported file to the host, run the command in the sync container, delete the file. The file never passes through this repository.
 
-1. Decode the file with the encoding the import format names, checking it as described below, and read it with that format. Every row must have an account, an identifier, a date and an amount that parse.
-2. Route each row to its account key. A row for an unknown account rejects the file.
-3. Check that identifiers are unique within each account. If not, reject the file.
-4. Merge into `<account>/import/<year>.json`, by the same rules as the sync.
+Without `--write` the command checks the file and prints a summary, so the result can be looked at first. With it, the command does the same and then writes. An import is permanent, like everything in the archive.
 
-Nothing is written unless the whole file is accepted. And nothing is written at all without `--write`: by default `import` only checks the file and prints a summary, so the result can be looked at first. An import is permanent, like everything in the archive.
+1. The format key must be configured. If it is not, the command fails and lists the keys that are.
+2. Read the file. A path that names no readable file fails with the error's code, and the path is never repeated.
+3. Decode the file with the encoding the import format names, checking it as described below.
+4. Read the table, and then its rows, as described below. Anything refused ends the command, having written nothing.
+5. For each account in the file, merge its rows into what `<account>/import/` holds, by the same rules as the sync.
+6. Print the summary.
+7. With `--write`, write each account through the store, in the order of the account keys.
+
+Nothing is written unless the whole file is accepted: every account is merged before any is written. Writing is still one account at a time, so a process that dies between two accounts leaves the first written. Running the command again finishes it, because importing the same file twice changes nothing.
+
+`import --write` holds the lock from before it reads the archive until it ends, so what it merges into is what it writes over. A check takes no lock and proves nothing writable: it never waits for the nightly run.
+
+The exit code is 0 for a check that accepts the file and for a write that completes, and 1 for anything else.
 
 ### Checking the encoding
 
 A file read with the wrong encoding still produces text, just with the wrong letters, and that text would be stored for good. The single-byte encodings accept any byte, so decoding alone never fails for them. The import therefore checks:
 
 - **A file declared single-byte that is valid UTF-8 with multi-byte characters, or starts with a UTF-8 byte order mark, is rejected.** Real single-byte text almost never forms valid UTF-8 by accident.
-- **A file declared UTF-8 that is not valid UTF-8 is rejected.**
-- **Decoded text containing control characters is rejected**, other than tab and line endings. This catches bytes that have no meaning in the declared encoding.
+- **A file declared UTF-8 that is not valid UTF-8 is rejected.** A UTF-8 byte order mark at its start is dropped: it is not part of the first header name.
+- **A file that starts with a UTF-16 byte order mark is rejected**, whatever is declared.
+- **Decoded text containing control characters is rejected**, other than tab and line endings. This catches bytes that have no meaning in the declared encoding. U+0080 to U+009F count as control characters: they are what a `windows-1252` file read as `iso-8859-15` gives for the characters the two do not share, the euro sign among them.
 - **Every column the format names must be present in the header, exactly.** A header containing an accented letter doubles as a known-answer test.
-- **The summary lists every distinct non-ASCII character found, with a count.** `windows-1252` and `iso-8859-15` differ in only eight characters, the euro sign among them, and no check can tell them apart. A stray `¤` where a `€` belongs is visible in that list.
+- **The summary lists every distinct non-ASCII character found, with a count.** An `iso-8859-15` file read as `windows-1252` decodes without complaint, and no check can tell. A stray `¤` where a `€` belongs is visible in that list.
+
+### The file's dialect
+
+- **The first row is the header.** Nothing may come before it or after the last row.
+- **Cells may be quoted with double quotes**, as RFC 4180 describes: a quoted cell may hold the delimiter, a line break and a doubled quote, which stands for one. No other quote character is read.
+- **CRLF and LF both end a row.** A line ending at the end of the file ends the last row and starts no empty one.
+- **Nothing is trimmed, skipped or repaired.** Refused, each named by its row's number: a quote that is never closed, text after a closing quote, a quote inside a cell that did not start with one, and a row whose number of cells differs from the header's, which includes an empty line. Also refused: a header name that is empty or used twice, a header with no rows, and an empty file.
+- **Rows are numbered as a person counts them**, with the header as row 1. A row that spans lines counts once.
+
+### Which account a row belongs to
+
+The cell of the format's `account` column is matched against the configured accounts: an `import_id` exactly, or an `iban` once spaces are removed and case is ignored, as `auth` matches. A row that matches no account rejects the file. One file may hold rows for several accounts.
+
+### What is checked in a row
+
+- **The account**, as above.
+- **The identifier:** the cell of the `id` column, as it is. An empty one rejects the file. So does one that appears twice for the same account, whether or not the two rows are identical: this is stricter than `merge`.
+- **The date:** read with the notation the format names. It becomes the record's `date`.
+- **The currency and the amount:** three capital letters, and a signed decimal with the format's decimal mark. They are checked and not stored apart from `raw`.
+
+Nothing else of a row is judged at import. A value date or an original amount that cannot be read is found by the view, which names the record.
+
+Every problem that can be found without stopping is reported together, up to twenty, so one check shows what is wrong with a file and not only its first row. A message names a row by its number and a column by the format's field, such as `amount` or `description, column 2`. It never repeats a header name or a cell.
+
+### What it stores, and when it refuses
 
 Import is safe to repeat. Importing the same file twice changes nothing, and overlapping exports merge by identifier. That matters for accounts the API cannot reach, where a fresh export every so often is the only route.
 
+- **A row that differs from what is stored under its identifier becomes a revision**, as with the sync. The summary counts these as `changed`.
+- **A stored record with one of the file's identifiers, imported under another format, rejects the file.** `merge` keeps a record's format key when it revises it, and the new `raw` would be described by the wrong format.
+- **A record left in two year files by an interrupted write** is repaired first under `--write`, as the sync repairs an API source ([archive-format.md](archive-format.md)). A check that meets one stops with the store's message, since a check writes nothing.
+
 Where an import overlaps what the API has fetched, both are stored and the reader prefers the API. See [archive-format.md](archive-format.md).
 
-## What the sync and the import owe the archive
+### What it prints
 
-The archive-format slice left these to the import:
+```text
+import-account account=bnka-current rows=412 new=380 changed=0 unchanged=32 from=2021-01-04 to=2024-12-31
+import-account account=bnka-joint rows=95 new=95 changed=0 unchanged=0 from=2021-02-01 to=2024-12-30
+import-characters distinct=2
+  U+00E9 é 14
+  U+20AC € 3
+import-checked format=account-export accounts=2 rows=507 written=no
+Nothing was written. Run the same command with --write to import.
+```
 
-- The configuration validator should reject unknown keys, so a mistyped column name cannot silently yield nulls.
-- An import format's `id` column must not point at a sensitive column, since identities appear in messages.
+- **One line per account**, with the first and last booking date in the file for it.
+- **`changed` should be 0 on a first import.** Anything else, on a file from the same bank as before, is worth a look before `--write`.
+- **The character list is the one thing printed that is not a key, a date or a count.** It holds single characters with their code points. `import` is run by hand, at a terminal.
+- With `--write`, each account also gets an `import-written` line with the number of year files written, the last line says `written=yes`, and the closing sentence is left out.
 
-The power-loss and single-writer limits are stated in [archive-format.md](archive-format.md).
+The power-loss and single-writer limits of what both commands write are stated in [archive-format.md](archive-format.md).
 
 ## Open questions
 
@@ -302,6 +353,16 @@ On 2026-10-13 the commands were run against one sandbox bank with one account: `
 - **Not observed:** whether the two dates of a window are inclusive, how the last page marks its end, a consent that has expired, and any error response.
 
 The pass also showed what a first run cannot know, and three things were added for it: `banks <country>`, the count of accounts when a configured account is not in the consent, and `auth --show-ibans`. [sandbox.md](sandbox.md) is the walkthrough.
+
+### What two real export files showed
+
+The import format schema was designed from documentation. On 2026-10-13, before the import was built, the owner ran a profiler over two real export files. It printed their structure with every letter, digit and non-ASCII character masked, and no file name. No header name or value of either file is recorded anywhere in this repository.
+
+- **Both fit the schema as it was.** A header on the first row, one delimiter, one signed amount column, an identifier column the owner confirms is unique and stable, and date notations the code already read. No lines surround the table.
+- **One quotes every cell, and holds the delimiter inside cells.**
+- **One has cells that hold a single space.** That is why the view trims text cells ([archive-format.md](archive-format.md)).
+- **One wraps a text cell in single quotes**, which the reader does not treat as quoting. If such a cell ever holds the delimiter, its row has too many cells and the file is rejected. A quote-character setting is added to the schema if that happens.
+- **Not observed:** more than one transaction per file, so nothing is known yet about repeated identifiers, other currencies, or how a long export ends.
 
 One is for the owner to decide, not for a response to answer:
 

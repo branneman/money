@@ -20,7 +20,7 @@ Out of scope: payments.
 
 ## Status
 
-Built: the archive format, the synthetic archive, and the sync, with its commands `auth <bank>`, `sync`, `status` and `banks <country>`. Not built yet: the import, the dashboard, and the image. [docs/architecture.md](docs/architecture.md) has the build order.
+Built: the archive format, the synthetic archive, the sync, with its commands `auth <bank>`, `sync`, `status` and `banks <country>`, and the import, `import <format> <file>`. Not built yet: the dashboard, and the image. [docs/architecture.md](docs/architecture.md) has the build order.
 
 ## Tech stack
 
@@ -59,6 +59,7 @@ node --env-file=.env.sandbox sync/src/cli.ts banks <country>   # the bank names 
 node --env-file=.env.sandbox sync/src/cli.ts auth <bank>       # approve at the bank, paste the address back
 node --env-file=.env.sandbox sync/src/cli.ts sync              # fetch and merge, for every bank and account
 node --env-file=.env.sandbox sync/src/cli.ts status            # consent expiry and last full fetch
+node --env-file=.env.sandbox sync/src/cli.ts import <format> <file>   # check an exported file; --write imports it
 ```
 
 `<bank>` is the bank's key in the configuration file. Each command exits 0, or 1 with a message that says what to do.
