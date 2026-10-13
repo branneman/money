@@ -457,7 +457,7 @@ test("a start that is refused never prints a setting, a path or what a file held
   }
   const before = world.lines.length;
   assert.equal(await runWith(world, world.env, "sync", "extra"), 1);
-  assert.match(world.lines.slice(before).join("\n"), /usage: auth <bank> \| sync \| status/);
+  assert.match(world.lines.slice(before).join("\n"), /usage: auth <bank> /);
 
   await scan([
     ["the app id given to a refused start", appId],

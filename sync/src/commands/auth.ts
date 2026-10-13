@@ -19,7 +19,13 @@ const consentStored = (bank: string, unfetched: readonly string[]): string =>
   `Run auth ${bank} again now: only then can the bank be asked for the whole history. ` +
   "The nightly sync will otherwise continue with what the bank serves unattended.";
 
-export const runAuth = async (context: Context, bank: string): Promise<number> => {
+// `showIbans` is the one place an iban is printed, and only because it was asked for: a
+// sandbox bank's test accounts are not known beforehand, and the configuration needs them.
+export const runAuth = async (
+  context: Context,
+  bank: string,
+  showIbans = false,
+): Promise<number> => {
   const { settings, config, client, deps, log } = context;
   // What was typed is not repeated: it may be anything.
   if (!Object.hasOwn(config.banks, bank)) {
@@ -62,6 +68,13 @@ export const runAuth = async (context: Context, bank: string): Promise<number> =
   deps.out(url);
   const pasted = await deps.readLine("Paste the whole address of that page: ");
   const session = await client.createSession(readRedirect(pasted, settings.redirectUrl, state));
+
+  if (showIbans) {
+    deps.out("The consent holds these ibans:");
+    for (const item of session.accounts) {
+      if (item.iban !== null) deps.out(`  ${JSON.stringify(item.iban)}`);
+    }
+  }
 
   const uids: Record<string, string> = {};
   const problems: string[] = [];

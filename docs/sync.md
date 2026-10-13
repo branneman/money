@@ -89,6 +89,8 @@ Interactive, run by the user in production, at most every 180 days per bank.
 5. Store the session, its expiry and the account mapping under `STATE_DIR`.
 6. **Fetch at once**, before returning. See below. If a fetch fails here the session is already stored, and the command exits non-zero and names the accounts not fetched in full. It says to run `auth` again now, and why: see "When the first fetch is not whole", below. An error the code did not expect stops the command as it does anywhere, but the same line is printed first, naming every account of the bank, since the user has been to the bank and must learn that the consent is kept.
 
+**`auth <bank> --show-ibans`** prints, after step 3, the IBAN of every account in the consent, each as JSON on a line of its own. It is the only place any command prints an IBAN, and only when asked. It exists for the sandbox, where a test account's IBAN cannot be known beforehand and the configuration needs it. Never use it where output is collected.
+
 A renewing `auth`, like `sync`, exits 1 when a stored record is newly missing from a window that should hold it.
 
 **What can be found out before the bank visit is.** Before step 1, `auth` reads the state that is already there for the bank, and for each account it is about to fetch does what the fetch does first anyway: repairs a record left in two year files, reads the account's API records, and lists the runs in its inbox. State the sync cannot use, a year file it cannot read, or an inbox run that is not what the sync wrote, therefore stops the command before the user goes to the bank, with the message the fetch would have given. Nothing is merged at this point, and nothing is written unless a record needed repair.

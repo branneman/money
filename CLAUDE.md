@@ -13,7 +13,7 @@ The production system handles real bank data. That data must stay in the EU, so 
 - **All data here is synthetic.** `fixtures/archive/` is written by `fixtures/generate.ts` and is safe to read. Never derive a fixture, a test literal or an example from real data. If you need the shape of real data, ask the user for a redacted sample, and copy its shape by hand, never its values.
 - **Every invented IBAN uses check digits `00`** (`NL00...`), which can never be valid. A test enforces this for the archive.
 - **Sandbox runs** use `.env.sandbox` with the Enable Banking sandbox application, and `DATA_DIR`/`STATE_DIR` under `tmp/sandbox/`.
-- **Logs contain counts, dates and keys only.** No amounts, IBANs, names or descriptions. In production, job output is sent to an external monitoring service.
+- **Logs contain counts, dates and keys only.** No amounts, IBANs, names or descriptions. The one exception is `auth <bank> --show-ibans`, which prints a consent's IBANs when asked and is for the sandbox. In production, job output is sent to an external monitoring service.
 - **This repository is public.** Nothing that names the production host, and no credential of any kind, sandbox included, may be committed.
 - **No bank is named, anywhere.** Not in code, docs, tests, fixtures, commit messages or examples. That includes the column headers of a real bank's export file, which identify the bank. Examples use made-up banks (`bnka`, `Example Bank`). Payment institutions in fixtures are invented too, and fixture counterparties are held to `fixtures/counterparties.ts`. Real banks, accounts, import formats and category rules are production configuration.
 - Never weaken `.gitignore` or `.claude/settings.json`.

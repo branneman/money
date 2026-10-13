@@ -121,6 +121,24 @@ test("a configured account the consent does not cover is an error that names it"
   assert.equal(world.transactionRequests().length, 0);
 });
 
+test("auth --show-ibans prints the ibans the consent holds, and only when asked", async (t) => {
+  const world = await start(t);
+  world.paste = (url) => world.bank.approve(url, { only: [IBAN] });
+  assert.equal(await world.run("auth", "bnka", "--show-ibans"), 1);
+  assert.match(printed(world), new RegExp(`The consent holds these ibans:\\n  "${IBAN}"\\n`));
+  assert.match(printed(world), /bnka-joint: the consent does not cover it/);
+  world.lines.length = 0;
+  assert.equal(await world.run("auth", "bnka"), 1);
+  assert.ok(!printed(world).includes(IBAN));
+});
+
+test("auth takes no other option", async (t) => {
+  const world = await start(t);
+  assert.equal(await world.run("auth", "bnka", "--show"), 1);
+  assert.match(printed(world), /^usage: /);
+  assert.equal(world.bank.requests.length, 0);
+});
+
 test("a renewal replaces the session and fetches from the last success, not the whole history", async (t) => {
   const world = await start(t);
   world.add(IBAN, booked("a", "2026-02-20"));

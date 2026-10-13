@@ -12,7 +12,8 @@ import { takeLock } from "./lock.ts";
 import { makeLog } from "./log.ts";
 import { loadStartup } from "./startup.ts";
 
-const USAGE = "usage: auth <bank> | sync | status | banks <country>";
+const SHOW_IBANS = "--show-ibans";
+const USAGE = "usage: auth <bank> [--show-ibans] | sync | status | banks <country>";
 
 // One command, from its arguments to its exit code. Everything it touches arrives in
 // `deps`, so the tests run this very function against a fake bank.
@@ -23,7 +24,7 @@ export const main = async (
 ): Promise<number> => {
   const [command, ...rest] = argv;
   const known =
-    (command === "auth" && rest.length === 1) ||
+    (command === "auth" && (rest.length === 1 || (rest.length === 2 && rest[1] === SHOW_IBANS))) ||
     ((command === "sync" || command === "status") && rest.length === 0) ||
     (command === "banks" && rest.length === 1 && /^[A-Z]{2}$/.test(rest[0]));
   if (!known) throw new SyncError(USAGE);
@@ -46,7 +47,9 @@ export const main = async (
   const release = await takeLock(settings.stateDir, deps.pid, deps.isAlive);
   try {
     await checkWritable(settings.dataDir);
-    return command === "auth" ? await runAuth(context, rest[0]) : await runSync(context);
+    return command === "auth"
+      ? await runAuth(context, rest[0], rest[1] === SHOW_IBANS)
+      : await runSync(context);
   } finally {
     await release();
   }

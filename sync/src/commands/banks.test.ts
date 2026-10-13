@@ -43,7 +43,9 @@ test("banks takes one country, as two capital letters", async (t) => {
   ]) {
     world.lines.length = 0;
     assert.equal(await world.run(...argv), 1);
-    assert.deepEqual(world.lines, ["usage: auth <bank> | sync | status | banks <country>"]);
+    assert.deepEqual(world.lines, [
+      "usage: auth <bank> [--show-ibans] | sync | status | banks <country>",
+    ]);
   }
   assert.equal(world.bank.requests.length, 0);
 });

@@ -65,6 +65,7 @@ It prints one name per line, in quotes. Pick a sandbox bank and copy its line, q
 
 - **The bank key** (`sbxa`) is yours to choose, from `[a-z0-9-]`. It is what you pass to `auth`.
 - **The account's IBAN** is that of a test account of the sandbox bank. The bank's sandbox documentation gives its test users and their accounts, and the bank's approval page shows the accounts while you approve. `auth` stores nothing if a configured account is not in the consent, so a wrong IBAN costs one more run and nothing else.
+- **If the IBAN is published nowhere**, configure any IBAN and run `auth sbxa --show-ibans`. It fails, since the account is not in the consent, but first prints the IBANs the consent does hold. Copy one into the file and run `auth sbxa` again, without the option.
 - One account is enough. A second one shows that accounts are kept apart.
 
 [sync.md](sync.md) describes every field of the file.
