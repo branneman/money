@@ -2,13 +2,11 @@
 // at the bank and pastes back the address the browser was sent to.
 import type { Context } from "../context.ts";
 import { SyncError } from "../errors.ts";
+import { plainIban } from "../iban.ts";
 import { readRedirect } from "../redirect.ts";
 import { readState, renewed, writeState } from "../state.ts";
 import { dateOf, timestampOf } from "../time.ts";
 import { fetchable, fetchAccounts, readAhead } from "./account.ts";
-
-// An IBAN as it is compared: people write them with spaces, banks without.
-const plain = (iban: string): string => iban.replaceAll(/\s/g, "").toUpperCase();
 
 // What the user is told when the consent is stored and the fetch that followed is not
 // whole. The nightly sync would go on, but unattended: for an account with no success yet
@@ -81,9 +79,9 @@ export const runAuth = async (
   for (const account of accounts) {
     const configured = config.accounts[account].iban;
     if (configured === undefined) throw new SyncError(`${account} has no iban`);
-    const iban = plain(configured);
+    const iban = plainIban(configured);
     const matching = session.accounts.filter(
-      (item) => item.iban !== null && plain(item.iban) === iban,
+      (item) => item.iban !== null && plainIban(item.iban) === iban,
     );
     if (matching.length === 0) problems.push(`${account}: the consent does not cover it`);
     else if (matching.length > 1) {
