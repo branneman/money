@@ -2,7 +2,7 @@
 
 Nightly sync of the user's own bank transactions, from one or more banks, via the Enable Banking API, into per-account JSON files; an import for exported files; and later a dashboard that categorises the archive by rules.
 
-Read docs/architecture.md first. The design lives in docs/ (archive-format.md, sync.md, dashboard.md, infra.md, testing.md). This file holds rules for working in the repo, and does not repeat the design.
+Read docs/architecture.md first. The design lives in docs/ (archive-format.md, sync.md, dashboard.md, infra.md, testing.md, sandbox.md). This file holds rules for working in the repo, and does not repeat the design.
 
 ## Data protection: hard rules
 
@@ -25,7 +25,7 @@ The production system handles real bank data. That data must stay in the EU, so 
 - `npm run lint`: ESLint. `npm run format`: Prettier, writing. `npm run format:check`: Prettier, checking.
 - `npm run fixtures`: regenerate `fixtures/archive/` after changing the generator. Never edit the year files by hand; a test fails if they drift from the generator.
 - The pre-commit hook (`.githooks/pre-commit`) runs typecheck, lint, format check and tests on the whole repo. Never bypass it with `--no-verify`.
-- `node --env-file=.env.sandbox sync/src/cli.ts <auth <bank> | sync | status>`, against the sandbox only. `import` arrives with its slice.
+- `node --env-file=.env.sandbox sync/src/cli.ts <auth <bank> | sync | status | banks <country>>`, against the sandbox only. docs/sandbox.md has the setup. `import` arrives with its slice.
 
 ## Code conventions
 

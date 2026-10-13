@@ -136,6 +136,17 @@ export const findAspsp = (value: unknown, name: string, country: string): Aspsp 
   return null;
 };
 
+// The name of every bank in GET /aspsps, in the order given. An entry without a name is
+// skipped, as findAspsp skips it.
+export const aspspNames = (value: unknown): string[] => {
+  if (!isObject(value) || !Array.isArray(value.aspsps)) {
+    throw new ResponseError("the list of banks is not a list");
+  }
+  return (value.aspsps as unknown[]).flatMap((item) =>
+    isObject(item) && typeof item.name === "string" ? [item.name] : [],
+  );
+};
+
 export const checkAuthStart = (value: unknown): { url: string } => {
   if (
     !isObject(value) ||

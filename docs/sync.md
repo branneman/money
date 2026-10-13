@@ -29,9 +29,10 @@ sync (nightly)              import (by hand)
 | `auth <bank>`            | the user    | Starts or renews consent for one bank, then backfills.  |
 | `sync`                   | the nightly | Fetches, merges and writes, for every bank and account. |
 | `status`                 | either      | Consent expiry and last successful sync, per bank.      |
+| `banks <country>`        | the user    | The bank names Enable Banking lists for one country.    |
 | `import <format> <file>` | the user    | Merges an exported file into the archive.               |
 
-`auth` and `sync` take a lock in `STATE_DIR`, so only one of them writes at a time. `status` reads only.
+`auth` and `sync` take a lock in `STATE_DIR`, so only one of them writes at a time. `status` and `banks` read only.
 
 Under the lock, and before any request, `auth` and `sync` prove that `DATA_DIR` can be written where a fetch writes first: they create `DATA_DIR/.inbox` if it is absent, write a dot-prefixed file in it, and remove it. Startup checks only that the directory exists, and everything before the first page only reads, so without this a data volume mounted read-only would be found after the bank had answered. A failure says `DATA_DIR cannot be written`, with the error's code, and never the path.
 
@@ -64,7 +65,7 @@ Every command checks all of this at startup, in two stages, and stops at the fir
 }
 ```
 
-- **`banks`**: one entry per bank, with the exact name and country Enable Banking lists it under. Read the name from `GET /aspsps`; never guess it.
+- **`banks`**: one entry per bank, with the exact name and country Enable Banking lists it under. Read the name from `banks <country>`, which prints what `GET /aspsps` lists; never guess it.
 - **`accounts`**: one entry per account key. `iban` is how the account is recognised in a consent, and in an export file. `import_id` is what an export file calls the account when that is not an IBAN. An account with only an `import_id` is never fetched.
 - **`closed`**: the account is kept and shown, and never fetched again.
 - **`imports`**: import formats by key, as described in [archive-format.md](archive-format.md).
@@ -209,6 +210,14 @@ One limit, stated plainly: **the lock only excludes runs that share a process-id
 Makes no request and takes no lock. For each bank it prints the date the consent ends and the days left, and for each account the date of its last full fetch.
 
 It exits non-zero when a bank that has an account to fetch has no stored consent, or its consent has expired or expires within `CONSENT_WARN_DAYS`. The exit code is the warning.
+
+## Listing banks: `banks <country>`
+
+Takes a country as two capital letters, such as `NL`. Makes one request, `GET /aspsps` for that country, takes no lock and writes nothing. It prints each listed bank's name on a line of its own, as JSON with its quotes, which is exactly what a bank's `name` in the configuration file must hold. It exits non-zero when nothing is listed for the country.
+
+`auth` matches a bank by name and country exactly, capitals and spaces included, and says to run `banks` when it finds no match. Which banks are listed depends on the application: a sandbox application is shown sandbox banks.
+
+The names come from a response and are printed, so this command is for a terminal. It is never part of the nightly job, whose output leaves the host.
 
 ## Bank constraints
 

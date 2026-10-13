@@ -20,7 +20,7 @@ Out of scope: payments.
 
 ## Status
 
-Built: the archive format, the synthetic archive, and the sync, with its commands `auth <bank>`, `sync` and `status`. Not built yet: the import, the dashboard, and the image. [docs/architecture.md](docs/architecture.md) has the build order.
+Built: the archive format, the synthetic archive, and the sync, with its commands `auth <bank>`, `sync`, `status` and `banks <country>`. Not built yet: the import, the dashboard, and the image. [docs/architecture.md](docs/architecture.md) has the build order.
 
 ## Tech stack
 
@@ -38,6 +38,7 @@ Built: the archive format, the synthetic archive, and the sync, with its command
 - [docs/dashboard.md](docs/dashboard.md): the web app and its category rules.
 - [docs/infra.md](docs/infra.md): how this is hosted, backed up and monitored.
 - [docs/testing.md](docs/testing.md): how this is tested.
+- [docs/sandbox.md](docs/sandbox.md): running the sync against the Enable Banking sandbox.
 
 ## Development data
 
@@ -51,19 +52,13 @@ The synthetic `raw` shape follows Enable Banking's documented schema, not an obs
 
 ## Running the sync against the sandbox
 
-The commands run against Enable Banking's sandbox, never against production, from a developer's machine.
-
-1. Register a sandbox application in the Enable Banking Control Panel, with the redirect address `https://localhost/auth-callback`.
-2. Copy `.env.example` to `.env.sandbox` and fill it in. `.env.example` documents every variable. `.env.sandbox` and `tmp/` are gitignored, and neither is ever committed.
-3. Create the directories `DATA_DIR` and `STATE_DIR` name, under `tmp/sandbox/`. The commands never create them.
-4. Write the configuration file at `CONFIG_PATH`, as [docs/sync.md](docs/sync.md) describes, with a sandbox bank under the exact name and country Enable Banking lists it by.
-
-Then:
+The commands run against Enable Banking's sandbox, never against production, from a developer's machine. [docs/sandbox.md](docs/sandbox.md) walks through the setup: the application, `.env.sandbox`, the directories, the configuration file, and the first `auth`.
 
 ```sh
-node --env-file=.env.sandbox sync/src/cli.ts auth <bank>   # approve at the bank, paste the address back
-node --env-file=.env.sandbox sync/src/cli.ts sync          # fetch and merge, for every bank and account
-node --env-file=.env.sandbox sync/src/cli.ts status        # consent expiry and last full fetch
+node --env-file=.env.sandbox sync/src/cli.ts banks <country>   # the bank names to configure
+node --env-file=.env.sandbox sync/src/cli.ts auth <bank>       # approve at the bank, paste the address back
+node --env-file=.env.sandbox sync/src/cli.ts sync              # fetch and merge, for every bank and account
+node --env-file=.env.sandbox sync/src/cli.ts status            # consent expiry and last full fetch
 ```
 
 `<bank>` is the bank's key in the configuration file. Each command exits 0, or 1 with a message that says what to do.

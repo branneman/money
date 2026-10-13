@@ -2,7 +2,7 @@
 
 The whole picture on one page. Each part has its own document; this one says how they fit.
 
-> **Status.** Built: the `shared` workspace (the archive format, merge, the normalised view, configuration), the synthetic archive, and the `sync` workspace (`auth`, `sync`, `status`, tested against a fake bank). Not built yet: `import`, `api`, `app`.
+> **Status.** Built: the `shared` workspace (the archive format, merge, the normalised view, configuration), the synthetic archive, and the `sync` workspace (`auth`, `sync`, `status`, `banks`, tested against a fake bank). Not built yet: `import`, `api`, `app`.
 
 ## Parts
 

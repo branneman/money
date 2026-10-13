@@ -2,7 +2,7 @@ import { isObject } from "@money/shared";
 
 import { ApiError, SyncError } from "../errors.ts";
 import type { Window } from "../window.ts";
-import { checkAuthStart, checkSession, findAspsp, parseJson } from "./responses.ts";
+import { aspspNames, checkAuthStart, checkSession, findAspsp, parseJson } from "./responses.ts";
 import type { Aspsp, Session } from "./responses.ts";
 
 // As much of `fetch` as the client uses. The built-in fetch satisfies it, and so does the
@@ -29,6 +29,7 @@ export type AuthRequest = {
 
 export type Client = {
   findAspsp: (name: string, country: string) => Promise<Aspsp | null>;
+  listAspsps: (country: string) => Promise<string[]>;
   startAuth: (request: AuthRequest) => Promise<{ url: string }>;
   createSession: (code: string) => Promise<Session>;
   transactionsPage: (
@@ -90,6 +91,10 @@ export const makeClient = (fetch: Fetch, token: () => string): Client => {
     findAspsp: async (name, country) => {
       const text = await send("GET", `/aspsps?${new URLSearchParams({ country }).toString()}`);
       return findAspsp(parseJson(text, "the list of banks"), name, country);
+    },
+    listAspsps: async (country) => {
+      const text = await send("GET", `/aspsps?${new URLSearchParams({ country }).toString()}`);
+      return aspspNames(parseJson(text, "the list of banks"));
     },
     startAuth: async (request) => {
       const text = await send("POST", "/auth", {

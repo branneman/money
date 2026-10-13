@@ -40,7 +40,7 @@ export const runAuth = async (context: Context, bank: string): Promise<number> =
   const listed = await client.findAspsp(aspsp.name, aspsp.country);
   if (listed === null) {
     throw new SyncError(
-      `${bank}: Enable Banking lists no bank under the configured name and country`,
+      `${bank}: Enable Banking lists no bank under the configured name and country. Run banks <country> for the names it lists; the name must match exactly.`,
     );
   }
   const required = listed.requiredPsuHeaders.join(", ");
