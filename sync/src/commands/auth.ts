@@ -1,8 +1,9 @@
 // Starts or renews the consent for one bank, then fetches. Interactive: the user approves
 // at the bank and pastes back the address the browser was sent to.
+import { plainIban } from "@money/shared";
+
 import type { Context } from "../context.ts";
 import { SyncError } from "../errors.ts";
-import { plainIban } from "../iban.ts";
 import { readRedirect } from "../redirect.ts";
 import { readState, renewed, writeState } from "../state.ts";
 import { dateOf, timestampOf } from "../time.ts";

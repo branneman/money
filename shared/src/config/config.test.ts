@@ -91,6 +91,16 @@ const wrong: [string, unknown, RegExp][] = [
     /accounts\.b: shares its iban with a/,
   ],
   [
+    "two accounts with one IBAN, written with other spacing and case",
+    aConfig({
+      accounts: {
+        a: { bank: "bnka", iban: "NL00BNKA0000000001" },
+        b: { bank: "bnka", iban: "nl00 bnka 0000 0000 01" },
+      },
+    }),
+    /accounts\.b: shares its iban with accounts\.a/,
+  ],
+  [
     "two accounts with one import_id",
     aConfig({
       accounts: { a: { bank: "bnka", import_id: "1" }, b: { bank: "bnka", import_id: "1" } },

@@ -35,7 +35,12 @@ const hasControl = (text: string): boolean => {
   return false;
 };
 
-const beyondAscii = (text: string): boolean => /[\u0080-￿]/.test(text);
+const beyondAscii = (text: string): boolean => {
+  for (let index = 0; index < text.length; index += 1) {
+    if (text.charCodeAt(index) > 0x7f) return true;
+  }
+  return false;
+};
 
 export const decode = (bytes: Uint8Array, encoding: Encoding): string => {
   if (startsWith(bytes, [0xff, 0xfe]) || startsWith(bytes, [0xfe, 0xff])) {

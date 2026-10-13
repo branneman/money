@@ -166,6 +166,24 @@ test("one bad row among good ones writes nothing, even with --write", async (t) 
   assert.equal((await world.files()).size, 0);
 });
 
+test("a row the view could not read refuses the file, so nothing unreadable is stored", async (t) => {
+  const world = await start(t);
+  const rows = [...TWO, row({ Sequence: "3", "Value date": " " })];
+  assert.equal(await world.run("import", FORMAT, await exported(world, rows), "--write"), 1);
+  assert.deepEqual(world.lines, ["row 4 has a value date that cannot be read"]);
+  assert.equal((await world.files()).size, 0);
+});
+
+test("two accounts cannot share an IBAN by writing it differently, so no row goes astray", async (t) => {
+  const config = worldConfig();
+  config.accounts["bnka-savings"] = { bank: "bnka", iban: "nl00 bnka 0000 0000 01" };
+  const world = await makeWorld({ config: { ...config, imports: { [FORMAT]: aFormat() } } });
+  t.after(world.cleanup);
+  assert.equal(await world.run("import", FORMAT, await exported(world, TWO), "--write"), 1);
+  assert.match(world.lines.join("\n"), /accounts\.bnka-savings: shares its iban with/);
+  assert.equal((await world.files()).size, 0);
+});
+
 test("a file in a single-byte encoding is stored as the text it means", async (t) => {
   const world = await start(t, { [FORMAT]: aFormat({ encoding: "windows-1252" }) });
   const text = renderExport(HEADER, [row({ Counterparty: "Café €" })]);

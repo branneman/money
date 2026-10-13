@@ -71,8 +71,8 @@ Every command checks all of this at startup, in two stages, and stops at the fir
 - **`imports`**: import formats by key, as described in [archive-format.md](archive-format.md).
 
 - **Keys.** Bank keys and import format keys match `[a-z0-9-]+`, like account keys.
-- **Identifiers.** An `iban` or an `import_id` that is present must be a non-empty text, even when the other one is valid.
-- **Unknown fields are refused**, at every level: a section, a bank and its `aspsp`, an account, an import format and each of its column objects. A mistyped field would otherwise read as an optional one left out, and yield nulls without a word. The message names the field only when it is made of letters and underscores, so an account number typed where a field belongs is never repeated.
+- **Identifiers.** An `iban` or an `import_id` that is present must be a non-empty text, even when the other one is valid. No two accounts may share one. IBANs are compared as `auth` and `import` match them, without spaces and case, so one IBAN written two ways is still shared: a row or a consent would otherwise match two accounts.
+- **Unknown fields are refused**, at every level: a section, a bank and its `aspsp`, an account, an import format and each of its column objects. A mistyped field would otherwise read as an optional one left out, and yield nulls without a word. The message names the field only when it is made of lowercase letters and underscores, so an account number typed where a field belongs is never repeated.
 - **An import format's `id` column may be named by no other field of that format.** Identifiers appear in messages, so the identifier may not also be the account, the amount, a counterparty or a description. Its `delimiter` may not be a double quote or a line ending.
 - **Messages never contain a value from the file.** They name keys and fields. An unknown bank is reported without its name, and an entry whose key is malformed is named by its position, such as `accounts, entry 2`.
 
@@ -299,9 +299,9 @@ The cell of the format's `account` column is matched against the configured acco
 - **The account**, as above.
 - **The identifier:** the cell of the `id` column, as it is. An empty one rejects the file. So does one that appears twice for the same account, whether or not the two rows are identical: this is stricter than `merge`.
 - **The date:** read with the notation the format names. It becomes the record's `date`.
-- **The currency and the amount:** three capital letters, and a signed decimal with the format's decimal mark. They are checked and not stored apart from `raw`.
+- **Everything the view reads:** the row must be one the normalised view can read ([archive-format.md](archive-format.md)). That is the currency and the amount, and also a value date, an original amount and an original currency where the format names them. A value date of one space, or an original amount without its currency, rejects the file. Nothing of this is stored apart from `raw`.
 
-Nothing else of a row is judged at import. A value date or an original amount that cannot be read is found by the view, which names the record.
+The reason is that an import is permanent and the view is all-or-nothing: a stored record the view refuses is an error for every reader of the archive, and could only be answered by changing the format or the code. So the reader asks the view itself, and accepts exactly the rows it reads. The text fields cannot fail: they are trimmed, and a blank one is absent.
 
 Every problem that can be found without stopping is reported together, up to twenty, so one check shows what is wrong with a file and not only its first row. A message names a row by its number and a column by the format's field, such as `amount` or `description, column 2`. It never repeats a header name or a cell.
 

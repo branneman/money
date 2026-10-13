@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { Config } from "@money/shared";
-import { aFormat, anImportRaw } from "@money/shared/testing";
+import { normalise } from "@money/shared";
+import type { Config, ImportRaw } from "@money/shared";
+import { aFormat, anImportRaw, anImportRecord } from "@money/shared/testing";
 
 import type { Table } from "./delimited.ts";
 import { ImportError } from "./error.ts";
@@ -128,6 +129,27 @@ const refused: [string, string[][], RegExp][] = [
     [row({ Currency: "eur" })],
     /^row 2 has a currency that cannot be read$/,
   ],
+  ["an empty currency", [row({ Currency: "" })], /^row 2 has no currency$/],
+  [
+    "a value date of one space, which the view could not read",
+    [row({ "Value date": " " })],
+    /^row 2 has a value date that cannot be read$/,
+  ],
+  [
+    "an original amount of one space beside an empty currency",
+    [row({ "Original amount": " " })],
+    /^row 2 has an original amount without a currency$/,
+  ],
+  [
+    "an original currency without an amount",
+    [row({ "Original currency": "USD" })],
+    /^row 2 has an original currency without an amount$/,
+  ],
+  [
+    "an original amount that cannot be read",
+    [row({ "Original amount": "1.000,00", "Original currency": "USD" })],
+    /^row 2 has an original amount that cannot be read$/,
+  ],
   [
     "an identifier used twice in one account, identical rows",
     [row(), row()],
@@ -148,6 +170,19 @@ for (const [label, rows, pattern] of refused) {
     );
   });
 }
+
+test("every row that is accepted is one the view can read", () => {
+  const rows = [
+    row({ Sequence: "1", "Value date": "", "Original amount": "", "Original currency": "" }),
+    row({ Sequence: "2", "Original amount": "10,00", "Original currency": "USD" }),
+    row({ Sequence: "3", Counterparty: " ", "Text 1": " ", Type: " " }),
+  ];
+  const [batch] = readRows(table(...rows), aFormat(), ACCOUNTS);
+  for (const item of batch.incoming) {
+    const record = anImportRecord({ id: item.id, date: item.date, raw: item.raw as ImportRaw });
+    assert.doesNotThrow(() => normalise(record, { "example-export": aFormat() }));
+  }
+});
 
 test("every problem is reported, by row, and good rows do not save the file", () => {
   const message = refusal(() =>

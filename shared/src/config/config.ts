@@ -2,6 +2,7 @@ import { ACCOUNT_KEY } from "../archive/record.ts";
 import { DATE_FORMATS } from "../util/dates.ts";
 import type { DateFormat } from "../util/dates.ts";
 import { isObject, isText } from "../util/guards.ts";
+import { plainIban } from "../util/iban.ts";
 
 export const ENCODINGS = ["utf-8", "windows-1252", "iso-8859-15"] as const;
 
@@ -228,8 +229,11 @@ export const validateConfig = (value: unknown): ConfigResult => {
       ["iban", ibans],
       ["import_id", importIds],
     ] as const) {
-      const identifier = account[field];
-      if (!isText(identifier)) continue;
+      const written = account[field];
+      if (!isText(written)) continue;
+      // An IBAN is matched whatever its spacing and case, so it is compared that way here:
+      // two spellings of one IBAN would otherwise be two accounts for one row.
+      const identifier = field === "iban" ? plainIban(written) : written;
       const other = seen.get(identifier);
       if (other !== undefined) problems.push(`${at}: shares its ${field} with ${other}`);
       else seen.set(identifier, at);

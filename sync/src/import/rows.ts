@@ -1,10 +1,17 @@
 // A table to one batch per account, ready for merge. A row's identifier and booking date
-// are read here, once, and its amount and currency are checked. Nothing else of a row is
-// judged: `raw` is stored as it is, and the view interprets it.
-import { CURRENCY_CODE, namedColumns, parseAmount, parseDate } from "@money/shared";
-import type { Config, ImportFormat, ImportRaw, Incoming } from "@money/shared";
+// are read here, once. `raw` is stored as it is and the view interprets it, so a row is
+// accepted only if the view can read it: what is stored is stored for good, and a record
+// the view refuses would stop every reader of the archive.
+import {
+  identityOf,
+  namedColumns,
+  normalise,
+  NormaliseError,
+  parseDate,
+  plainIban,
+} from "@money/shared";
+import type { Config, ImportFormat, ImportRaw, ImportRecord, Incoming } from "@money/shared";
 
-import { plainIban } from "../iban.ts";
 import type { Table } from "./delimited.ts";
 import { reject } from "./error.ts";
 
@@ -22,6 +29,30 @@ const accountFinder = (accounts: Config["accounts"]): ((cell: string) => string 
   return (cell) => byImportId.get(cell) ?? byIban.get(plainIban(cell));
 };
 
+// What the view would refuse about a row, in the view's own words, or null. The record is
+// made up for the question: only its `raw` and the format matter to the answer.
+const PROBE = "probe";
+const viewProblem = (raw: ImportRaw, format: ImportFormat): string | null => {
+  const record: ImportRecord = {
+    account: PROBE,
+    source: "import",
+    id: PROBE,
+    format: PROBE,
+    date: "2000-01-01",
+    first_seen: "2000-01-01T00:00:00Z",
+    revisions: [],
+    raw,
+  };
+  try {
+    normalise(record, { [PROBE]: format });
+    return null;
+  } catch (error) {
+    if (!(error instanceof NormaliseError)) throw error;
+    // The view names the record first. Here the row's number takes that place.
+    return error.message.slice(identityOf(record).length + 1);
+  }
+};
+
 export const readRows = (
   table: Table,
   format: ImportFormat,
@@ -37,8 +68,6 @@ export const readRows = (
     account: header.indexOf(format.account.column),
     id: header.indexOf(format.id.column),
     date: header.indexOf(format.date.column),
-    amount: header.indexOf(format.amount.column),
-    currency: header.indexOf(format.currency.column),
   };
   const find = accountFinder(accounts);
   const problems: string[] = [];
@@ -55,12 +84,9 @@ export const readRows = (
     if (id === "") problems.push(`${row} has no identifier`);
     const date = parseDate(cells[at.date], format.date.format);
     if (date === null) problems.push(`${row} has a date that cannot be read`);
-    const currency = cells[at.currency];
-    if (!CURRENCY_CODE.test(currency)) {
-      problems.push(`${row} has a currency that cannot be read`);
-    } else if (parseAmount(cells[at.amount], format.amount.decimal, currency) === null) {
-      problems.push(`${row} has an amount that cannot be read`);
-    }
+    const raw: ImportRaw = Object.fromEntries(header.map((name, column) => [name, cells[column]]));
+    const unreadable = viewProblem(raw, format);
+    if (unreadable !== null) problems.push(`${row} ${unreadable}`);
     if (account !== undefined && id !== "") {
       const seen = firstRow.get(account) ?? new Map<string, number>();
       firstRow.set(account, seen);
@@ -72,7 +98,6 @@ export const readRows = (
     }
     if (problems.length > before || account === undefined || date === null) return;
 
-    const raw: ImportRaw = Object.fromEntries(header.map((name, column) => [name, cells[column]]));
     const batch = batches.get(account) ?? [];
     batches.set(account, batch);
     batch.push({ id, date, raw });
