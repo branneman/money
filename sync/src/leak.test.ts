@@ -3,16 +3,26 @@
 // a group of printing paths through the real commands and scans everything they printed
 // against one table of planted values.
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
 
 import { isObject, isText } from "@money/shared";
+import { aFormat } from "@money/shared/testing";
 
 import { describeError } from "./errors.ts";
 import { main } from "./main.ts";
-import { APP_ID, booked, KEYS, makeWorld, REDIRECT_URL, worldAspsps } from "../testing/world.ts";
+import { renderExport } from "../testing/export.ts";
+import {
+  APP_ID,
+  booked,
+  KEYS,
+  makeWorld,
+  REDIRECT_URL,
+  worldAspsps,
+  worldConfig,
+} from "../testing/world.ts";
 import type { World } from "../testing/world.ts";
 
 const A = "NL00BNKA0000000001";
@@ -467,5 +477,135 @@ test("a start that is refused never prints a setting, a path or what a file held
     ["a path of a refused start", folder],
     ["the name of a configuration file", "planted-missing-config"],
     ["the name of a data directory", "planted-no-data-dir"],
+  ]);
+});
+
+// Every header of this made-up export starts with a recognisable word, so that a message
+// naming a column by its header would be caught.
+const EXPORT_HEADER = [
+  "Zqxcol Account",
+  "Zqxcol Id",
+  "Zqxcol Booked",
+  "Zqxcol Amount",
+  "Zqxcol Currency",
+  "Zqxcol Name",
+  "Zqxcol Iban",
+  "Zqxcol Text",
+];
+const EXPORT_FORMAT = aFormat({
+  account: { column: "Zqxcol Account" },
+  id: { column: "Zqxcol Id" },
+  date: { column: "Zqxcol Booked", format: "YYYY-MM-DD" },
+  amount: { column: "Zqxcol Amount", decimal: "," },
+  currency: { column: "Zqxcol Currency" },
+  counterparty_name: { column: "Zqxcol Name" },
+  counterparty_account: { column: "Zqxcol Iban" },
+  description: { columns: ["Zqxcol Text"] },
+  value_date: undefined,
+  code: undefined,
+  original_amount: undefined,
+  original_currency: undefined,
+});
+const exportRow = (
+  id: string,
+  item: typeof DEBIT,
+  overrides: Record<string, string> = {},
+): string[] => {
+  const cells: Record<string, string> = {
+    "Zqxcol Account": A,
+    "Zqxcol Id": id,
+    "Zqxcol Booked": "2025-01-02",
+    "Zqxcol Amount": `-${item.amount.replace(".", ",")}`,
+    "Zqxcol Currency": "EUR",
+    "Zqxcol Name": item.creditor,
+    "Zqxcol Iban": item.creditorIban,
+    "Zqxcol Text": `${item.text} é`,
+    ...overrides,
+  };
+  return EXPORT_HEADER.map((name) => cells[name]);
+};
+
+test("import never prints a cell, a header name, the path or an argument, whether it accepts or refuses", async (t) => {
+  const world = await makeWorld({
+    config: { ...worldConfig(), imports: { "planted-export": EXPORT_FORMAT } },
+  });
+  t.after(world.cleanup);
+  const scan = watch(world);
+  const folder = join(dirname(world.dataDir), "zqxfolder-51d");
+  await mkdir(folder);
+  let files = 0;
+  const run = async (content: string | Uint8Array, ...flags: string[]): Promise<number> => {
+    files += 1;
+    const path = join(folder, `zqxfile-${files}.csv`);
+    await writeFile(path, content);
+    return world.run("import", "planted-export", path, ...flags);
+  };
+  const good = [exportRow("ref-secret-imp-1", DEBIT), exportRow("ref-secret-imp-2", CREDIT)];
+  const file = (rows: string[][]): string => renderExport(EXPORT_HEADER, rows);
+
+  // Accepted: a check, a write, and the same file again.
+  assert.equal(await run(file(good)), 0);
+  assert.equal(await run(file(good), "--write"), 0);
+  assert.equal(await run(file(good), "--write"), 0);
+  // A changed row, which becomes a revision.
+  const changed = [exportRow("ref-secret-imp-1", DEBIT, { "Zqxcol Text": CREDIT.text })];
+  assert.equal(await run(file(changed), "--write"), 0);
+
+  const refusals: [string | Uint8Array, RegExp][] = [
+    [
+      file([exportRow("ref-secret-imp-3", DEBIT, { "Zqxcol Account": DEBIT.debtorIban })]),
+      /is for an account that is not configured/,
+    ],
+    [
+      file([exportRow("ref-secret-imp-3", DEBIT, { "Zqxcol Amount": "7.391,28" })]),
+      /has an amount that cannot be read/,
+    ],
+    [
+      file([exportRow("ref-secret-imp-3", DEBIT, { "Zqxcol Booked": "Recognisable" })]),
+      /has a date that cannot be read/,
+    ],
+    [file([good[0], good[0]]), /repeats the identifier of row 2/],
+    [
+      renderExport(
+        EXPORT_HEADER.slice(0, -1),
+        good.map((cells) => cells.slice(0, -1)),
+      ),
+      /lacks the column that the format names as description, column 1/,
+    ],
+    [`${file(good)}Recognisable"quote\r\n`, /has a quote inside a cell that is not quoted/],
+    [`${file(good)}${DEBIT.creditor};${DEBIT.amount}\r\n`, /cells, and the header has 8/],
+    [Buffer.from(file(good), "latin1"), /is not valid UTF-8/],
+    [`${file(good)}\u0001`, /control character/],
+  ];
+  for (const [content, outcome] of refusals) {
+    const before = world.lines.length;
+    assert.equal(await run(content, "--write"), 1);
+    assert.match(world.lines.slice(before).join("\n"), outcome);
+  }
+
+  // A path that names nothing, and a format key nobody configured.
+  let before = world.lines.length;
+  assert.equal(await world.run("import", "planted-export", join(folder, "zqxfile-none.csv")), 1);
+  assert.match(world.lines.slice(before).join("\n"), /cannot be read \(ENOENT\)/);
+  before = world.lines.length;
+  assert.equal(await world.run("import", "Recognisable-format", join(folder, "zqxfile-1.csv")), 1);
+  assert.match(
+    world.lines.slice(before).join("\n"),
+    /no import format is configured under that key/,
+  );
+
+  // The runs that were accepted did print their summaries, and the character list holds
+  // single characters and nothing else.
+  const printed = world.lines.join("\n");
+  assert.match(printed, /import-account account=bnka-current rows=2 new=2/);
+  assert.match(printed, /import-account account=bnka-current rows=1 new=0 changed=1/);
+  assert.match(printed, /import-checked format=planted-export accounts=1 rows=2 written=yes/);
+  const characterLines = world.lines.filter((line) => line.startsWith("  "));
+  assert.ok(characterLines.length > 0);
+  for (const line of characterLines) assert.match(line, /^ {2}U\+[0-9A-F]{4,6} \S \d+$/u);
+
+  await scan([
+    ["a header name of the export", "Zqxcol"],
+    ["the export's path", "zqxf"],
   ]);
 });
