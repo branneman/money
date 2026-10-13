@@ -79,7 +79,14 @@ export const runAuth = async (context: Context, bank: string): Promise<number> =
       problems.push(`${account}: the consent covers it but gives no way to fetch it`);
     } else uids[account] = matching[0].uid;
   }
-  if (problems.length > 0) throw new SyncError(problems.join("\n"));
+  if (problems.length > 0) {
+    // Counts tell a wrong iban in the configuration from a bank that names accounts otherwise.
+    const withIban = session.accounts.filter((item) => item.iban !== null).length;
+    problems.push(
+      `The consent holds ${session.accounts.length} account(s), ${withIban} of them with an iban.`,
+    );
+    throw new SyncError(problems.join("\n"));
+  }
 
   await writeState(settings.stateDir, bank, renewed(previous, session, uids));
   log("authorised", {

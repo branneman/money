@@ -115,6 +115,8 @@ test("a configured account the consent does not cover is an error that names it"
   world.paste = (url) => world.bank.approve(url, { only: [IBAN] });
   assert.equal(await world.run("auth", "bnka"), 1);
   assert.match(printed(world), /bnka-joint: the consent does not cover it/);
+  // Counts only: enough to tell a wrong iban from a bank that gives none.
+  assert.match(printed(world), /The consent holds 1 account\(s\), 1 of them with an iban\./);
   assert.equal(await world.state("bnka"), null);
   assert.equal(world.transactionRequests().length, 0);
 });

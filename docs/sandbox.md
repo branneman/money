@@ -97,7 +97,7 @@ Every command exits 1 with one message. The ones a first run meets:
 - **`Enable Banking lists no bank for the country XX`**: the country code is wrong, or the application is shown no bank there.
 - **`Enable Banking answered 401`** or **`403`**: the application id and the key do not belong together, the key was not encoded whole, or the application is not usable yet.
 - **`Enable Banking answered 400`** or **`422`**, with a code in capitals, on `auth`: the code says what was refused. One about the redirect means `EB_REDIRECT_URL` differs from the address registered for the application.
-- **`<account>: the consent does not cover it`**: the account's IBAN is not one of the accounts approved at the bank. Nothing was stored; correct the IBAN, or approve that account, and run `auth` again.
+- **`<account>: the consent does not cover it`**: the account's IBAN is not one of the accounts approved at the bank. Nothing was stored; correct the IBAN, or approve that account, and run `auth` again. The line after it counts the accounts the consent holds and how many carry an IBAN. None held: no account was approved at the bank. Some held, none with an IBAN: the bank names its accounts another way, and the code must be taught it. Otherwise the configured IBAN is not one of them.
 - **A message about a variable or a directory**, before any request: `.env.sandbox` or `tmp/sandbox/` is not as steps 2 and 3 describe. The message names the variable.
 
 A message never repeats a value from the configuration file or from a response. If a response is refused as having an unexpected shape, the fix is in the code: describe the shape of the response with every value replaced, and never paste the response itself.
