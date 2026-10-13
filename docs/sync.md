@@ -295,7 +295,7 @@ Each needs a real response or a real file to answer. None can be settled from do
 
 On 2026-10-13 the commands were run against one sandbox bank with one account: `auth`, `sync` twice, and `status`. A sandbox bank is not a real bank, so none of the three questions above is closed by it.
 
-- **Every response was accepted as the code expects it.** The list of banks, the start of the authorisation, the session with its `valid_until`, and four pages of transactions passed validation unchanged. The consent was given for 180 days.
+- **Every response was accepted as the code expects it.** The list of banks, the start of the authorisation, the session with its `valid_until`, and five pages of transactions passed validation unchanged. The consent was given for 180 days.
 - **The identity held between fetches a minute apart.** `auth` stored 366 transactions from three pages. Each `sync` that followed asked for a 30-day window and found its 31 transactions unchanged: none added, none revised, none missing. So each had the identity and the exact `raw` it had before. That says nothing yet about two different days.
 - **The longest period was served without PSU headers.** The bank lists `psu-ip-address` as required; none is sent, and the fetch that follows the authorisation was served in full. How far back it reached in dates was not read.
 - **The fake needed no correction.** No place was found where the real API differs from it. A page held more than a hundred transactions.
