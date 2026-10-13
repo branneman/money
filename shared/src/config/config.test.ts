@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { aConfig, aFormat } from "../../testing/factories.ts";
-import { validateConfig } from "./config.ts";
+import { namedColumns, validateConfig } from "./config.ts";
 
 const problemsOf = (value: unknown): string[] => {
   const result = validateConfig(value);
@@ -134,6 +134,79 @@ const wrong: [string, unknown, RegExp][] = [
     aConfig({ imports: { x: aFormat({ code: { column: "" } }) } }),
     /imports\.x: code/,
   ],
+  [
+    "a section the configuration does not know",
+    { ...aConfig(), rules: {} },
+    /^rules is not a section the configuration knows$/,
+  ],
+  [
+    "a bank with a field it does not have",
+    aConfig({
+      banks: { bnka: { aspsp: { name: "Example Bank", country: "NL" }, nickname: "a" } as never },
+    }),
+    /banks\.bnka: nickname is not a field the configuration knows/,
+  ],
+  [
+    "an aspsp with a field it does not have",
+    aConfig({
+      banks: { bnka: { aspsp: { name: "Example Bank", country: "NL", bic: "x" } as never } },
+    }),
+    /banks\.bnka: aspsp: bic is not a field the configuration knows/,
+  ],
+  [
+    "an account with a mistyped field",
+    aConfig({
+      accounts: { a: { bank: "bnka", iban: "NL00BNKA0000000001", close: true } as never },
+    }),
+    /accounts\.a: close is not a field the configuration knows/,
+  ],
+  [
+    "an import format with a mistyped field",
+    aConfig({
+      imports: { "example-export": { ...aFormat(), value_dat: { column: "Value date" } } as never },
+    }),
+    /imports\.example-export: value_dat is not a field the configuration knows/,
+  ],
+  [
+    "an amount column with a field it does not have",
+    aConfig({
+      imports: {
+        "example-export": aFormat({
+          amount: { column: "Amount", decimal: ",", thousands: "." } as never,
+        }),
+      },
+    }),
+    /imports\.example-export: amount: thousands is not a field the configuration knows/,
+  ],
+  [
+    "a description with a field it does not have",
+    aConfig({
+      imports: {
+        "example-export": aFormat({ description: { columns: ["Text 1"], join: " " } as never }),
+      },
+    }),
+    /imports\.example-export: description: join is not a field the configuration knows/,
+  ],
+  [
+    "an id column that is also the amount",
+    aConfig({ imports: { "example-export": aFormat({ id: { column: "Amount" } }) } }),
+    /imports\.example-export: id names the same column as amount/,
+  ],
+  [
+    "an id column that is also a description column",
+    aConfig({ imports: { "example-export": aFormat({ id: { column: "Text 2" } }) } }),
+    /imports\.example-export: id names the same column as description, column 2/,
+  ],
+  [
+    "a double quote as the delimiter",
+    aConfig({ imports: { "example-export": aFormat({ delimiter: '"' }) } }),
+    /imports\.example-export: delimiter may not be a double quote or a line ending/,
+  ],
+  [
+    "a line ending as the delimiter",
+    aConfig({ imports: { "example-export": aFormat({ delimiter: "\n" }) } }),
+    /imports\.example-export: delimiter may not be a double quote or a line ending/,
+  ],
 ];
 
 for (const [name, value, message] of wrong) {
@@ -187,5 +260,51 @@ test("an IBAN pasted into a bank or used as a key is never repeated", () => {
   assert.ok(
     keyed.every((problem) => !problem.includes("NL00")),
     keyed.join(" | "),
+  );
+});
+
+test("an unknown field that could be an account number is never repeated", () => {
+  const problems = problemsOf(
+    aConfig({
+      accounts: { a: { bank: "bnka", iban: "NL00BNKA0000000001", "1001": "x" } as never },
+    }),
+  );
+  assert.deepEqual(problems, ["accounts.a: holds a field the configuration does not know"]);
+});
+
+test("namedColumns lists every column a format reads, by the field that reads it", () => {
+  assert.deepEqual(namedColumns(aFormat()), [
+    ["account", "Account"],
+    ["id", "Sequence"],
+    ["date", "Booked"],
+    ["amount", "Amount"],
+    ["currency", "Currency"],
+    ["value_date", "Value date"],
+    ["counterparty_name", "Counterparty"],
+    ["counterparty_account", "Counterparty account"],
+    ["code", "Type"],
+    ["original_amount", "Original amount"],
+    ["original_currency", "Original currency"],
+    ["description, column 1", "Text 1"],
+    ["description, column 2", "Text 2"],
+    ["description, column 3", "Text 3"],
+  ]);
+});
+
+test("namedColumns leaves out what a format does not name", () => {
+  const format = aFormat({ value_date: undefined, description: undefined, code: undefined });
+  assert.deepEqual(
+    namedColumns(format).map(([field]) => field),
+    [
+      "account",
+      "id",
+      "date",
+      "amount",
+      "currency",
+      "counterparty_name",
+      "counterparty_account",
+      "original_amount",
+      "original_currency",
+    ],
   );
 });
