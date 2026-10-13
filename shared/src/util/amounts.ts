@@ -1,3 +1,6 @@
+// ISO 4217: exactly three capital letters. The number of decimals depends on it.
+export const CURRENCY_CODE = /^[A-Z]{3}$/;
+
 // ISO 4217 currencies that do not have two decimals.
 const NO_DECIMALS = new Set([
   "BIF",

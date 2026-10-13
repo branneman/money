@@ -1,5 +1,5 @@
 import type { ImportFormat } from "../config/config.ts";
-import { parseAmount } from "../util/amounts.ts";
+import { CURRENCY_CODE, parseAmount } from "../util/amounts.ts";
 import { isIsoDate, parseDate } from "../util/dates.ts";
 import { isObject, isText } from "../util/guards.ts";
 import { identityOf } from "./record.ts";
@@ -35,8 +35,6 @@ const failure = (record: ArchiveRecord, problem: string): NormaliseError =>
 const text = (value: unknown): string | null => (isText(value) ? value : null);
 
 const object = (value: unknown): Record<string, unknown> => (isObject(value) ? value : {});
-
-const CURRENCY_CODE = /^[A-Z]{3}$/;
 
 // The API's amounts carry no sign: the direction is a separate field.
 const unsignedAmount = (value: unknown, currency: string): number | null => {
@@ -118,6 +116,12 @@ const normaliseApi = (record: ApiRecord): Transaction => {
 const normaliseImport = (record: ImportRecord, format: ImportFormat): Transaction => {
   const cell = (column: { column: string } | undefined): string | null =>
     column === undefined ? null : text(record.raw[column.column]);
+  // A text cell as the view shows it: without the padding some banks add, and absent when
+  // nothing is left. `raw` keeps the cell as it was.
+  const shown = (value: string | null): string | null => {
+    const trimmed = value?.trim() ?? "";
+    return trimmed === "" ? null : trimmed;
+  };
 
   const currency = cell(format.currency);
   if (currency === null) throw failure(record, "has no currency");
@@ -153,13 +157,13 @@ const normaliseImport = (record: ImportRecord, format: ImportFormat): Transactio
     value_date: valueDate,
     amount,
     currency,
-    counterparty_name: cell(format.counterparty_name),
-    counterparty_account: cell(format.counterparty_account),
+    counterparty_name: shown(cell(format.counterparty_name)),
+    counterparty_account: shown(cell(format.counterparty_account)),
     description: (format.description?.columns ?? [])
-      .map((column) => text(Object.hasOwn(record.raw, column) ? record.raw[column] : null))
+      .map((column) => shown(text(Object.hasOwn(record.raw, column) ? record.raw[column] : null)))
       .filter((line) => line !== null)
       .join("\n"),
-    code: cell(format.code),
+    code: shown(cell(format.code)),
     original_amount: original === null ? null : withSign(original, amount),
     original_currency: original === null ? null : originalCurrency,
     first_seen: record.first_seen,

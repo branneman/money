@@ -144,6 +144,31 @@ test("an import row with empty optional cells gives nulls", () => {
   assert.equal(result.description, "");
 });
 
+test("an import row's text cells are trimmed, and a blank one is absent", () => {
+  const raw = anImportRaw({
+    Counterparty: "  Example Shop ",
+    "Counterparty account": " ",
+    Type: "\tcard",
+    "Text 1": " ",
+    "Text 2": " Line two  ",
+    "Text 3": "",
+  });
+  const result = normalise(anImportRecord({ raw }), FORMATS);
+  assert.equal(result.counterparty_name, "Example Shop");
+  assert.equal(result.counterparty_account, null);
+  assert.equal(result.code, "card");
+  assert.equal(result.description, "Line two");
+});
+
+test("trimming is for text: a padded amount or date is still an error", () => {
+  for (const raw of [
+    anImportRaw({ Amount: " -12,34" }),
+    anImportRaw({ "Value date": "2025-01-02 " }),
+  ]) {
+    assert.throws(() => normalise(anImportRecord({ raw }), FORMATS), NormaliseError);
+  }
+});
+
 test("a format without optional columns gives nulls for them", () => {
   const formats = {
     "example-export": aFormat({
