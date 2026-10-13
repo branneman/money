@@ -105,6 +105,8 @@ A message never repeats a value from the configuration file or from a response. 
 
 ## Worktrees
 
-`.env.sandbox` and `tmp/` are gitignored, so they exist only where they were created. A new git worktree starts without them, and nothing reads them from another checkout: the paths in `.env.sandbox` are relative to where the command runs.
+`.env.sandbox` and `tmp/` are gitignored, so they exist only where they were created, and nothing reads them from another checkout: the paths in `.env.sandbox` are relative to where the command runs.
 
-So a consent stored from one checkout is unknown in another, and each needs its own `auth`. Keep one set in the main checkout and run the sandbox from there, unless a slice needs the sandbox in its own worktree.
+Keep the set in the main checkout. `.worktreeinclude` lists `.env.sandbox` and `tmp/sandbox/`, so a worktree that Claude Code creates starts with a copy of both: the settings, the configuration file, the stored consent and the sandbox archive as they were at that moment.
+
+It is a copy, in one direction. What a worktree's runs fetch or store stays in the worktree and goes when the worktree is removed. A consent renewed in one checkout is not renewed in the other, so run `auth` in the main checkout.

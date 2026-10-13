@@ -1,0 +1,4 @@
+# Gitignored files that Claude Code copies from the main checkout into each new worktree.
+# Only the sandbox setup: see docs/sandbox.md.
+.env.sandbox
+tmp/sandbox/
