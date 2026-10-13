@@ -5,3 +5,6 @@ fixtures/config.json
 
 # Agent scratch space, ignored by git through its own nested file
 .superpowers/
+
+# Worktrees of this repository, each checked in its own right
+.claude/worktrees/
