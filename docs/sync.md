@@ -291,6 +291,18 @@ Each needs a real response or a real file to answer. None can be settled from do
 - **Does `strategy=longest` unlock a bank's one-time full history?** The first production backfill will show how far back it reached.
 - **Are PSU headers needed for a deep backfill?** They assert that the user is present, which is true during `auth`, but there is no browser to take them from.
 
+### What the sandbox showed
+
+On 2026-10-13 the commands were run against one sandbox bank with one account: `auth`, `sync` twice, and `status`. A sandbox bank is not a real bank, so none of the three questions above is closed by it.
+
+- **Every response was accepted as the code expects it.** The list of banks, the start of the authorisation, the session with its `valid_until`, and four pages of transactions passed validation unchanged. The consent was given for 180 days.
+- **The identity held between fetches a minute apart.** `auth` stored 366 transactions from three pages. Each `sync` that followed asked for a 30-day window and found its 31 transactions unchanged: none added, none revised, none missing. So each had the identity and the exact `raw` it had before. That says nothing yet about two different days.
+- **The longest period was served without PSU headers.** The bank lists `psu-ip-address` as required; none is sent, and the fetch that follows the authorisation was served in full. How far back it reached in dates was not read.
+- **The fake needed no correction.** No place was found where the real API differs from it. A page held more than a hundred transactions.
+- **Not observed:** whether the two dates of a window are inclusive, how the last page marks its end, a consent that has expired, and any error response.
+
+The pass also showed what a first run cannot know, and three things were added for it: `banks <country>`, the count of accounts when a configured account is not in the consent, and `auth --show-ibans`. [sandbox.md](sandbox.md) is the walkthrough.
+
 One is for the owner to decide, not for a response to answer:
 
 - **Should an unattended longest-period fetch that completes count as an account's first success?** Today it does. When a first `auth` leaves an account not fetched in full and the nightly `sync` reaches it before a second `auth` does, the account's success is recorded on whatever the bank served unattended, and the older history is never asked for again. The message and the runbook say to run `auth` again first; nothing enforces it.
