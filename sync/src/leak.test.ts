@@ -373,12 +373,12 @@ test("sync never prints a session or an account when a consent is absent, near i
   world.add(A, credit("ref-secret-2", "2026-02-21"));
 
   // One bank without a consent.
-  await world.openSession("bnka");
+  assert.equal(await world.run("auth", "bnka"), 0);
   assert.equal(await world.run("sync"), 1);
 
   // Near its end: the run goes on, and warns. The other bank has a consent by now, so a
   // clean exit shows the fetch itself worked.
-  await world.openSession("bnkb");
+  assert.equal(await world.run("auth", "bnkb"), 0);
   world.at("2026-08-25T03:00:00Z");
   assert.equal(await world.run("sync"), 0);
 
@@ -430,6 +430,7 @@ test("a failed fetch never prints a request, a response or a header", async (t) 
     /Enable Banking answered 401/,
     /Enable Banking answered 429/,
     /Enable Banking answered 400$/m,
+    /^bnkb-current: fetched without a first success, so the bank gave only what it serves unattended\. Run: auth bnkb$/m,
   ]) {
     assert.match(printed, outcome);
   }

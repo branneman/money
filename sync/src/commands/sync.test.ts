@@ -165,7 +165,9 @@ test("a backfill that died during auth is continued by sync, asking for the long
 
   world.at("2026-03-02T03:00:00Z");
   world.bank.requests.length = 0;
-  assert.equal(await world.run("sync"), 0);
+  // Without the user present the longest period is stored but is not a first success, so
+  // the account still fails.
+  assert.equal(await world.run("sync"), 1);
   assert.deepEqual(await idsOf(world, "bnka-current"), ["a", "b", "c"]);
   assert.equal(world.transactionRequests()[0].query.strategy, "longest");
 });

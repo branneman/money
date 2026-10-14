@@ -25,13 +25,19 @@ const start = async (
 };
 
 const fetchOne = (world: World, uids: Record<string, string>) =>
-  fetchAccounts(world.context(), "bnka", [[ACCOUNT, uids[ACCOUNT]]]);
+  fetchAccounts(world.context(), "bnka", [[ACCOUNT, uids[ACCOUNT]]], { attended: true });
 
 const idsOf = async (world: World): Promise<string[]> =>
   (await world.records(ACCOUNT)).map((record) => record.id);
 
 const lastSuccess = async (world: World): Promise<string | undefined> =>
   (await world.state("bnka"))?.accounts[ACCOUNT].last_success;
+
+const UNATTENDED_FIRST =
+  "bnka-current: fetched without a first success, so the bank gave only what it serves unattended. Run: auth bnka";
+
+const fetchUnattended = (world: World, uids: Record<string, string>) =>
+  fetchAccounts(world.context(), "bnka", [[ACCOUNT, uids[ACCOUNT]]], { attended: false });
 
 test("the accounts to fetch are the open ones with an IBAN, by bank", async (t) => {
   const { world } = await start(t);
@@ -405,7 +411,7 @@ test("one account's failure does not stop the next, unless the consent is gone",
   ] as const;
 
   world.bank.failRequest(1, { status: 500, error: "ASPSP_ERROR" });
-  assert.deepEqual(await fetchAccounts(world.context(), "bnka", both), {
+  assert.deepEqual(await fetchAccounts(world.context(), "bnka", both, { attended: true }), {
     failed: [ACCOUNT],
     newlyMissing: 0,
   });
@@ -414,7 +420,7 @@ test("one account's failure does not stop the next, unless the consent is gone",
   world.at("2026-03-02T03:00:00Z");
   world.bank.revoke("Example Bank");
   world.bank.requests.length = 0;
-  assert.deepEqual(await fetchAccounts(world.context(), "bnka", both), {
+  assert.deepEqual(await fetchAccounts(world.context(), "bnka", both, { attended: true }), {
     failed: [ACCOUNT, "bnka-joint"],
     newlyMissing: 0,
   });
@@ -443,14 +449,20 @@ test("an account named for a backfill is asked for the longest period despite it
     [ACCOUNT, uids[ACCOUNT]],
     ["bnka-joint", uids["bnka-joint"]],
   ] as const;
-  await fetchAccounts(world.context(), "bnka", both);
+  await fetchAccounts(world.context(), "bnka", both, { attended: true });
 
   world.at("2026-03-02T03:00:00Z");
   world.bank.requests.length = 0;
-  assert.deepEqual(await fetchAccounts(world.context(), "bnka", both, new Set([ACCOUNT])), {
-    failed: [],
-    newlyMissing: 0,
-  });
+  assert.deepEqual(
+    await fetchAccounts(world.context(), "bnka", both, {
+      attended: true,
+      backfill: new Set([ACCOUNT]),
+    }),
+    {
+      failed: [],
+      newlyMissing: 0,
+    },
+  );
   const [first, second] = world.transactionRequests();
   assert.deepEqual(first.query, { transaction_status: "BOOK", strategy: "longest" });
   assert.deepEqual(second.query, {
@@ -459,4 +471,43 @@ test("an account named for a backfill is asked for the longest period despite it
     date_to: "2026-03-02",
   });
   assert.equal(await lastSuccess(world), "2026-03-02T03:00:00Z");
+});
+
+test("a first fetch without the user present is merged and kept, records no success, and fails the account", async (t) => {
+  const { world, uids } = await start(t);
+  world.add(IBAN, booked("a", "2026-02-20"));
+  assert.deepEqual(await fetchUnattended(world, uids), { failed: [ACCOUNT], newlyMissing: 0 });
+  assert.deepEqual(await idsOf(world), ["a"]);
+  assert.equal(await lastSuccess(world), undefined);
+  assert.deepEqual(await world.inbox(ACCOUNT), []);
+  assert.ok(world.lines.includes(UNATTENDED_FIRST));
+});
+
+test("every night without the user present asks for the longest period again, and changes nothing", async (t) => {
+  const { world, uids } = await start(t);
+  world.add(IBAN, booked("a", "2026-02-20"));
+  await fetchUnattended(world, uids);
+  const before = await world.files();
+
+  world.at("2026-03-02T03:00:00Z");
+  assert.deepEqual(await fetchUnattended(world, uids), { failed: [ACCOUNT], newlyMissing: 0 });
+  assert.deepEqual(
+    world.transactionRequests().map((request) => request.query.strategy),
+    ["longest", "longest"],
+  );
+  assert.deepEqual(await world.files(), before);
+  assert.equal(await lastSuccess(world), undefined);
+});
+
+test("a run received in full with the user present is a success when an unattended run merges it", async (t) => {
+  const { world, uids } = await start(t);
+  world.add(IBAN, booked("a", "2026-02-20"));
+  world.crashAt = "received";
+  await assert.rejects(fetchOne(world, uids), Crash);
+
+  world.at("2026-03-02T03:00:00Z");
+  assert.deepEqual(await fetchUnattended(world, uids), { failed: [], newlyMissing: 0 });
+  assert.equal(await lastSuccess(world), "2026-03-02T03:00:00Z");
+  // The success the attended run recorded is what the night's window was anchored on.
+  assert.equal(world.transactionRequests().at(-1)?.query.date_from, "2026-01-30");
 });

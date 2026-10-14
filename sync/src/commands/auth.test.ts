@@ -208,7 +208,46 @@ test("a backfill that dies keeps the session and what arrived, and says how to c
   assert.equal((await world.inbox("bnka-current"))[0].pages.length, 1);
   assert.match(
     printed(world),
-    /^The consent is stored\. Not fetched in full: bnka-current\. Run auth bnka again now: only then can the bank be asked for the whole history\. The nightly sync will otherwise continue with what the bank serves unattended\.$/m,
+    /^The consent is stored\. Not fetched in full: bnka-current\. Run auth bnka again now: only then can the bank be asked for the whole history\. Until then the nightly sync stores only what the bank serves unattended, and fails\.$/m,
+  );
+});
+
+test("after a first fetch that failed, sync stores what the bank serves unattended and fails, until auth is run again", async (t) => {
+  const world = await start(t);
+  // Older than the 90 days the fake bank serves without the user.
+  world.add(IBAN, booked("old", "2025-06-01"));
+  world.add(IBAN, booked("recent", "2026-02-20"));
+  // Requests: the bank list, the authorisation, the session, then the first account's
+  // first page.
+  world.bank.failRequest(4, { status: 500, error: "ASPSP_ERROR" });
+  assert.equal(await world.run("auth", "bnka"), 1);
+
+  const line =
+    "bnka-current: fetched without a first success, so the bank gave only what it serves unattended. Run: auth bnka";
+  const archives: Map<string, string>[] = [];
+  for (const night of ["2026-03-02T03:00:00Z", "2026-03-03T03:00:00Z"]) {
+    world.at(night);
+    world.lines.length = 0;
+    assert.equal(await world.run("sync"), 1);
+    assert.ok(world.lines.includes(line), night);
+    assert.deepEqual(
+      (await world.records("bnka-current")).map((record) => record.id),
+      ["recent"],
+    );
+    assert.equal((await world.state("bnka"))?.accounts["bnka-current"].last_success, undefined);
+    archives.push(await world.files());
+  }
+  assert.deepEqual(archives[1], archives[0]);
+
+  world.at("2026-03-04T03:00:00Z");
+  assert.equal(await world.run("auth", "bnka"), 0);
+  assert.deepEqual((await world.records("bnka-current")).map((record) => record.id).toSorted(), [
+    "old",
+    "recent",
+  ]);
+  assert.equal(
+    (await world.state("bnka"))?.accounts["bnka-current"].last_success,
+    "2026-03-04T03:00:00Z",
   );
 });
 

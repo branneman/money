@@ -36,7 +36,7 @@ const syncBank = async (
       deps.out(`${account}: the stored consent does not cover it. Run: auth ${bank}`);
     } else covered.push([account, entry.uid]);
   }
-  const outcome = await fetchAccounts(context, bank, covered);
+  const outcome = await fetchAccounts(context, bank, covered, { attended: false });
   // A warning only. What alerts is `status`, which exits non-zero inside this window.
   if (consent.warn) log("consent-expiring", { bank, days: consent.daysLeft });
   return { failed: [...failed, ...outcome.failed], newlyMissing: outcome.newlyMissing };

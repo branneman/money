@@ -10,8 +10,10 @@ import { writeAtomic } from "./atomic.ts";
 import { SyncError } from "./errors.ts";
 import type { Window } from "./window.ts";
 
-// Written last. A run that has one was received in full.
-export type Marker = { started: string; window: Window; pages: number };
+// Written last. A run that has one was received in full. `attended` says whether the user
+// had just been at the bank: only then may a longest-period run be an account's first
+// success.
+export type Marker = { started: string; window: Window; pages: number; attended: boolean };
 
 export type InboxRun = { name: string; marker: Marker | null; pages: string[] };
 
@@ -118,11 +120,12 @@ const readMarker = (text: string, where: string): Marker => {
     return refuse();
   }
   if (!isObject(parsed)) return refuse();
-  const { started, window, pages } = parsed;
+  const { started, window, pages, attended } = parsed;
   if (typeof started !== "string" || !isTimestamp(started)) return refuse();
   if (!isWindow(window)) return refuse();
   if (typeof pages !== "number" || !Number.isInteger(pages) || pages < 1) return refuse();
-  return { started, window, pages };
+  if (typeof attended !== "boolean") return refuse();
+  return { started, window, pages, attended };
 };
 
 const readRun = async (root: string, account: string, name: string): Promise<InboxRun> => {

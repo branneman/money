@@ -31,6 +31,13 @@ export const fetchable = (config: Config): Map<string, string[]> => {
   return byBank;
 };
 
+export type FetchOptions = {
+  // Whether the user has just been at the bank. Only `auth` fetches so; `sync` never does.
+  attended: boolean;
+  // Accounts asked for the longest period whatever their state says.
+  backfill?: ReadonlySet<string>;
+};
+
 // Phase one. Each page is on disk, exactly as received, before the next is asked for. Only
 // a 200 response that parses as JSON is a page.
 const receive = async (
@@ -39,6 +46,7 @@ const receive = async (
   uid: string,
   started: string,
   window: Window,
+  attended: boolean,
 ): Promise<void> => {
   const { client, settings, deps } = context;
   const run = runNameOf(started);
@@ -59,7 +67,12 @@ const receive = async (
       seen.add(key);
     }
   } while (key !== null);
-  await completeRun(settings.dataDir, account, run, { started, window, pages: number });
+  await completeRun(settings.dataDir, account, run, {
+    started,
+    window,
+    pages: number,
+    attended,
+  });
   deps.checkpoint("received");
 };
 
@@ -125,7 +138,11 @@ const drainInbox = async (context: Context, bank: string, account: string): Prom
     deps.checkpoint("data-written");
 
     let missing = 0;
-    if (run.marker !== null) {
+    const marker = run.marker;
+    // A first success needs the user present. What a bank serves unattended over the
+    // longest period can be far less than it gives them, and once a success is recorded
+    // the older history is never asked for again.
+    if (marker !== null && (marker.window.strategy === "default" || marker.attended)) {
       const state = await readState(settings.stateDir, bank);
       const entry = state?.accounts[account];
       if (state === null || entry === undefined) {
@@ -133,7 +150,7 @@ const drainInbox = async (context: Context, bank: string, account: string): Prom
           `${account}: a fetch finished without a stored consent. Run: auth ${bank}`,
         );
       }
-      const window = run.marker.window;
+      const window = marker.window;
       // A backfill's reach is not known, so it cannot say what should have come back.
       const absent =
         window.strategy === "default" ? missingIds(records, fetched, window) : entry.missing;
@@ -148,7 +165,7 @@ const drainInbox = async (context: Context, bank: string, account: string): Prom
       await writeState(
         settings.stateDir,
         bank,
-        withSuccess(state, account, run.marker.started, absent),
+        withSuccess(state, account, marker.started, absent),
       );
       deps.checkpoint("state-written");
       missing = absent.length;
@@ -208,6 +225,7 @@ const fetchAccount = async (
   account: string,
   uid: string,
   backfill: boolean,
+  attended: boolean,
 ): Promise<number> => {
   const { settings, deps, log } = context;
   await recover(context, account);
@@ -229,8 +247,15 @@ const fetchAccount = async (
     strategy: window.strategy,
     ...(window.strategy === "default" ? { from: window.dateFrom, to: window.dateTo } : {}),
   });
-  await receive(context, account, uid, started, window);
+  await receive(context, account, uid, started, window, attended);
   newly += await drainInbox(context, bank, account);
+  // Merged and kept, but not a success: only the user's presence can unlock the older
+  // history, so the owner hears of it every morning until auth is run.
+  if (window.strategy === "longest" && !attended) {
+    throw new SyncError(
+      `fetched without a first success, so the bank gave only what it serves unattended. Run: auth ${bank}`,
+    );
+  }
   return newly;
 };
 
@@ -241,14 +266,22 @@ export const fetchAccounts = async (
   context: Context,
   bank: string,
   accounts: readonly (readonly [string, string])[],
-  backfill: ReadonlySet<string> = new Set(),
+  options: FetchOptions,
 ): Promise<{ failed: string[]; newlyMissing: number }> => {
   const { deps } = context;
+  const backfill = options.backfill ?? new Set<string>();
   const failed: string[] = [];
   let newly = 0;
   for (const [index, [account, uid]] of accounts.entries()) {
     try {
-      newly += await fetchAccount(context, bank, account, uid, backfill.has(account));
+      newly += await fetchAccount(
+        context,
+        bank,
+        account,
+        uid,
+        backfill.has(account),
+        options.attended,
+      );
     } catch (error) {
       if (!isExpected(error)) throw error;
       failed.push(account);

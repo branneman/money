@@ -10,13 +10,13 @@ import { dateOf, timestampOf } from "../time.ts";
 import { fetchable, fetchAccounts, readAhead } from "./account.ts";
 
 // What the user is told when the consent is stored and the fetch that followed is not
-// whole. The nightly sync would go on, but unattended: for an account with no success yet
-// it would complete with whatever the bank then serves, and record that as its first
-// success, after which the older history is never asked for again.
+// whole. The nightly sync goes on, unattended: for an account with no success yet it stores
+// what the bank then serves, and fails, every night until auth completes with the user
+// present.
 const consentStored = (bank: string, unfetched: readonly string[]): string =>
   `The consent is stored. Not fetched in full: ${unfetched.join(", ")}. ` +
   `Run auth ${bank} again now: only then can the bank be asked for the whole history. ` +
-  "The nightly sync will otherwise continue with what the bank serves unattended.";
+  "Until then the nightly sync stores only what the bank serves unattended, and fails.";
 
 // `showIbans` is the one place an iban is printed, and only because it was asked for: a
 // sandbox bank's test accounts are not known beforehand, and the configuration needs them.
@@ -116,11 +116,14 @@ export const runAuth = async (
       context,
       bank,
       accounts.map((account) => [account, uids[account]] as const),
-      // Decided from the state as it was found, before anything left in the inbox is merged:
-      // a completed run from before the state was lost must not stand in for the history.
-      new Set(
-        accounts.filter((account) => previous?.accounts[account]?.last_success === undefined),
-      ),
+      {
+        attended: true,
+        // Decided from the state as it was found, before anything left in the inbox is merged:
+        // a completed run from before the state was lost must not stand in for the history.
+        backfill: new Set(
+          accounts.filter((account) => previous?.accounts[account]?.last_success === undefined),
+        ),
+      },
     );
   } catch (error) {
     // An error nobody expected, which stops the command. The user has been to the bank and

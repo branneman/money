@@ -23,6 +23,7 @@ const marker = (pages: number): Marker => ({
   started: "2026-10-11T03:00:00Z",
   window: { strategy: "default", dateFrom: "2026-09-11", dateTo: "2026-10-11" },
   pages,
+  attended: false,
 });
 const refused = async (message: string): Promise<void> => {
   await assert.rejects(listRuns(dir, ACCOUNT), (error: unknown) => {
@@ -69,10 +70,24 @@ test("a backfill's marker has no dates", async () => {
     started: "2026-10-11T03:00:00Z",
     window: { strategy: "longest" },
     pages: 1,
+    attended: true,
   };
   await writePage(dir, ACCOUNT, RUN, 1, "one");
   await completeRun(dir, ACCOUNT, RUN, longest);
   assert.deepEqual((await listRuns(dir, ACCOUNT))[0].marker, longest);
+});
+
+test("a marker says whether the user was present, and one that does not say is refused", async () => {
+  await writePage(dir, ACCOUNT, RUN, 1, "one");
+  await completeRun(dir, ACCOUNT, RUN, { ...marker(1), attended: true });
+  assert.equal((await listRuns(dir, ACCOUNT))[0].marker?.attended, true);
+
+  // What a sync from before the field existed wrote, and a field that is not a boolean.
+  const written = { started: "2026-10-11T03:00:00Z", window: { strategy: "longest" }, pages: 1 };
+  for (const text of [JSON.stringify(written), JSON.stringify({ ...written, attended: "yes" })]) {
+    await writeFile(join(runDir(), "complete.json"), text);
+    await refused(`${ACCOUNT}, run ${RUN}: the marker is not one the sync wrote`);
+  }
 });
 
 test("runs come back oldest first", async () => {
