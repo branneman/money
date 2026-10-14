@@ -3,7 +3,7 @@
 // a group of printing paths through the real commands and scans everything they printed
 // against one table of planted values.
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
@@ -445,6 +445,11 @@ test("a start that is refused never prints a setting, a path or what a file held
   const brokenConfig = join(folder, "broken-config.json");
   await writeFile(brokenConfig, `{"iban": "${DEBIT.creditorIban}", `);
   const missingConfig = join(folder, "planted-missing-config-5d1e.json");
+  // Removing a file needs only the folder's mode, so the folder's cleanup works as it is.
+  const unreadableConfig = join(folder, "planted-unreadable-config-2f8a.json");
+  await writeFile(unreadableConfig, "{}");
+  await chmod(unreadableConfig, 0o000);
+  await assert.rejects(readFile(unreadableConfig), { code: "EACCES" });
 
   const appId = "planted-app-id-0b6c";
   const keyText = "planted-key-material-4d2b";
@@ -458,6 +463,10 @@ test("a start that is refused never prints a setting, a path or what a file held
     [{ ...world.env, EB_APP_ID: undefined }, /EB_APP_ID is not set/],
     [{ ...world.env, EB_APP_ID: appId, EB_PRIVATE_KEY: garbage }, /EB_PRIVATE_KEY/],
     [{ ...world.env, CONFIG_PATH: missingConfig }, /CONFIG_PATH does not name a file/],
+    [
+      { ...world.env, CONFIG_PATH: unreadableConfig },
+      /CONFIG_PATH names a file this user cannot read/,
+    ],
     [{ ...world.env, CONFIG_PATH: brokenConfig }, /the configuration file is not valid JSON/],
     [{ ...world.env, DATA_DIR: join(folder, "planted-no-data-dir") }, /DATA_DIR does not name/],
   ];
@@ -477,6 +486,7 @@ test("a start that is refused never prints a setting, a path or what a file held
     ["the key given to a refused start, not base64", noBase64],
     ["a path of a refused start", folder],
     ["the name of a configuration file", "planted-missing-config"],
+    ["the name of an unreadable configuration file", "planted-unreadable-config"],
     ["the name of a data directory", "planted-no-data-dir"],
   ]);
 });

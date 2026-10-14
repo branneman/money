@@ -10,13 +10,27 @@ import { SyncError } from "./errors.ts";
 const codeOf = (error: unknown): string | undefined =>
   error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined;
 
-const isDirectory = async (path: string): Promise<boolean> => {
+// This user is refused, which in the image means a mount owned by someone else.
+const isRefused = (error: unknown): boolean => ["EACCES", "EPERM"].includes(codeOf(error) ?? "");
+
+type Directory = "yes" | "absent" | "unreachable";
+
+const directoryAt = async (path: string): Promise<Directory> => {
   try {
-    return (await stat(path)).isDirectory();
+    return (await stat(path)).isDirectory() ? "yes" : "absent";
   } catch (error) {
-    if (codeOf(error) === "ENOENT" || codeOf(error) === "ENOTDIR") return false;
+    if (codeOf(error) === "ENOENT" || codeOf(error) === "ENOTDIR") return "absent";
+    if (isRefused(error)) return "unreachable";
     throw error;
   }
+};
+
+// The problem with a directory setting, or nothing when it names a directory.
+const directoryProblem = async (name: string, path: string): Promise<string[]> => {
+  const found = await directoryAt(path);
+  if (found === "absent") return [`${name} does not name an existing directory`];
+  if (found === "unreachable") return [`${name} cannot be reached by this user`];
+  return [];
 };
 
 // The configuration, or null with its problems added to the list.
@@ -25,6 +39,10 @@ const readConfig = async (path: string, problems: string[]): Promise<Config | nu
   try {
     text = await readFile(path, "utf8");
   } catch (error) {
+    if (isRefused(error)) {
+      problems.push("CONFIG_PATH names a file this user cannot read");
+      return null;
+    }
     // No such file, a directory in its place, or a file where one of its parents belongs.
     if (!["ENOENT", "EISDIR", "ENOTDIR"].includes(codeOf(error) ?? "")) throw error;
     problems.push("CONFIG_PATH does not name a file");
@@ -55,12 +73,8 @@ export const loadStartup = async (
   const { settings } = result;
 
   const problems: string[] = [];
-  if (!(await isDirectory(settings.dataDir))) {
-    problems.push("DATA_DIR does not name an existing directory");
-  }
-  if (!(await isDirectory(settings.stateDir))) {
-    problems.push("STATE_DIR does not name an existing directory");
-  }
+  problems.push(...(await directoryProblem("DATA_DIR", settings.dataDir)));
+  problems.push(...(await directoryProblem("STATE_DIR", settings.stateDir)));
   const config = await readConfig(settings.configPath, problems);
   if (problems.length > 0 || config === null) throw new SyncError(problems.join("\n"));
   return { settings, config };

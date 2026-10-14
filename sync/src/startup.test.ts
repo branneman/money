@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
@@ -91,3 +91,35 @@ test("every problem in the configuration file is reported", async () => {
       "configuration: accounts.bnka-current: needs an iban or an import_id",
   );
 });
+
+// The afterEach above removes the directory and runs before a test's own t.after hook, so a
+// mode that would block the removal is restored in a finally, not in a hook.
+const withMode = async (path: string, mode: number, body: () => Promise<void>): Promise<void> => {
+  await chmod(path, mode);
+  try {
+    await body();
+  } finally {
+    await chmod(path, 0o755);
+  }
+};
+
+test("a configuration file this user cannot read is reported, naming the setting and not the path", async () => {
+  const path = join(dir, "config.json");
+  await withMode(path, 0o000, async () => {
+    // The precondition: this user is in fact refused. Without it the test proves nothing.
+    await assert.rejects(readFile(path), { code: "EACCES" });
+    assert.equal(await failure(), "CONFIG_PATH names a file this user cannot read");
+  });
+});
+
+for (const setting of ["DATA_DIR", "STATE_DIR"]) {
+  test(`${setting} inside a directory this user cannot enter is reported as unreachable`, async () => {
+    const parent = join(dir, "locked");
+    await mkdir(join(parent, "inside"), { recursive: true });
+    env[setting] = join(parent, "inside");
+    await withMode(parent, 0o000, async () => {
+      await assert.rejects(stat(join(parent, "inside")), { code: "EACCES" });
+      assert.equal(await failure(), `${setting} cannot be reached by this user`);
+    });
+  });
+}

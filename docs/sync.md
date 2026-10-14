@@ -44,7 +44,7 @@ Every command exits non-zero on any failure, with a message that says what to do
 
 `DATA_DIR` and `STATE_DIR` must exist. Neither is ever created, so a missing mount is an error and never an empty archive.
 
-Every command checks all of this at startup, in two stages, and stops at the first stage that finds something. First the environment: every problem in it is reported together. Then, once the environment is sound, the two directories and the configuration file: every problem there is reported together. A message names a variable and never repeats its value.
+Every command checks all of this at startup, in two stages, and stops at the first stage that finds something. First the environment: every problem in it is reported together. Then, once the environment is sound, the two directories and the configuration file: every problem there is reported together. A message names a variable and never repeats its value. A mount this user is not allowed into is reported the same way, as `CONFIG_PATH names a file this user cannot read`, `DATA_DIR cannot be reached by this user` or `STATE_DIR cannot be reached by this user`: the setting is named, and the path never is.
 
 **A configuration file**, at `CONFIG_PATH`, holds what is structured: the banks, the accounts and the import formats.
 
