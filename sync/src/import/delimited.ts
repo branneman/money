@@ -40,6 +40,10 @@ const split = (text: string, delimiter: string): string[][] => {
     else if (character === "\r" && text[index + 1] === "\n") {
       index += 1;
       endRow();
+    } else if (character === "\r") {
+      // A line ends in CRLF or LF. A carriage return alone is neither: refused, so that a
+      // file ending its lines that way is named for what it is.
+      throw new ImportError(`${here()} has a carriage return that does not end a line`);
     } else if (state === "closed") {
       throw new ImportError(`${here()} has text after a closing quote`);
     } else if (character === '"') {

@@ -292,6 +292,36 @@ test("a record left in two year files stops a check, and is repaired under --wri
 
   world.lines.length = 0;
   assert.equal(await world.run("import", FORMAT, moved, "--write"), 0);
-  assert.match(world.lines[0], /rows=1 new=0 changed=0 unchanged=1/);
+  assert.match(world.lines.join("\n"), /rows=1 new=0 changed=0 unchanged=1/);
   assert.deepEqual([...(await world.files()).keys()], ["bnka-current/import/2024.json"]);
+});
+
+test("--write says when it repaired a record left in two year files", async (t) => {
+  const world = await start(t);
+  const first = await exported(world, [row({ Sequence: "1", Booked: "2024-12-31" })], "first.csv");
+  assert.equal(await world.run("import", FORMAT, first, "--write"), 0);
+  const old = join("bnka-current", "import", "2024.json");
+  const before = (await world.files()).get(old) ?? "";
+
+  // The row moves into the next year: the write adds 2025.json and removes 2024.json.
+  // Putting the old file back is what dying between the two leaves.
+  const second = await exported(
+    world,
+    [row({ Sequence: "1", Booked: "2025-01-02" })],
+    "second.csv",
+  );
+  assert.equal(await world.run("import", FORMAT, second, "--write"), 0);
+  assert.deepEqual(
+    [...(await world.files()).keys()],
+    [join("bnka-current", "import", "2025.json")],
+  );
+  await writeFile(join(world.dataDir, old), before);
+
+  world.lines.length = 0;
+  assert.equal(await world.run("import", FORMAT, second, "--write"), 0);
+  assert.equal(world.lines[0], "recovered account=bnka-current records=1");
+  assert.deepEqual(
+    [...(await world.files()).keys()],
+    [join("bnka-current", "import", "2025.json")],
+  );
 });

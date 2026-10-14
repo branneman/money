@@ -61,8 +61,12 @@ export const runImport = async (
   const merged: Merged[] = [];
   const problems: string[] = [];
   for (const { account, incoming } of batches) {
-    // A check writes nothing, so it leaves a doubled record to stop it below.
-    if (write) await recoverAccountSource(settings.dataDir, account, "import");
+    // A check writes nothing, so it leaves a doubled record to stop it below. A repair is
+    // said, as the sync says it.
+    if (write) {
+      const recovered = await recoverAccountSource(settings.dataDir, account, "import");
+      if (recovered > 0) log("recovered", { account, records: recovered });
+    }
     const stored = await readAccountSource(settings.dataDir, account, "import");
     // merge would keep the old format key over a raw that it does not describe.
     const ids = new Set(incoming.map((item) => item.id));

@@ -45,6 +45,24 @@ test("a single quote is an ordinary character", () => {
   assert.deepEqual(readDelimited("a,b\n'x,y'\n", ",").rows, [["'x", "y'"]]);
 });
 
+const refusedWith = (text: string, message: string): void => {
+  assert.throws(
+    () => readDelimited(text, ";"),
+    (error: unknown) => error instanceof ImportError && error.message === message,
+  );
+};
+
+test("a carriage return that does not end a line is refused, by row", () => {
+  refusedWith("a;b\r\n1;2\r3;4\r\n", "row 2 has a carriage return that does not end a line");
+  // A file that ends its lines with a carriage return alone. It used to be read as one row.
+  refusedWith("a;b\r1;2\r", "row 1 has a carriage return that does not end a line");
+  refusedWith('a;b\r\n"1"\r;2\r\n', "row 2 has a carriage return that does not end a line");
+});
+
+test("a carriage return inside a quoted cell is data", () => {
+  assert.deepEqual(readDelimited('a;b\n"x\ry";2\n', ";").rows, [["x\ry", "2"]]);
+});
+
 test("fifty thousand rows are read without trouble", () => {
   const body = Array.from({ length: 50_000 }, (_, index) => `${index};"text; ${index}"`).join("\n");
   const table = readDelimited(`id;text\n${body}\n`, ";");
