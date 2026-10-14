@@ -1,0 +1,3 @@
+#!/bin/sh
+# The command line, by one name, so nobody has to remember where it lives in the image.
+exec node /app/sync/src/cli.ts "$@"

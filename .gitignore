@@ -16,3 +16,6 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Left only by an image check that was killed
+.image-check.*/

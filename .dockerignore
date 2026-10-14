@@ -1,0 +1,12 @@
+# Everything is out, and only what the image needs is let in. A new top-level folder stays
+# out of the image until it is named here.
+*
+!package.json
+!package-lock.json
+!shared/
+!sync/
+!bin/money
+
+# Tests and their helpers are not part of what runs.
+**/*.test.ts
+**/testing/
