@@ -340,6 +340,8 @@ Each needs a real response or a real file to answer. None can be settled from do
 - **Does `strategy=longest` unlock a bank's one-time full history?** The first production backfill will show how far back it reached.
 - **Are PSU headers needed for a deep backfill?** They assert that the user is present, which is true during `auth`, but there is no browser to take them from.
 
+Settled on 2026-10-14: an unattended longest-period fetch that completes does not count as an account's first success (see The backfill).
+
 ### What the sandbox showed
 
 On 2026-10-13 the commands were run against one sandbox bank with one account: `auth`, `sync` twice, and `status`. A sandbox bank is not a real bank, so none of the three questions above is closed by it.
@@ -361,5 +363,3 @@ The import format schema was designed from documentation. On 2026-10-13, before 
 - **One has cells that hold a single space.** That is why the view trims text cells ([archive-format.md](archive-format.md)).
 - **One wraps a text cell in single quotes**, which the reader does not treat as quoting. If such a cell ever holds the delimiter, its row has too many cells and the file is rejected. A quote-character setting is added to the schema if that happens.
 - **Not observed:** more than one transaction per file, so nothing is known yet about repeated identifiers, other currencies, or how a long export ends.
-
-Settled on 2026-10-14: an unattended longest-period fetch that completes does not count as an account's first success (see The backfill).
