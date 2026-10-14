@@ -103,7 +103,7 @@ A renewing `auth`, like `sync`, exits 1 when a stored record is newly missing fr
 
 Under PSD2, a bank may serve older history only while the user has just authenticated, and afterwards only the most recent 90 days. Some banks go further and allow the full history to be fetched once. So the fetch that follows an authorisation can reach further back than any later one, and may not be repeatable.
 
-- An account with **no recorded success** is fetched over the longest period the bank will give (`strategy=longest`, no dates), by whichever command reaches it first. `auth` fetches every account immediately, so for a new account that is the fetch with the user present.
+- An account with **no recorded success** is fetched over the longest period the bank will give (`strategy=longest`, no dates), by whichever command reaches it first. `auth` fetches every account immediately, so for a new account that is the fetch with the user present. Only a fetch with the user present, which is `auth`'s, may record that first success. One by `sync` is merged and kept, records nothing, and fails the account with `<account>: fetched without a first success, so the bank gave only what it serves unattended. Run: auth <bank>`, every night until `auth` has been run.
 - "No recorded success" rather than "no records": a backfill that died halfway, or a lost state volume, must get the deep fetch again. A renewal for an account that has a success fetches from it, like a nightly run.
 - `auth` decides this from the state as it finds it. An account that had no recorded success then is asked for the longest period, even when a completed run left in the inbox has just recorded one. So after lost state, `auth` always reaches as far back as the bank gives.
 - The first authorisation at a bank is not a test run. Do it only when the sync is finished and tested.
@@ -115,16 +115,14 @@ Whether a deep backfill needs the PSU headers that mark the user as present is n
 If `auth` ends with an account not fetched in full, **run `auth <bank>` again, at once, before the nightly job runs.** The command says so:
 
 ```text
-The consent is stored. Not fetched in full: bnka-current. Run auth bnka again now: only then can the bank be asked for the whole history. The nightly sync will otherwise continue with what the bank serves unattended.
+The consent is stored. Not fetched in full: bnka-current. Run auth bnka again now: only then can the bank be asked for the whole history. Until then the nightly sync stores only what the bank serves unattended, and fails.
 ```
 
-The reason is what the nightly `sync` would do with such an account. It has no recorded success, so `sync` asks for the longest period, but by then the bank no longer treats the user as present and gives only what it serves unattended. That fetch completes, and a completed fetch records the account's success. From then on every `auth` is a renewal with a dated window, and the older history is never asked for again. A second `auth` finds the account still without a success, and asks for the longest period with the user present.
+The reason is what the nightly `sync` does with such an account. It has no recorded success, so `sync` asks for the longest period, but by then the bank no longer treats the user as present and gives only what it serves unattended. That is merged, so nothing the bank sent is lost, but it is not recorded as a success: if it were, every later `auth` would be a renewal with a dated window, and the older history would never be asked for again. So the account fails every night, with a line that says to run `auth`, until a fetch with the user present completes. A run's marker says whether the user was present.
 
 What arrived before the failure is not lost either way: the pages are in the inbox, and whichever command runs next merges them.
 
 One case where the dated window is harmless: a completed run left in the inbox records its success when it is merged, so if `auth`'s own longest fetch then dies, the next `sync` sends a dated window for that account. The archive already holds the earlier history in that case, from the runs before the state was lost.
-
-Whether an unattended longest-period fetch that completes should count as the account's first success at all is an open question for the owner. See Open questions.
 
 ## Fetching: the inbox
 
@@ -138,12 +136,12 @@ $DATA_DIR/.inbox/<account key>/<run>/
 
 `<run>` is the run's start time, `YYYYMMDDTHHMMSSZ`.
 
-1. **Receive.** Each response with status 200 that parses as JSON is written, as received, by temporary file and rename, before the next page is requested. Any other response is not a page and is not kept. When the last page is in, the marker is written: the run's start time, its window and its page count.
+1. **Receive.** Each response with status 200 that parses as JSON is written, as received, by temporary file and rename, before the next page is requested. Any other response is not a page and is not kept. When the last page is in, the marker is written: the run's start time, its window, its page count, and whether the user was present: `auth`'s runs are, `sync`'s never.
 2. **Merge.** A run is merged into the year files, page by page, and then removed. Runs are merged oldest first. Merging one page at a time means that a transaction that changed at the bank between two pages becomes a revision instead of a contradiction.
 
 Before fetching, whatever the inbox already holds for the account is merged first:
 
-- **A completed run** is merged as if it had just been fetched, and its success is recorded with the start time in its marker. The bank is not asked for it again.
+- **A completed run** is merged as if it had just been fetched, and its success is recorded with the start time in its marker, unless it asked for the longest period without the user present; see The backfill. The bank is not asked for it again.
 - **An incomplete run is merged too.** Each page present is whole and is what the bank sent, and a partial batch cannot do harm, because the merge never deletes. No success is recorded for it and no missing-record check is made. A half-finished backfill's pages therefore reach the archive.
 - **A run the code cannot read stays, and stops its account**, every night, until the code is taught to read it or the user removes it by hand. Fetching past it could put revisions in the wrong order; removing it would discard something a bank sent. The account's failure is followed by a line that names the way out: the run's name, that it stays in `.inbox/<account>/<run>` and stops the account until it can be read, and that nothing has been removed. That holds for a page that fails validation, a page the merge refuses, and a run whose pages or marker are not what the sync wrote.
 - **A page the merge refuses is reported by run and page, never by identifier.** The one thing the merge can still refuse on a validated page is a transaction that appears on it twice with different contents. The message says that, and names the account, the run and the page number. It does not name the transaction: the identifier has come from a response and is stored nowhere yet, and the line is printed every night for as long as the run stays.
@@ -286,7 +284,7 @@ A file read with the wrong encoding still produces text, just with the wrong let
 
 - **The first row is the header.** Nothing may come before it or after the last row.
 - **Cells may be quoted with double quotes**, as RFC 4180 describes: a quoted cell may hold the delimiter, a line break and a doubled quote, which stands for one. No other quote character is read.
-- **CRLF and LF both end a row.** A line ending at the end of the file ends the last row and starts no empty one.
+- **CRLF and LF both end a row.** A line ending at the end of the file ends the last row and starts no empty one. A carriage return that is neither, outside a quoted cell, rejects the file with its row's number. Inside a quoted cell it is data.
 - **Nothing is trimmed, skipped or repaired.** Refused, each named by its row's number: a quote that is never closed, text after a closing quote, a quote inside a cell that did not start with one, and a row whose number of cells differs from the header's, which includes an empty line. Also refused: a header name that is empty or used twice, a header with no rows, and an empty file.
 - **Rows are numbered as a person counts them**, with the header as row 1. A row that spans lines counts once.
 
@@ -311,7 +309,7 @@ Import is safe to repeat. Importing the same file twice changes nothing, and ove
 
 - **A row that differs from what is stored under its identifier becomes a revision**, as with the sync. The summary counts these as `changed`.
 - **A stored record with one of the file's identifiers, imported under another format, rejects the file.** `merge` keeps a record's format key when it revises it, and the new `raw` would be described by the wrong format.
-- **A record left in two year files by an interrupted write** is repaired first under `--write`, as the sync repairs an API source ([archive-format.md](archive-format.md)). A check that meets one stops with the store's message, since a check writes nothing.
+- **A record left in two year files by an interrupted write** is repaired first under `--write`, as the sync repairs an API source ([archive-format.md](archive-format.md)), and says so with the `recovered` line the sync prints. A check that meets one stops with the store's message, since a check writes nothing.
 
 Where an import overlaps what the API has fetched, both are stored and the reader prefers the API. See [archive-format.md](archive-format.md).
 
@@ -364,6 +362,4 @@ The import format schema was designed from documentation. On 2026-10-13, before 
 - **One wraps a text cell in single quotes**, which the reader does not treat as quoting. If such a cell ever holds the delimiter, its row has too many cells and the file is rejected. A quote-character setting is added to the schema if that happens.
 - **Not observed:** more than one transaction per file, so nothing is known yet about repeated identifiers, other currencies, or how a long export ends.
 
-One is for the owner to decide, not for a response to answer:
-
-- **Should an unattended longest-period fetch that completes count as an account's first success?** Today it does. When a first `auth` leaves an account not fetched in full and the nightly `sync` reaches it before a second `auth` does, the account's success is recorded on whatever the bank served unattended, and the older history is never asked for again. The message and the runbook say to run `auth` again first; nothing enforces it.
+Settled on 2026-10-14: an unattended longest-period fetch that completes does not count as an account's first success (see The backfill).

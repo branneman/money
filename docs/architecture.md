@@ -2,7 +2,7 @@
 
 The whole picture on one page. Each part has its own document; this one says how they fit.
 
-> **Status.** Built: the `shared` workspace (the archive format, merge, the normalised view, configuration), the synthetic archive, and the `sync` workspace (`auth`, `sync`, `status`, `banks`, tested against a fake bank and run once against the sandbox, and `import`, tested with made-up export files). Not built yet: `api`, `app`.
+> **Status.** Built: the `shared` workspace (the archive format, merge, the normalised view, configuration), the synthetic archive, and the `sync` workspace (`auth`, `sync`, `status`, `banks`, tested against a fake bank and run once against the sandbox, and `import`, tested with made-up export files), and the image CI publishes from `main`. Not built yet: `api`, `app`.
 
 ## Parts
 
@@ -116,5 +116,6 @@ Each slice gets a spec in `docs/specs/`, dated, before it is built. Once the sli
 1. **Archive format.** The workspaces, the record and layout in code, the normalised view, and fixtures regenerated to match: two banks, an imported stretch, a closed account.
 2. **Sync.** `auth`, the backfill, the inbox, the nightly run, against a fake bank.
 3. **Import.** Import formats and the `import` command.
-4. **Dashboard.** `api` and `app`: login, tables and charts over the fixtures. Its spec chooses the browser libraries.
-5. **Categories.** Rules, the editor and the preview.
+4. **Image.** The container image, published by CI from `main`, so the sync and the backup run in production before the dashboard exists. Added on 2026-10-14.
+5. **Dashboard.** `api` and `app`: login, tables and charts over the fixtures. Its spec chooses the browser libraries.
+6. **Categories.** Rules, the editor and the preview.

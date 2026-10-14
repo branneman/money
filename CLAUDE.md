@@ -25,6 +25,7 @@ The production system handles real bank data. That data must stay in the EU, so 
 - `npm run lint`: ESLint. `npm run format`: Prettier, writing. `npm run format:check`: Prettier, checking.
 - `npm run fixtures`: regenerate `fixtures/archive/` after changing the generator. Never edit the year files by hand; a test fails if they drift from the generator.
 - The pre-commit hook (`.githooks/pre-commit`) runs typecheck, lint, format check and tests on the whole repo. Never bypass it with `--no-verify`.
+- `docker build -t money:local . && scripts/check-image.sh money:local`: build the image and check it by running it.
 - `node --env-file=.env.sandbox sync/src/cli.ts <auth <bank> | sync | status | banks <country> | import <format> <file> [--write]>`, against the sandbox only. docs/sandbox.md has the setup.
 
 ## Code conventions
@@ -68,7 +69,9 @@ fixtures/
   generate.ts      feeds it through the real merge
   archive/         generated
   config.json      generated
-scripts/           repository checks
+bin/money          the command the image puts on the path
+Dockerfile         the image; .dockerignore lets in only what it needs
+scripts/           repository checks, and the image check
 docs/              durable design docs, flat
   specs/           one dated spec per slice
 tmp/               gitignored: sandbox data, state and key

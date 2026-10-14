@@ -20,7 +20,7 @@ Out of scope: payments.
 
 ## Status
 
-Built: the archive format, the synthetic archive, the sync, with its commands `auth <bank>`, `sync`, `status` and `banks <country>`, and the import, `import <format> <file>`. Not built yet: the dashboard, and the image. [docs/architecture.md](docs/architecture.md) has the build order.
+Built: the archive format, the synthetic archive, the sync, with its commands `auth <bank>`, `sync`, `status` and `banks <country>`, and the import, `import <format> <file>`, and the image, which CI publishes from `main`. Not built yet: the dashboard. [docs/architecture.md](docs/architecture.md) has the build order.
 
 ## Tech stack
 

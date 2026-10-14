@@ -1,6 +1,6 @@
 # Hosting
 
-How this runs in production, seen from this repo. The commands exist ([sync.md](sync.md)); the image and the hosting are not built yet, and this is the target.
+How this runs in production, seen from this repo. The commands and the image exist ([sync.md](sync.md)); the hosting is declared in the infra repo.
 
 Production is a single Docker host that is provisioned and deployed from a separate, private infra repo. That repo owns everything about the host: the compose files, the TLS front door, the cron schedule, secrets, backups and alerting. This repo owns the images and the behaviour inside them.
 
@@ -49,15 +49,22 @@ What the parts do is in [architecture.md](architecture.md). This document covers
 
 The host accepts any app that meets a short contract. For this repo that means:
 
-- **A public image on GHCR**, built by CI on every push to the main branch and tagged `:latest` and `:<commit-sha>`. The host polls for a new `:latest` and restarts the container within about a minute.
+- **A public image on GHCR**, built by CI on every push to the main branch and tagged `:latest` and `:<commit-sha>`, by the `publish` job, once every other job has passed. GHCR creates the package private; it is made public once, by hand, after its first push. The host polls for a new `:latest` and restarts the container within about a minute. Two CI jobs concern the image. The `image` job builds it and runs `scripts/check-image.sh` over it on every push and pull request, so a Dockerfile that no longer builds is found on the branch. The `publish` job runs on `main` only, builds the image again, checks it again and pushes it with the workflow's own token. It builds again because the job that runs a branch's Dockerfile must never hold a token that can write packages, and `publish` is the only job that does.
 - **Configuration from environment variables and one file.** The variables are the names in `.env.example`; production values come from infra's encrypted vault. The file lists banks, accounts and import formats ([sync.md](sync.md)); infra holds the real one and mounts it read-only into both containers. The Enable Banking private key is one of the variables, `EB_PRIVATE_KEY`, base64-encoded. There is no key file.
 - **Safe to restart without warning.** A deploy can land mid-sync. The data directory and the state directory are both written atomically (temporary file, then rename), and state only after the data it describes. Every page a bank returned is on disk before the next is asked for, and the next run merges it ([sync.md](sync.md)). A run that dies leaves its lock in the state directory; the next run sees that its process is gone and takes the lock over.
-- **No data or secrets in the image.** The repository holds neither, so there is nothing real to leak. A `.dockerignore` still keeps `fixtures/`, `test/`, `tmp/` and any `.env` file out, so a production container can never serve synthetic data by mistake.
-- **For the web container only:** a documented port, a health endpoint, and a version endpoint that returns the built commit SHA so CI can tell when a deploy has landed.
+- **No data or secrets in the image.** The repository holds neither, so there is nothing real to leak. A `.dockerignore` still refuses everything and admits only the server's source, `package.json`, `package-lock.json` and `bin/money`, leaving test files and `testing/` folders out too. So `fixtures/`, `tmp/` and any `.env` file never reach the build, and a production container can never serve synthetic data by mistake.
+- **For the web container only:** a documented port, a health endpoint, and a version endpoint that returns the built commit SHA so CI can tell when a deploy has landed. The sync container has no such signal. Its first nightly run on a new image is the evidence.
 
 One image serves both containers; they differ in command, mounts and environment.
 
-The image is built in two stages. The first installs development tools and bundles the browser interface. The second starts clean and receives the server's source files straight from the repository, plus the bundled interface from the first stage and nothing else from it. The production image holds no `node_modules` at all, because nothing on the server has a third-party dependency ([architecture.md](architecture.md)).
+The image is built in one stage today, and in two once the dashboard exists. Today it is the official Node 24 image, pinned by digest, with the server's source copied in from the repository and `npm ci --omit=dev --ignore-scripts` run over it. That creates `node_modules/@money/`, the links Node resolves the workspaces by, and nothing else: nothing on the server has a third-party dependency ([architecture.md](architecture.md)), and `scripts/check-image.sh` fails if anything else appears there. When `app` exists, a first stage installs the development tools and bundles it, and the image takes the bundled files from that stage and nothing else.
+
+What the image gives the host:
+
+- **The command `money`**, on the path. `money auth bnka` is `auth bnka`; the image's own paths need not be remembered.
+- **`/data` and `/state`**, owned by the image's user (`node`), with `DATA_DIR` and `STATE_DIR` set to them. A volume mounted over either takes that ownership. `CONFIG_PATH` is not set: where the file is mounted is the host's choice.
+- **A container that idles.** The default command is `sleep infinity` and the stop signal `SIGKILL`: nothing in the container answers a signal, and a run that is killed is safe, so a deploy does not wait for one.
+- **Its commit**, as the label `org.opencontainers.image.revision`.
 
 ## Phase 1: the sync container
 
@@ -78,10 +85,12 @@ Consequences for the code:
 - **Job output leaves the host.** The last 10 KB of output goes to the monitoring service on every run. The rule that logs hold counts, dates and keys only is what keeps bank data from leaking through that path. An error the code did not expect prints its class and code and nothing else.
 - **One run per night.** Banks allow four unattended fetches a day, so a manual re-run after a failure is fine, but a retry loop is not. Missed nights catch up on their own, because the fetch window is anchored on the last successful sync.
 - **The sync runs before the backup**, so each night's archive contains that night's transactions.
+- **A consent near its end alerts through `status`.** A second daily job runs `status`, which exits non-zero inside the warning window, so the alert arrives without changing what `sync`'s exit code means.
 
 And for how the commands are run:
 
 - **Every command that writes runs in the same process-id namespace.** `auth` and `sync` exclude each other with a lock in the state directory that names a process id ([sync.md](sync.md)). That works between commands run inside the one running container, as described above. It does not work between containers: two commands that are each process 1 in a container of their own, over the same state volume, do not exclude each other. So `auth` and `sync` are never run at once from separate containers.
+- **A lock can outlive its container.** A deploy that lands mid-run kills the run and leaves its lock. The next run takes it over when the process it names is gone, or has the run's own id. If another process in the new container happens to have that id, the run refuses and says which file to remove.
 - **The state volume is on a filesystem with hard links.** The lock is created by linking.
 - **`auth` needs a terminal.** If its input ends before the redirected URL is pasted, it fails.
 
@@ -115,11 +124,11 @@ How the app finds them:
 
 `auth` also fetches each new account's history before it returns, and that fetch may not be repeatable ([sync.md](sync.md)). The data volume and its backup must be in place before the first authorisation at any bank, and the volume must be writable by the container's user. What `auth` and `sync` check of that, before any request, is that they can write where a fetch writes first, the inbox under `DATA_DIR`; they do not prove the rest of the volume writable. `auth` also reads each account's archive and inbox before it sends the user to the bank.
 
-**If the first `auth` at a bank does not fetch every account in full, run `auth` for that bank again, at once, before the nightly job does.** The session is kept and the command says which accounts are affected. The nightly `sync` would otherwise reach those accounts first, when the bank no longer treats the user as present. It asks for the longest period and gets only what the bank serves unattended, and because that fetch completes it is recorded as the account's first success. Every later `auth` is then a renewal with a dated window, and the older history is never asked for again. Whether such an unattended fetch should count as a first success is an open question for the owner ([sync.md](sync.md)). Until it is settled, the order of the two commands is the only safeguard, so a first authorisation is best done with time in hand before the nightly run.
+**If the first `auth` at a bank does not fetch every account in full, run `auth` for that bank again, at once.** The session is kept and the command says which accounts are affected. Until it is run, the nightly `sync` fetches those accounts without the user present: it stores what the bank serves unattended, records no success, and exits 1 every night, saying to run `auth` ([sync.md](sync.md)). Recent transactions keep arriving meanwhile; only the older history waits for the user.
 
 ### Import
 
-`import` is run the same way: the user copies an exported file to the host, runs the command inside the sync container, and deletes the file afterwards.
+An export file reaches the container through a directory the host mounts read-only. The user copies the file into it, runs `money import <format> <file>` inside the container, reads the summary, runs the same command with `--write`, and deletes the file from the host. Nothing of the export is written inside the container, so there is nothing to clean up there. The exact commands name the host, and are documented in the infra repo.
 
 ## Backup
 
@@ -132,6 +141,8 @@ The data and rules volumes are backed up the same way as the host's other persis
 What makes the restore check cheap here is that the archive is append-only: nothing is ever deleted, so record counts only grow. The check can assert that every year file present live is present in the restore, that each parses as a JSON array, and that the restored record count is at least a fixed fraction of the live count. For the rules volume it asserts that the rules file is present and parses.
 
 Each archive is a complete copy of every transaction, so it is as sensitive as the data itself: readable by its owner only, at every step.
+
+Archives are not encrypted before they leave the host. The owner decided on 2026-10-14 that the access control at the offsite storage is enough.
 
 State is not backed up. It is rebuildable, and it contains a live session ID.
 
@@ -158,6 +169,4 @@ The logging rule is unchanged: the web app shows amounts and names to the logged
 ## Open decisions
 
 - **Delivering the configuration file.** The host only delivers environment variables today. It needs a small addition to place a file on the host and mount it.
-- **Alerting on expiring consent.** `status` exits non-zero inside the warning window ([sync.md](sync.md)). A second scheduled job has to run it, so the alert arrives without changing what `sync`'s own exit code means.
-- **Encrypting archives.** Existing backups rely on access control at the offsite storage. A full transaction history may deserve encryption before it leaves the host.
 - **Offsite retention.** Local copies expire after 30 days; how long offsite copies are kept is not yet decided for any app.

@@ -55,7 +55,7 @@ Covers:
 - **the normalised view**: for API records and for import records through an import format, including the sign of amounts, decimal notation, and which counterparty is the other side;
 - **source overlap**: import records on or after an account's API start are left out of the view, whatever order things were done in;
 - **import, decoding**: each allowed encoding decodes a file of known bytes to the right text, a byte order mark on a UTF-8 file is dropped, and each mismatch that can be detected is rejected (UTF-8 declared single-byte, single-byte declared UTF-8, a byte order mark of the wrong kind, control characters, a `windows-1252` euro sign read as `iso-8859-15`);
-- **import, the table**: quoted cells holding the delimiter, a line break and a doubled quote, both line endings, a missing final one, and each thing refused, by row number: an unclosed quote, text after a closing quote, a quote inside a plain cell, a row of the wrong length, a blank line, a bad header, no rows;
+- **import, the table**: quoted cells holding the delimiter, a line break and a doubled quote, both line endings, a missing final one, and each thing refused, by row number: a carriage return that does not end a line (and one inside a quoted cell, which is data), an unclosed quote, text after a closing quote, a quote inside a plain cell, a row of the wrong length, a blank line, a bad header, no rows;
 - **import, the rows**: `raw` keeps every column untouched, an account is found by IBAN whatever its spacing and by `import_id` exactly, and a file with an unknown account, a missing or repeated identifier, a date that cannot be read, or anything the view could not read (an amount, a currency, a value date of one space, an original amount without its currency) is rejected whole, with every problem reported together and no cell or header name repeated. Every row that is accepted is then read by the view without error;
 - **import, size and odd names**: fifty thousand rows are read without trouble, and a column named like an object's own property is an ordinary column;
 - **configuration**: every way the configuration file can be wrong stops startup with a message that names the problem, an unknown field at any level included;
@@ -115,7 +115,8 @@ Named scenarios pin the edges a generator reaches only by luck:
 - a transaction disappears from a window it falls inside: kept, and the run exits non-zero for it once (the merge cannot see this; the sync, which knows the window, does);
 - a run that dies between the temporary write and the rename leaves the previous file intact;
 - a run that dies after receiving pages and before merging is finished from the inbox by the next run, without asking the bank again;
-- a backfill that dies halfway keeps the session and the pages it received, and `sync` continues it, with what the bank serves unattended, which is why `auth` is to be run again first ([sync.md](sync.md));
+- a backfill that dies halfway keeps the session and the pages it received; `sync` then stores what the bank serves unattended, records no success and fails, every night, until `auth` is run again, which then stores the older history and records the success ([sync.md](sync.md));
+- a run received in full with the user present is a success even when an unattended `sync` merges it;
 - one bank's consent has expired: the other banks are synced in full, and the run still exits non-zero;
 - accounts fail separately: one account's error leaves the rest synced, unless it says the consent is gone;
 - an error nobody expected stops the whole run and prints only its class and code;
@@ -126,7 +127,7 @@ Named scenarios pin the edges a generator reaches only by luck:
 - state is written after data, so a crash between the two is repaired by the next run and never skips a window;
 - an expired consent exits non-zero, says to run `auth`, and makes no request;
 - no PSU headers are sent, asserted on the requests the fake bank received;
-- `import`: a check writes nothing, not a directory and not a lock; `--write` stores what the view then reads back; the same file twice leaves every year file byte-for-byte identical; a later export that overlaps adds only what is new; a changed row becomes a revision; a file for two accounts lands per account and per year; one bad row among good ones writes nothing; a single-byte file is stored as the text it means; a stored record under another format rejects the file; a held lock stops `--write` and not a check; and a record left in two year files stops a check and is repaired under `--write`.
+- `import`: a check writes nothing, not a directory and not a lock; `--write` stores what the view then reads back; the same file twice leaves every year file byte-for-byte identical; a later export that overlaps adds only what is new; a changed row becomes a revision; a file for two accounts lands per account and per year; one bad row among good ones writes nothing; a single-byte file is stored as the text it means; a stored record under another format rejects the file; a held lock stops `--write` and not a check; and a record left in two year files stops a check and is repaired under `--write`; a carriage return that does not end a line rejects the file by row; and a repair under `--write` prints `recovered`.
 
 **The fake bank** is a real implementation of the Enable Banking endpoints the sync uses, held in memory and handed to the code as its `fetch`. It holds a transaction history, serves pages with continuation keys, and records the requests it received. It can be told to fail on the nth call. It is not a table of canned responses: the sync asks it questions and it answers from its state, which is what lets the property tests generate histories freely. It lives in `sync/testing/fake-bank.ts`, and returns error responses whose `message` and `detail` are recognisable, so any test can assert that neither was printed. `sync/testing/world.ts` wraps it with a temporary directory and a clock the test moves.
 
@@ -162,6 +163,16 @@ The archive outlives every version of the code, and nothing in it is ever rewrit
 
 When the record format changes, the old format gets a small frozen fixture under `shared/fixtures/formats/`, and a Tier 1 test asserts the current code still reads it and merges into it correctly. Capture the fixture in the same change that alters the format; one taken later is taken from a format that has already drifted.
 
+## The image
+
+`scripts/check-image.sh <image>` runs a built image the way the host will: `money` with no command fails with the usage line, a command without configuration names what is missing, `/data` and `/state` are the image user's, `/app` holds the source and the workspace links and nothing else, no test, fixture or environment file is in it, and an import check reads a mounted file of invented rows with a configuration of invented banks and a key generated for the run.
+
+CI runs it on every push, and again before publishing from `main`. Locally: `docker build -t money:local . && scripts/check-image.sh money:local`.
+
+It was seen to fail when test files were let into the image, and when the development tools were installed into it.
+
+What it does not prove: anything about a host, a volume, the schedule or the backup. Those are the infra repo's, and are checked there.
+
 ## Later tiers
 
 Not built yet. One line each, so their charter is settled before they are needed:
@@ -175,12 +186,14 @@ No tier ever runs against production bank data. The deployed tiers use the dashb
 
 ## CI
 
-On every push and pull request, and gating the image build:
+On every push and pull request, and gating the image publish:
 
-| Tier    | Job                                                   |
-| ------- | ----------------------------------------------------- |
-| 0       | `static-analysis`: typecheck, lint, format check      |
-| 1 and 2 | `tests`: `npm test`, which includes fixture freshness |
+| Tier    | Job                                                                        |
+| ------- | -------------------------------------------------------------------------- |
+| 0       | `static-analysis`: typecheck, lint, format check                           |
+| 1 and 2 | `tests`: `npm test`, which includes fixture freshness                      |
+| image   | `image`: builds the image and runs `scripts/check-image.sh` over it        |
+| publish | `publish`: on `main` only, after the three above; see [infra.md](infra.md) |
 
 ## Running everything locally
 
@@ -201,3 +214,4 @@ npm run fixtures    # regenerate fixtures/archive/ after changing the generator
 | Workspace-link check, dependency rule    | in place                                                |
 | CI                                       | in place                                                |
 | Tier 1 and Tier 2 suites                 | in place for `shared` and `sync`                        |
+| Image check                              | in place (`scripts/check-image.sh`)                     |
