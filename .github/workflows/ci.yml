@@ -4,7 +4,8 @@ on:
   push:
   pull_request:
 
-# The workflow reads the repository and nothing else. It holds no secret.
+# Every job reads the repository and nothing else, except `publish`, which may also write
+# the image to GHCR with the workflow's own token. The workflow holds no secret.
 permissions:
   contents: read
 
@@ -32,3 +33,38 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+
+  # On every push and pull request: a Dockerfile that no longer builds is found on the
+  # branch, not on main.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker build --build-arg "REVISION=$GITHUB_SHA" -t money:checked .
+      - run: scripts/check-image.sh money:checked
+
+  # From main only, once everything else has passed. It builds again rather than taking the
+  # image job's: a job that runs a branch's Dockerfile never holds a token that can write
+  # packages.
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [static-analysis, tests, image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker build --build-arg "REVISION=$GITHUB_SHA" -t money:checked .
+      - run: scripts/check-image.sh money:checked
+      # The commit's tag first, so :latest never names an image whose own tag is missing.
+      - name: Push as :<commit> and :latest
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker tag money:checked "$image:$GITHUB_SHA"
+          docker tag money:checked "$image:latest"
+          docker push "$image:$GITHUB_SHA"
+          docker push "$image:latest"
