@@ -8,7 +8,7 @@ export const ENCODINGS = ["utf-8", "windows-1252", "iso-8859-15"] as const;
 
 export type Column = { column: string };
 export type DateColumn = { column: string; format: DateFormat };
-export type AmountColumn = { column: string; decimal: "." | "," };
+export type AmountColumn = { column: string; decimal: "." | ","; thousands?: "." | "," };
 
 export type ImportFormat = {
   delimiter: string;
@@ -114,9 +114,16 @@ const formatProblems = (format: unknown): string[] => {
     if (value === undefined && !required) return;
     if (!isColumn(value)) problems.push(`${name} must name a column`);
     else {
-      within(name, value, ["column", "decimal"]);
+      within(name, value, ["column", "decimal", "thousands"]);
       if (value.decimal !== "." && value.decimal !== ",") {
         problems.push(`${name}.decimal must be a point or a comma`);
+      }
+      if (value.thousands !== undefined) {
+        if (value.thousands !== "." && value.thousands !== ",") {
+          problems.push(`${name}.thousands must be a point or a comma`);
+        } else if (value.thousands === value.decimal) {
+          problems.push(`${name}.thousands must differ from ${name}.decimal`);
+        }
       }
     }
   };

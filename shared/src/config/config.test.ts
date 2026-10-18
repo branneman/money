@@ -15,6 +15,20 @@ test("a valid configuration passes and comes back typed", () => {
   assert.deepEqual(result.ok && result.config, aConfig());
 });
 
+test("an amount column may declare a thousands separator", () => {
+  const config = aConfig({
+    imports: {
+      x: aFormat({
+        amount: { column: "Amount", decimal: ",", thousands: "." },
+        original_amount: { column: "Original amount", decimal: ".", thousands: "," },
+      }),
+    },
+  });
+  const result = validateConfig(structuredClone(config));
+  assert.ok(result.ok);
+  assert.deepEqual(result.ok && result.config, config);
+});
+
 test("a configuration with only the three sections, all empty, is valid", () => {
   assert.ok(validateConfig({ banks: {}, accounts: {}, imports: {} }).ok);
 });
@@ -182,11 +196,31 @@ const wrong: [string, unknown, RegExp][] = [
     aConfig({
       imports: {
         "example-export": aFormat({
-          amount: { column: "Amount", decimal: ",", thousands: "." } as never,
+          amount: { column: "Amount", decimal: ",", scale: 2 } as never,
         }),
       },
     }),
-    /imports\.example-export: amount: thousands is not a field the configuration knows/,
+    /imports\.example-export: amount: scale is not a field the configuration knows/,
+  ],
+  [
+    "a thousands separator that is not a point or a comma",
+    aConfig({
+      imports: {
+        x: aFormat({ amount: { column: "Amount", decimal: ",", thousands: " " as "." } }),
+      },
+    }),
+    /imports\.x: amount\.thousands must be a point or a comma/,
+  ],
+  [
+    "a thousands separator that is also the decimal mark",
+    aConfig({
+      imports: {
+        x: aFormat({
+          original_amount: { column: "Original amount", decimal: ",", thousands: "," },
+        }),
+      },
+    }),
+    /imports\.x: original_amount\.thousands must differ from original_amount\.decimal/,
   ],
   [
     "a description with a field it does not have",

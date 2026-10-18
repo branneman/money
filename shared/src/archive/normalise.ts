@@ -126,7 +126,12 @@ const normaliseImport = (record: ImportRecord, format: ImportFormat): Transactio
   const currency = cell(format.currency);
   if (currency === null) throw failure(record, "has no currency");
   if (!CURRENCY_CODE.test(currency)) throw failure(record, "has a currency that cannot be read");
-  const amount = parseAmount(cell(format.amount) ?? "", format.amount.decimal, currency);
+  const amount = parseAmount(
+    cell(format.amount) ?? "",
+    format.amount.decimal,
+    currency,
+    format.amount.thousands,
+  );
   if (amount === null) throw failure(record, "has an amount that cannot be read");
 
   const valueDateText = cell(format.value_date);
@@ -147,7 +152,12 @@ const normaliseImport = (record: ImportRecord, format: ImportFormat): Transactio
   const original =
     originalCurrency === null || originalText === null || format.original_amount === undefined
       ? null
-      : parseAmount(originalText, format.original_amount.decimal, originalCurrency);
+      : parseAmount(
+          originalText,
+          format.original_amount.decimal,
+          originalCurrency,
+          format.original_amount.thousands,
+        );
   if (originalCurrency !== null && originalText !== null && original === null) {
     throw failure(record, "has an original amount that cannot be read");
   }

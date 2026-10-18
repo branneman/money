@@ -201,6 +201,28 @@ test("an imported original amount written with a bare decimal mark is a whole am
   assert.equal(result.original_currency, "CHF");
 });
 
+test("an import format's thousands separator is read in the amount and the original amount", () => {
+  const formats = {
+    "example-export": aFormat({
+      amount: { column: "Amount", decimal: ",", thousands: "." },
+      original_amount: { column: "Original amount", decimal: ",", thousands: "." },
+    }),
+  };
+  const raw = anImportRaw({
+    Amount: "-1.786,00",
+    "Original amount": "18.540,",
+    "Original currency": "SEK",
+  });
+  const result = normalise(anImportRecord({ raw }), formats);
+  assert.equal(result.amount, -178600);
+  assert.equal(result.original_amount, -1854000);
+});
+
+test("without a thousands separator in the format, a grouped amount is still an error", () => {
+  const raw = anImportRaw({ Amount: "-1.786,00" });
+  assert.throws(() => normalise(anImportRecord({ raw }), FORMATS), /amount that cannot be read/);
+});
+
 const unreadable: [string, () => unknown, RegExp][] = [
   [
     "an API record without a currency",
