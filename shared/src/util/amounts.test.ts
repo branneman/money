@@ -13,20 +13,20 @@ test("amounts become integers in the smallest unit", () => {
 
 // Some exports write a whole amount with its decimal mark and nothing after it.
 test("a decimal mark with no digits after it ends a whole amount", () => {
-  assert.equal(parseAmount("60,", ",", "CHF"), 6000);
-  assert.equal(parseAmount("-60,", ",", "CHF"), -6000);
+  assert.equal(parseAmount("25,", ",", "GBP"), 2500);
+  assert.equal(parseAmount("-25,", ",", "GBP"), -2500);
   assert.equal(parseAmount("12.", ".", "EUR"), 1200);
-  assert.equal(parseAmount("3060000,", ",", "JPY"), 3060000);
+  assert.equal(parseAmount("45000,", ",", "JPY"), 45000);
   assert.equal(parseAmount("7,", ",", "KWD"), 7000);
 });
 
 test("a declared thousands separator is read where it groups digits in threes", () => {
   assert.equal(parseAmount("-1.786,00", ",", "EUR", "."), -178600);
-  assert.equal(parseAmount("+1.108,65", ",", "EUR", "."), 110865);
+  assert.equal(parseAmount("+2.403,17", ",", "EUR", "."), 240317);
   assert.equal(parseAmount("1.234.567,89", ",", "EUR", "."), 123456789);
   assert.equal(parseAmount("1,234.56", ".", "EUR", ","), 123456);
   assert.equal(parseAmount("1.786", ",", "EUR", "."), 178600);
-  assert.equal(parseAmount("3.060.000,", ",", "VND", "."), 3060000);
+  assert.equal(parseAmount("1.250.000,", ",", "KRW", "."), 1250000);
 });
 
 test("with a thousands separator declared, an amount without one is read as before", () => {
@@ -52,7 +52,7 @@ test("a declared thousands separator in the wrong place is null, never a differe
 });
 
 test("a decimal mark alone, or twice, is still null", () => {
-  for (const text of [",", "-,", "+,", "60,,", ",60", "60,5,"]) {
+  for (const text of [",", "-,", "+,", "25,,", ",25", "25,5,"]) {
     assert.equal(parseAmount(text, ",", "EUR"), null, text);
   }
 });

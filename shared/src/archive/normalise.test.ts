@@ -195,10 +195,10 @@ test("an imported foreign purchase carries the original amount, signed like the 
 });
 
 test("an imported original amount written with a bare decimal mark is a whole amount", () => {
-  const raw = anImportRaw({ "Original amount": "60,", "Original currency": "CHF" });
+  const raw = anImportRaw({ "Original amount": "25,", "Original currency": "GBP" });
   const result = normalise(anImportRecord({ raw }), FORMATS);
-  assert.equal(result.original_amount, -6000);
-  assert.equal(result.original_currency, "CHF");
+  assert.equal(result.original_amount, -2500);
+  assert.equal(result.original_currency, "GBP");
 });
 
 test("an import format's thousands separator is read in the amount and the original amount", () => {
