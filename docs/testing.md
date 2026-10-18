@@ -165,7 +165,7 @@ When the record format changes, the old format gets a small frozen fixture under
 
 ## The image
 
-`scripts/check-image.sh <image>` runs a built image the way the host will: `money` with no command fails with the usage line, a command without configuration names what is missing, `/data` and `/state` are the image user's, `/app` holds the source and the workspace links and nothing else, no test, fixture or environment file is in it, and an import check reads a mounted file of invented rows with a configuration of invented banks and a key generated for the run.
+`scripts/check-image.sh <image>` runs a built image the way the host will: `money` with no command fails with the usage line, a command without configuration names what is missing, the image runs as uid 1000, `/data` and `/state` are the image user's, `/app` holds the source and the workspace links and nothing else, no test, fixture or environment file is in it, and an import check reads a mounted file of invented rows with a configuration of invented banks and a key generated for the run.
 
 CI runs it on every push, and again before publishing from `main`. Locally: `docker build -t money:local . && scripts/check-image.sh money:local`.
 

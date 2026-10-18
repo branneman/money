@@ -50,7 +50,7 @@ What the parts do is in [architecture.md](architecture.md). This document covers
 The host accepts any app that meets a short contract. For this repo that means:
 
 - **A public image on GHCR**, built by CI on every push to the main branch and tagged `:latest` and `:<commit-sha>`, by the `publish` job, once every other job has passed. The package is public: the first push left an image that pulls without a login, so it needed no step by hand. The host polls for a new `:latest` and restarts the container within about a minute. Two CI jobs concern the image. The `image` job builds it and runs `scripts/check-image.sh` over it on every push and pull request, so a Dockerfile that no longer builds is found on the branch. The `publish` job runs on `main` only, builds the image again, checks it again and pushes it with the workflow's own token. It builds again because the job that runs a branch's Dockerfile must never hold a token that can write packages, and `publish` is the only job that does.
-- **Configuration from environment variables and one file.** The variables are the names in `.env.example`; production values come from infra's encrypted vault. The file lists banks, accounts and import formats ([sync.md](sync.md)); infra holds the real one and mounts it read-only into both containers. The Enable Banking private key is one of the variables, `EB_PRIVATE_KEY`, base64-encoded. There is no key file.
+- **Configuration from environment variables and one file.** The variables are the names in `.env.example`; production values come from infra's encrypted vault. The file lists banks, accounts and import formats ([sync.md](sync.md)); infra holds the real one in its vault, renders it into a directory of its own on the host, and mounts that directory read-only into both containers. The directory and not the file, because the host replaces the file by renaming a new one over it, which a mount of the file alone would never see. Every command reads the file when it starts, so a changed configuration counts from the next run, with no restart. The Enable Banking private key is one of the variables, `EB_PRIVATE_KEY`, base64-encoded. There is no key file.
 - **Safe to restart without warning.** A deploy can land mid-sync. The data directory and the state directory are both written atomically (temporary file, then rename), and state only after the data it describes. Every page a bank returned is on disk before the next is asked for, and the next run merges it ([sync.md](sync.md)). A run that dies leaves its lock in the state directory; the next run sees that its process is gone and takes the lock over.
 - **No data or secrets in the image.** The repository holds neither, so there is nothing real to leak. A `.dockerignore` still refuses everything and admits only the server's source, `package.json`, `package-lock.json` and `bin/money`, leaving test files and `testing/` folders out too. So `fixtures/`, `tmp/` and any `.env` file never reach the build, and a production container can never serve synthetic data by mistake.
 - **For the web container only:** a documented port, a health endpoint, and a version endpoint that returns the built commit SHA so CI can tell when a deploy has landed. The sync container has no such signal. Its first nightly run on a new image is the evidence.
@@ -63,6 +63,7 @@ What the image gives the host:
 
 - **The command `money`**, on the path. `money auth bnka` is `auth bnka`; the image's own paths need not be remembered.
 - **`/data` and `/state`**, owned by the image's user (`node`), with `DATA_DIR` and `STATE_DIR` set to them. A volume mounted over either takes that ownership. `CONFIG_PATH` is not set: where the file is mounted is the host's choice.
+- **One user, uid 1000.** The host's mounts of the configuration and of import files are readable by their owner only, and the host gives them to uid 1000, so an image whose user had another uid could read neither. `scripts/check-image.sh` fails on any other uid.
 - **A container that idles.** The default command is `sleep infinity` and the stop signal `SIGKILL`: nothing in the container answers a signal, and a run that is killed is safe, so a deploy does not wait for one.
 - **Its commit**, as the label `org.opencontainers.image.revision`.
 
@@ -138,7 +139,7 @@ The data and rules volumes are backed up the same way as the host's other persis
 - **Weekly:** a restore check downloads the newest _offsite_ archive, the one a real recovery would use, and proves it is usable. It fails if the archive is missing, older than two days, corrupt, or does not hold up against the live data.
 - Both jobs run through the same alerting wrapper as `sync`.
 
-What makes the restore check cheap here is that the archive is append-only: nothing is ever deleted, so record counts only grow. The check can assert that every year file present live is present in the restore, that each parses as a JSON array, and that the restored record count is at least a fixed fraction of the live count. For the rules volume it asserts that the rules file is present and parses.
+What makes the restore check cheap here is that the archive is append-only: nothing is ever deleted, so record counts only grow. The check can assert that the restore holds the same year files as live, that each parses as a JSON array, and that the restored record count is at least a fixed fraction of the live count. For the rules volume it asserts that the rules file is present and parses.
 
 Each archive is a complete copy of every transaction, so it is as sensitive as the data itself: readable by its owner only, at every step.
 
@@ -168,5 +169,4 @@ The logging rule is unchanged: the web app shows amounts and names to the logged
 
 ## Open decisions
 
-- **Delivering the configuration file.** The host only delivers environment variables today. It needs a small addition to place a file on the host and mount it.
 - **Offsite retention.** Local copies expire after 30 days; how long offsite copies are kept is not yet decided for any app.

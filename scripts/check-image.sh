@@ -35,7 +35,11 @@ if out=$(run "$IMAGE" money status 2>&1); then fail "money status without config
 grep -qx 'CONFIG_PATH is not set' <<<"$out" || fail "money status did not name the missing CONFIG_PATH"
 ok "money status without configuration names what is missing"
 
-# 3. The directories volumes are mounted over belong to the user the image runs as.
+# 3. The image runs as uid 1000, the one uid the host's owner-only mounts can be read by,
+#    and the directories volumes are mounted over belong to that user.
+uid=$(run "$IMAGE" id -u)
+[ "$uid" = 1000 ] || fail "the image runs as uid $uid, not 1000"
+ok "the image runs as uid 1000"
 run "$IMAGE" sh -c '
     for dir in /data /state; do
         [ "$(stat -c %U "$dir")" = "$(id -un)" ] && [ -w "$dir" ] || exit 1
