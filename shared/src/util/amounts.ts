@@ -27,9 +27,10 @@ export const minorUnits = (currency: string): number =>
 
 // Reads a decimal number as an integer in the currency's smallest unit. Strict on purpose:
 // one optional sign, digits, at most one decimal mark, and it must be the expected one.
-// A thousands separator therefore fails instead of producing a different number.
+// A thousands separator therefore fails instead of producing a different number. A mark
+// with no digits after it, as some exports write a whole amount, can mean only that amount.
 export const parseAmount = (text: string, decimal: "." | ",", currency: string): number | null => {
-  const match = /^([+-]?)(\d+)(?:([.,])(\d+))?$/.exec(text);
+  const match = /^([+-]?)(\d+)(?:([.,])(\d*))?$/.exec(text);
   if (match === null) return null;
   const sign = match[1];
   const whole = match[2];

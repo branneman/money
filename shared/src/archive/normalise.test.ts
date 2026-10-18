@@ -194,6 +194,13 @@ test("an imported foreign purchase carries the original amount, signed like the 
   assert.equal(result.original_currency, "DKK");
 });
 
+test("an imported original amount written with a bare decimal mark is a whole amount", () => {
+  const raw = anImportRaw({ "Original amount": "60,", "Original currency": "CHF" });
+  const result = normalise(anImportRecord({ raw }), FORMATS);
+  assert.equal(result.original_amount, -6000);
+  assert.equal(result.original_currency, "CHF");
+});
+
 const unreadable: [string, () => unknown, RegExp][] = [
   [
     "an API record without a currency",

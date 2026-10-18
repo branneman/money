@@ -11,6 +11,21 @@ test("amounts become integers in the smallest unit", () => {
   assert.equal(parseAmount("0.07", ".", "EUR"), 7);
 });
 
+// Some exports write a whole amount with its decimal mark and nothing after it.
+test("a decimal mark with no digits after it ends a whole amount", () => {
+  assert.equal(parseAmount("60,", ",", "CHF"), 6000);
+  assert.equal(parseAmount("-60,", ",", "CHF"), -6000);
+  assert.equal(parseAmount("12.", ".", "EUR"), 1200);
+  assert.equal(parseAmount("3060000,", ",", "JPY"), 3060000);
+  assert.equal(parseAmount("7,", ",", "KWD"), 7000);
+});
+
+test("a decimal mark alone, or twice, is still null", () => {
+  for (const text of [",", "-,", "+,", "60,,", ",60", "60,5,"]) {
+    assert.equal(parseAmount(text, ",", "EUR"), null, text);
+  }
+});
+
 test("a leading sign is honoured", () => {
   assert.equal(parseAmount("-10,00", ",", "EUR"), -1000);
   assert.equal(parseAmount("+20,00", ",", "EUR"), 2000);

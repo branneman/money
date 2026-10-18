@@ -187,7 +187,7 @@ An import format describes one bank's export file, as data. It contains no code.
 - Every format must name an identifier column. A bank's export without one cannot be imported. The `id` column may be named by no other field of the format, since identifiers appear in messages.
 - The other fields may be left out, and the matching field in the view is then null.
 - `account` names the column that says which account a row belongs to: by its `import_id` exactly, or by its `iban` whatever the spacing and case. One file may hold rows for several accounts. A row for an account that is not configured rejects the file.
-- `amount` is a signed decimal in one column, with an optional leading `+` or `-`. Other notations are added to this schema when a bank needs them.
+- `amount` is a signed decimal in one column, with an optional leading `+` or `-`. The decimal mark is the one the format names, and the digits after it may be absent: `60,` is 60, as some exports write a whole amount. A thousands separator is refused. Other notations are added to this schema when a bank needs them. `original_amount` is read the same way.
 - `description` joins several columns, skipping blank ones.
 
 This example describes a made-up bank. Real formats name real banks through their column headers, so they are kept with the production configuration and never in this repository.
