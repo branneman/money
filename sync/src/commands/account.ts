@@ -31,6 +31,11 @@ export const fetchable = (config: Config): Map<string, string[]> => {
   return byBank;
 };
 
+// What `status` and `sync` say, and fail with, when `fetchable` finds nothing. Without it
+// both would print nothing and exit 0, every night, while nothing was being fetched.
+export const NOTHING_FETCHED =
+  "no account is fetched through the API: none is open and has an iban";
+
 export type FetchOptions = {
   // Whether the user has just been at the bank. Only `auth` fetches so; `sync` never does.
   attended: boolean;

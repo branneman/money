@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import type { TestContext } from "node:test";
 
-import { makeWorld } from "../../testing/world.ts";
+import { makeWorld, worldConfig } from "../../testing/world.ts";
 import type { World } from "../../testing/world.ts";
 
 const authorised = async (t: TestContext): Promise<World> => {
@@ -40,6 +40,27 @@ test("status fails for a bank that was never authorised", async (t) => {
     "bnkb: no consent is stored. Run: auth bnkb",
   ]);
 });
+
+// A configuration the API can fetch nothing from would otherwise report nothing, and pass.
+for (const [name, accounts] of [
+  ["no accounts at all", {}],
+  [
+    "only accounts that are imported or closed",
+    {
+      "bnka-card": { bank: "bnka", import_id: "1001" },
+      "bnka-old": { bank: "bnka", iban: "NL00BNKA0000000003", closed: true },
+    },
+  ],
+] as const) {
+  test(`status fails when no account is fetched through the API: ${name}`, async (t) => {
+    const world = await makeWorld({ config: { ...worldConfig(), accounts } });
+    t.after(world.cleanup);
+    assert.equal(await world.run("status"), 1);
+    assert.deepEqual(world.lines, [
+      "no account is fetched through the API: none is open and has an iban",
+    ]);
+  });
+}
 
 test("status fails inside the warning window, so that the warning reaches someone", async (t) => {
   const world = await authorised(t);

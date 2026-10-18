@@ -155,7 +155,7 @@ Details that matter when something goes wrong:
 
 ## The nightly run: `sync`
 
-The run first proves that `DATA_DIR` can be written (see Commands). Every request carries a JWT minted for it. Then, for each bank, and each of its open accounts that the API can reach:
+The run first proves that `DATA_DIR` can be written (see Commands). If no account is open and has an `iban`, it stops there and exits non-zero, as `status` does (below). Every request carries a JWT minted for it. Then, for each bank, and each of its open accounts that the API can reach:
 
 1. Repair a record that an interrupted write left in two year files ([archive-format.md](archive-format.md)), and merge whatever the inbox holds.
 2. Fetch booked transactions from _last successful sync minus `LOOKBACK_DAYS`_ through today, following `continuation_key` until it is absent. Because the window is anchored on the last success, missed nights catch up on their own. An account with no recorded success is asked for the longest period instead.
@@ -212,6 +212,8 @@ One limit, stated plainly: **the lock only excludes runs that share a process-id
 Makes no request and takes no lock. For each bank it prints the date the consent ends and the days left, and for each account the date of its last full fetch.
 
 It exits non-zero when a bank that has an account to fetch has no stored consent, or its consent has expired or expires within `CONSENT_WARN_DAYS`. The exit code is the warning.
+
+It also exits non-zero when no account is fetched through the API at all, because none is open and has an `iban`, and says so: `no account is fetched through the API: none is open and has an iban`. `sync` does the same, before any request. Without that, a configuration that reaches no account would print nothing and pass every night, which is how a production configuration with its accounts left out first looked.
 
 ## Listing banks: `banks <country>`
 

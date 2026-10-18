@@ -3,7 +3,7 @@ import { consentAt } from "../consent.ts";
 import type { Context } from "../context.ts";
 import { readState } from "../state.ts";
 import { dateOf, timestampOf } from "../time.ts";
-import { fetchable } from "./account.ts";
+import { fetchable, NOTHING_FETCHED } from "./account.ts";
 
 // Exits non-zero when a person is needed: a bank without a consent, or a consent that has
 // expired or will within the warning window. In production nobody reads a warning, so the
@@ -11,8 +11,13 @@ import { fetchable } from "./account.ts";
 export const runStatus = async (context: Context): Promise<number> => {
   const { settings, config, deps } = context;
   const now = timestampOf(deps.clock());
+  const banks = fetchable(config);
+  if (banks.size === 0) {
+    deps.out(NOTHING_FETCHED);
+    return 1;
+  }
   let attention = false;
-  for (const [bank, accounts] of fetchable(config)) {
+  for (const [bank, accounts] of banks) {
     const state = await readState(settings.stateDir, bank);
     if (state === null) {
       deps.out(`${bank}: no consent is stored. Run: auth ${bank}`);

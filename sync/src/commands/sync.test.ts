@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import type { TestContext } from "node:test";
 
-import { booked, makeWorld, worldAspsps } from "../../testing/world.ts";
+import { booked, makeWorld, worldAspsps, worldConfig } from "../../testing/world.ts";
 import type { World } from "../../testing/world.ts";
 import { writeState } from "../state.ts";
 
@@ -40,6 +40,26 @@ test("a night with nothing new leaves every file byte for byte identical", async
   assert.deepEqual(await world.files(), before);
   assert.match(printed(world), /done failed=0 newly_missing=0/);
   assert.equal(world.transactionRequests().length, 3);
+});
+
+// A night that can fetch nothing must not look like a night with nothing new.
+test("sync fails, asking nothing, when no account is fetched through the API", async (t) => {
+  const world = await makeWorld({
+    config: {
+      ...worldConfig(),
+      accounts: {
+        "bnka-card": { bank: "bnka", import_id: "1001" },
+        "bnka-old": { bank: "bnka", iban: "NL00BNKA0000000003", closed: true },
+      },
+    },
+  });
+  t.after(world.cleanup);
+  assert.equal(await world.run("sync"), 1);
+  assert.match(
+    printed(world),
+    /^no account is fetched through the API: none is open and has an iban$/m,
+  );
+  assert.equal(world.bank.requests.length, 0);
 });
 
 test("new transactions at every bank are stored", async (t) => {

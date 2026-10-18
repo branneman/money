@@ -82,7 +82,7 @@ The container stays up, instead of being started per run, so that the host's ima
 
 Consequences for the code:
 
-- **Exit codes are the alerting interface.** Nobody reads logs on the host. A problem that needs a human must exit non-zero; a warning with exit 0 reaches no one. `sync` exits 1 when a bank or an account failed, or when a stored record went missing from a fetch that should hold it. `status` exits 1 when a consent is absent, expired or close to its end.
+- **Exit codes are the alerting interface.** Nobody reads logs on the host. A problem that needs a human must exit non-zero; a warning with exit 0 reaches no one. `sync` exits 1 when a bank or an account failed, or when a stored record went missing from a fetch that should hold it. `status` exits 1 when a consent is absent, expired or close to its end. Both exit 1 when the configuration gives them no account to fetch, so a configuration that reaches nothing cannot pass night after night.
 - **Job output leaves the host.** The last 10 KB of output goes to the monitoring service on every run. The rule that logs hold counts, dates and keys only is what keeps bank data from leaking through that path. An error the code did not expect prints its class and code and nothing else.
 - **One run per night.** Banks allow four unattended fetches a day, so a manual re-run after a failure is fine, but a retry loop is not. Missed nights catch up on their own, because the fetch window is anchored on the last successful sync.
 - **The sync runs before the backup**, so each night's archive contains that night's transactions.

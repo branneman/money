@@ -4,7 +4,7 @@ import type { Context } from "../context.ts";
 import { isExpected } from "../errors.ts";
 import { readState } from "../state.ts";
 import { timestampOf } from "../time.ts";
-import { fetchable, fetchAccounts } from "./account.ts";
+import { fetchable, fetchAccounts, NOTHING_FETCHED } from "./account.ts";
 
 type Outcome = { failed: string[]; newlyMissing: number };
 
@@ -46,10 +46,15 @@ const syncBank = async (
 // only then does the run exit non-zero, naming what failed.
 export const runSync = async (context: Context): Promise<number> => {
   const { config, deps, log } = context;
+  const banks = fetchable(config);
+  if (banks.size === 0) {
+    deps.out(NOTHING_FETCHED);
+    return 1;
+  }
   const now = timestampOf(deps.clock());
   const failed: string[] = [];
   let newlyMissing = 0;
-  for (const [bank, accounts] of fetchable(config)) {
+  for (const [bank, accounts] of banks) {
     try {
       const outcome = await syncBank(context, bank, accounts, now);
       failed.push(...outcome.failed);
