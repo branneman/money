@@ -1,6 +1,7 @@
 // The sync's working area, $DATA_DIR/.inbox. Every page a bank returns is written here, as
 // received, before the next one is asked for, and merged from here afterwards. Nothing a
 // bank sent can then be lost between receiving it and merging it.
+import type { Dirent } from "node:fs";
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -90,15 +91,34 @@ export const removeRun = async (dataDir: string, account: string, run: string): 
   await rm(hidden, { recursive: true });
 };
 
-// A directory's names, without anything dot-prefixed. A missing directory is empty.
-const visible = async (dir: string): Promise<string[]> => {
+// A directory's entries, without anything dot-prefixed, sorted by name. A missing directory
+// is empty.
+const visibleEntries = async (dir: string): Promise<Dirent[]> => {
   try {
-    return (await readdir(dir)).filter((name) => !name.startsWith(".")).toSorted();
+    return (await readdir(dir, { withFileTypes: true }))
+      .filter((entry) => !entry.name.startsWith("."))
+      .toSorted((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   } catch (error) {
     if (error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw error;
   }
 };
+
+const visible = async (dir: string): Promise<string[]> =>
+  (await visibleEntries(dir)).map((entry) => entry.name);
+
+// What lies directly in the inbox, each entry saying whether it is a directory. A name here
+// has not been validated: it may be anything someone put there.
+export const listInbox = async (dataDir: string): Promise<{ name: string; directory: boolean }[]> =>
+  (await visibleEntries(join(dataDir, ".inbox"))).map((entry) => ({
+    name: entry.name,
+    directory: entry.isDirectory(),
+  }));
+
+// How many entries wait under `.inbox/<key>`, without reading any of them. Asked before an
+// account is read, so that an account with nothing waiting is never touched.
+export const countWaiting = async (dataDir: string, key: string): Promise<number> =>
+  (await visible(join(dataDir, ".inbox", key))).length;
 
 const isWindow = (value: unknown): value is Window =>
   isObject(value) &&

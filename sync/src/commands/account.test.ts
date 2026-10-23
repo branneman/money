@@ -24,8 +24,19 @@ const start = async (
   return { world, uids };
 };
 
-const fetchOne = (world: World, uids: Record<string, string>) =>
-  fetchAccounts(world.context(), "bnka", [[ACCOUNT, uids[ACCOUNT]]], { attended: true });
+// One account's fetch is always begun, so each says so, and returns the rest of its outcome.
+const fetchSingle = async (world: World, uids: Record<string, string>, attended: boolean) => {
+  const { started, ...outcome } = await fetchAccounts(
+    world.context(),
+    "bnka",
+    [[ACCOUNT, uids[ACCOUNT]]],
+    { attended },
+  );
+  assert.deepEqual(started, [ACCOUNT]);
+  return outcome;
+};
+
+const fetchOne = (world: World, uids: Record<string, string>) => fetchSingle(world, uids, true);
 
 const idsOf = async (world: World): Promise<string[]> =>
   (await world.records(ACCOUNT)).map((record) => record.id);
@@ -37,7 +48,7 @@ const UNATTENDED_FIRST =
   "bnka-current: fetched without a first success, so the bank gave only what it serves unattended. Run: auth bnka";
 
 const fetchUnattended = (world: World, uids: Record<string, string>) =>
-  fetchAccounts(world.context(), "bnka", [[ACCOUNT, uids[ACCOUNT]]], { attended: false });
+  fetchSingle(world, uids, false);
 
 test("the accounts to fetch are the open ones with an IBAN, by bank", async (t) => {
   const { world } = await start(t);
@@ -414,15 +425,18 @@ test("one account's failure does not stop the next, unless the consent is gone",
   assert.deepEqual(await fetchAccounts(world.context(), "bnka", both, { attended: true }), {
     failed: [ACCOUNT],
     newlyMissing: 0,
+    started: [ACCOUNT, "bnka-joint"],
   });
   assert.equal((await world.records("bnka-joint")).length, 1);
 
+  // An account passed over was never begun, so `sync` sweeps what waits for it.
   world.at("2026-03-02T03:00:00Z");
   world.bank.revoke("Example Bank");
   world.bank.requests.length = 0;
   assert.deepEqual(await fetchAccounts(world.context(), "bnka", both, { attended: true }), {
     failed: [ACCOUNT, "bnka-joint"],
     newlyMissing: 0,
+    started: [ACCOUNT],
   });
   assert.equal(world.transactionRequests().length, 1);
   assert.match(world.lines.join("\n"), /bnka: the consent is gone\. Run: auth bnka/);
@@ -461,6 +475,7 @@ test("an account named for a backfill is asked for the longest period despite it
     {
       failed: [],
       newlyMissing: 0,
+      started: [ACCOUNT, "bnka-joint"],
     },
   );
   const [first, second] = world.transactionRequests();

@@ -116,7 +116,14 @@ const mergePage = (run: string, where: string, merging: () => MergeResult): Merg
 // what the bank sent, and a partial batch cannot do harm because merge never deletes. Only
 // a completed run records a success, and only a completed window is checked for records
 // that should have come back. Returns how many records are newly missing.
-const drainInbox = async (context: Context, bank: string, account: string): Promise<number> => {
+//
+// Without a bank the runs are merged and removed with no state read or written, and no
+// missing-record check: see `mergeWaiting`.
+const drainInbox = async (
+  context: Context,
+  bank: string | null,
+  account: string,
+): Promise<number> => {
   const { settings, deps, log } = context;
   let newly = 0;
   for (const run of await listRuns(settings.dataDir, account)) {
@@ -147,7 +154,11 @@ const drainInbox = async (context: Context, bank: string, account: string): Prom
     // A first success needs the user present. What a bank serves unattended over the
     // longest period can be far less than it gives them, and once a success is recorded
     // the older history is never asked for again.
-    if (marker !== null && (marker.window.strategy === "default" || marker.attended)) {
+    if (
+      bank !== null &&
+      marker !== null &&
+      (marker.window.strategy === "default" || marker.attended)
+    ) {
       const state = await readState(settings.stateDir, bank);
       const entry = state?.accounts[account];
       if (state === null || entry === undefined) {
@@ -191,7 +202,7 @@ const drainInbox = async (context: Context, bank: string, account: string): Prom
 
 // What is printed when an account stops. A run that cannot be read stops its account every
 // night, so its failure also says where the run is and that it is still there.
-const failureLines = (account: string, error: Error): string[] => {
+export const failureLines = (account: string, error: Error): string[] => {
   const lines = [`${account}: ${error.message}`];
   if (error instanceof RunError) {
     lines.push(
@@ -206,6 +217,17 @@ const recover = async (context: Context, account: string): Promise<void> => {
   const { settings, log } = context;
   const recovered = await recoverAccountSource(settings.dataDir, account, "api");
   if (recovered > 0) log("recovered", { account, records: recovered });
+};
+
+// Merges what waits in the inbox of an account that is not fetched, oldest run first and page
+// by page as the drain before a fetch merges it, and removes each run once its data is
+// written. Nothing is recorded: the account's state may be gone, since a renewal keeps only
+// the accounts it covers, and a success recorded for an account nobody fetches would mean
+// nothing. One that is fetched again later loses nothing by it either: its window starts
+// from the success before, or it is backfilled.
+export const mergeWaiting = async (context: Context, account: string): Promise<void> => {
+  await recover(context, account);
+  await drainInbox(context, null, account);
 };
 
 // Reads what a fetch of the account reads before it asks the bank for anything: its stored
@@ -265,18 +287,21 @@ const fetchAccount = async (
 
 // Fetches each account in turn. An expected failure stops that account only, unless it
 // says the consent is gone, which stops the rest of the bank. Anything unexpected is not
-// caught: it stops the run.
+// caught: it stops the run. `started` names every account whose fetch was begun, and so
+// whose inbox has been merged or has failed it; `sync` sweeps the inbox of every other.
 export const fetchAccounts = async (
   context: Context,
   bank: string,
   accounts: readonly (readonly [string, string])[],
   options: FetchOptions,
-): Promise<{ failed: string[]; newlyMissing: number }> => {
+): Promise<{ failed: string[]; newlyMissing: number; started: string[] }> => {
   const { deps } = context;
   const backfill = options.backfill ?? new Set<string>();
   const failed: string[] = [];
+  const started: string[] = [];
   let newly = 0;
   for (const [index, [account, uid]] of accounts.entries()) {
+    started.push(account);
     try {
       newly += await fetchAccount(context, bank, account, uid, {
         backfill: backfill.has(account),
@@ -296,5 +321,5 @@ export const fetchAccounts = async (
       }
     }
   }
-  return { failed, newlyMissing: newly };
+  return { failed, newlyMissing: newly, started };
 };

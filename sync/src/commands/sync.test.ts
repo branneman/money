@@ -1,15 +1,19 @@
 import assert from "node:assert/strict";
-import { chmod, readdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import type { TestContext } from "node:test";
 
+import type { Config } from "@money/shared";
+
 import { booked, makeWorld, worldAspsps, worldConfig } from "../../testing/world.ts";
 import type { World } from "../../testing/world.ts";
+import { completeRun, writePage } from "../inbox.ts";
 import { writeState } from "../state.ts";
 
 const A = "NL00BNKA0000000001";
 const JOINT = "NL00BNKA0000000002";
+const OLD = "NL00BNKA0000000003";
 const B = "NL00BNKB0000000001";
 
 // Both banks authorised on the first of March, each with one transaction, and the second
@@ -33,6 +37,49 @@ const printed = (world: World): string => world.lines.join("\n");
 const idsOf = async (world: World, account: string): Promise<string[]> =>
   (await world.records(account)).map((record) => record.id);
 
+// What a night that died leaves for an account: a completed run, whose success was never
+// recorded, and after it an incomplete one. Each holds one transaction of its own.
+const COMPLETED = "20260301T120000Z";
+const INCOMPLETE = "20260301T130000Z";
+const leaveRuns = async (world: World, account: string): Promise<void> => {
+  const page = (id: string, date: string): string =>
+    JSON.stringify({ transactions: [booked(id, date)] });
+  await writePage(world.dataDir, account, COMPLETED, 1, page(`${account}-1`, "2026-02-25"));
+  await completeRun(world.dataDir, account, COMPLETED, {
+    started: "2026-03-01T12:00:00Z",
+    window: { strategy: "default", dateFrom: "2026-01-30", dateTo: "2026-03-01" },
+    pages: 1,
+    attended: false,
+  });
+  await writePage(world.dataDir, account, INCOMPLETE, 1, page(`${account}-2`, "2026-02-26"));
+};
+
+// Both runs are merged after what the account already held, removed, and reported with the
+// line a drain prints. No missing-record check is made, even for the completed run.
+const assertSwept = async (world: World, account: string, held: string[] = []): Promise<void> => {
+  assert.deepEqual(await idsOf(world, account), [...held, `${account}-1`, `${account}-2`]);
+  assert.deepEqual(await world.inbox(account), []);
+  for (const [run, complete] of [
+    [COMPLETED, "yes"],
+    [INCOMPLETE, "no"],
+  ]) {
+    assert.ok(
+      world.lines.includes(
+        `merged account=${account} run=${run} complete=${complete} pages=1 added=1 revised=0 unchanged=0 skipped=0 missing=0`,
+      ),
+    );
+  }
+};
+
+// Every account closed or import-only: nothing is fetched through the API.
+const nothingOpen = (): Config => ({
+  ...worldConfig(),
+  accounts: {
+    "bnka-card": { bank: "bnka", import_id: "1001" },
+    "bnka-old": { bank: "bnka", iban: OLD, closed: true },
+  },
+});
+
 test("a night with nothing new leaves every file byte for byte identical", async (t) => {
   const world = await authorised(t);
   const before = await world.files();
@@ -44,15 +91,7 @@ test("a night with nothing new leaves every file byte for byte identical", async
 
 // A night that can fetch nothing must not look like a night with nothing new.
 test("sync fails, asking nothing, when no account is fetched through the API", async (t) => {
-  const world = await makeWorld({
-    config: {
-      ...worldConfig(),
-      accounts: {
-        "bnka-card": { bank: "bnka", import_id: "1001" },
-        "bnka-old": { bank: "bnka", iban: "NL00BNKA0000000003", closed: true },
-      },
-    },
-  });
+  const world = await makeWorld({ config: nothingOpen() });
   t.after(world.cleanup);
   assert.equal(await world.run("sync"), 1);
   assert.match(
@@ -225,6 +264,166 @@ test("a consent close to its end is logged by sync, which still succeeds", async
   assert.equal(await world.run("sync"), 0);
   assert.match(printed(world), /consent-expiring bank=bnka days=179/);
   assert.match(printed(world), /consent-expiring bank=bnkb days=179/);
+});
+
+test("a closed account's waiting runs are merged and removed, and its state is left alone", async (t) => {
+  // The first bank's one account, fetched while it was open, and closed with two runs left.
+  const withOld = (closed: boolean): Config => ({
+    ...worldConfig(),
+    accounts: {
+      "bnka-old": { bank: "bnka", iban: OLD, ...(closed ? { closed } : {}) },
+      "bnkb-current": { bank: "bnkb", iban: B },
+    },
+  });
+  const world = await makeWorld({ config: withOld(false) });
+  t.after(world.cleanup);
+  assert.equal(await world.run("auth", "bnka"), 0);
+  assert.equal(await world.run("auth", "bnkb"), 0);
+  await leaveRuns(world, "bnka-old");
+  await writeFile(world.env.CONFIG_PATH, JSON.stringify(withOld(true)));
+  const state = await readFile(join(world.stateDir, "bnka.json"), "utf8");
+  // The precondition: the account has state of its own that a recorded success would change.
+  assert.ok((await world.state("bnka"))?.accounts["bnka-old"]);
+
+  world.at("2026-03-02T03:00:00Z");
+  assert.equal(await world.run("sync"), 0);
+  await assertSwept(world, "bnka-old");
+  assert.equal(await readFile(join(world.stateDir, "bnka.json"), "utf8"), state);
+});
+
+test("what waits for a bank whose consent has expired is merged", async (t) => {
+  const aspsps = worldAspsps();
+  aspsps[1].maximumConsentValidity = 10 * 86_400;
+  const world = await authorised(t, { aspsps });
+  await leaveRuns(world, "bnkb-current");
+  const state = await readFile(join(world.stateDir, "bnkb.json"), "utf8");
+
+  world.at("2026-03-12T03:00:00Z");
+  assert.equal(await world.run("sync"), 1);
+  assert.match(printed(world), /^bnkb: the consent has expired\. Run: auth bnkb$/m);
+  assert.match(printed(world), /^failed: bnkb$/m);
+  await assertSwept(world, "bnkb-current", ["b1"]);
+  assert.equal(await readFile(join(world.stateDir, "bnkb.json"), "utf8"), state);
+});
+
+test("what waits for an account the consent does not cover is merged", async (t) => {
+  const world = await authorised(t);
+  const state = await world.state("bnka");
+  assert.ok(state);
+  const kept = Object.fromEntries(
+    Object.entries(state.accounts).filter(([key]) => key !== "bnka-joint"),
+  );
+  await writeState(world.stateDir, "bnka", { ...state, accounts: kept });
+  await leaveRuns(world, "bnka-joint");
+  assert.equal(await world.run("sync"), 1);
+  assert.match(
+    printed(world),
+    /^bnka-joint: the stored consent does not cover it\. Run: auth bnka$/m,
+  );
+  assert.match(printed(world), /^failed: bnka-joint$/m);
+  await assertSwept(world, "bnka-joint");
+  assert.equal((await world.state("bnka"))?.accounts["bnka-joint"], undefined);
+});
+
+test("a swept run that cannot be read stays, and fails only its account", async (t) => {
+  const world = await authorised(t);
+  // The card has no iban, so it is swept, and before the closed account, which comes after
+  // it in the configuration.
+  const run = join(world.dataDir, ".inbox", "bnka-card", "20260228T030000Z");
+  await mkdir(run, { recursive: true });
+  await writeFile(join(run, "2.json"), '{"transactions":[]}');
+  await leaveRuns(world, "bnka-old");
+  world.add(A, booked("a2", "2026-03-01"));
+  world.add(B, booked("b2", "2026-03-01"));
+
+  assert.equal(await world.run("sync"), 1);
+  const at = world.lines.indexOf("bnka-card: bnka-card, run 20260228T030000Z: page 1 is absent");
+  assert.notEqual(at, -1);
+  assert.equal(
+    world.lines[at + 1],
+    "bnka-card: run 20260228T030000Z stays in .inbox/bnka-card/20260228T030000Z and " +
+      "stops this account until it can be read. Nothing has been removed.",
+  );
+  assert.match(printed(world), /^failed: bnka-card$/m);
+  assert.deepEqual(await readdir(run), ["2.json"]);
+  await assertSwept(world, "bnka-old");
+  assert.deepEqual(await idsOf(world, "bnka-current"), ["a1", "a2"]);
+  assert.deepEqual(await idsOf(world, "bnkb-current"), ["b1", "b2"]);
+});
+
+test("runs under a key the configuration does not name are kept and reported", async (t) => {
+  const world = await authorised(t);
+  await writePage(world.dataDir, "bnka-gone", COMPLETED, 1, '{"transactions":[]}');
+  assert.equal(await world.run("sync"), 1);
+  assert.ok(
+    world.lines.includes(
+      "bnka-gone: 1 run(s) wait in .inbox/bnka-gone for an account the configuration does not name. They are kept; nothing has been removed.",
+    ),
+  );
+  assert.match(printed(world), /^failed: bnka-gone$/m);
+  assert.equal((await world.inbox("bnka-gone")).length, 1);
+});
+
+test("an empty directory under an unknown key is not reported", async (t) => {
+  const world = await authorised(t);
+  await mkdir(join(world.dataDir, ".inbox", "bnka-gone"));
+  assert.equal(await world.run("sync"), 0);
+  assert.ok(!printed(world).includes("bnka-gone"));
+});
+
+test("an entry of .inbox that is not an account key is reported without its name", async (t) => {
+  const world = await authorised(t);
+  const inbox = join(world.dataDir, ".inbox");
+  await writeFile(join(inbox, "notes.txt"), "x");
+  await mkdir(join(inbox, "Bad_Name"));
+  await writeFile(join(inbox, "Bad_Name", "1.json"), "{}");
+
+  assert.equal(await world.run("sync"), 1);
+  const line =
+    ".inbox holds an entry that is not an account key. It is kept; nothing has been removed.";
+  assert.equal(world.lines.filter((each) => each === line).length, 2);
+  assert.match(printed(world), /^failed: \.inbox$/m);
+  for (const name of ["notes", "bad_name"]) {
+    assert.ok(!printed(world).toLowerCase().includes(name));
+  }
+  const left = await readdir(inbox);
+  assert.ok(left.includes("notes.txt") && left.includes("Bad_Name"));
+});
+
+test("with every account closed, sync still merges what waits, then stops as before", async (t) => {
+  const world = await makeWorld({ config: nothingOpen() });
+  t.after(world.cleanup);
+  await leaveRuns(world, "bnka-old");
+  assert.equal(await world.run("sync"), 1);
+  await assertSwept(world, "bnka-old");
+  assert.equal(
+    world.lines.at(-1),
+    "no account is fetched through the API: none is open and has an iban",
+  );
+  assert.equal(world.bank.requests.length, 0);
+});
+
+test("with every account closed, what the sweep cannot merge is still named as failed", async (t) => {
+  const world = await makeWorld({ config: nothingOpen() });
+  t.after(world.cleanup);
+  await writePage(world.dataDir, "bnka-gone", COMPLETED, 1, '{"transactions":[]}');
+  assert.equal(await world.run("sync"), 1);
+  assert.deepEqual(world.lines, [
+    "bnka-gone: 1 run(s) wait in .inbox/bnka-gone for an account the configuration does not name. They are kept; nothing has been removed.",
+    "no account is fetched through the API: none is open and has an iban",
+    "failed: bnka-gone",
+  ]);
+});
+
+test("an account with nothing waiting is not read", async (t) => {
+  const world = await authorised(t);
+  await mkdir(join(world.dataDir, "bnka-old", "api"), { recursive: true });
+  await writeFile(join(world.dataDir, "bnka-old", "api", "2026.json"), "{ half a fi");
+  await mkdir(join(world.dataDir, ".inbox", "bnka-old"));
+  // The precondition: reading the account would fail it.
+  await assert.rejects(world.records("bnka-old"));
+  assert.equal(await world.run("sync"), 0);
+  assert.ok(!printed(world).includes("bnka-old"));
 });
 
 test("no PSU header is sent by any command", async (t) => {

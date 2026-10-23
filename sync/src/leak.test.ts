@@ -12,6 +12,7 @@ import { isObject, isText } from "@money/shared";
 import { aFormat } from "@money/shared/testing";
 
 import { describeError } from "./errors.ts";
+import { completeRun, writePage } from "./inbox.ts";
 import { main } from "./main.ts";
 import { renderExport } from "../testing/export.ts";
 import {
@@ -353,6 +354,58 @@ test("a refused authorisation never prints what was pasted, nor what identifies 
     ["another site's host", "elsewhere.example"],
     ...pastes,
   ]);
+});
+
+test("what waits in the inbox for an account nobody fetches never prints what a bank sent, nor a name nobody validated", async (t) => {
+  const world = await makeWorld();
+  t.after(world.cleanup);
+  const scan = watch(world);
+  world.add(A, debit("ref-secret-1", "2026-02-20"));
+  world.add(B, credit("ref-secret-2", "2026-02-20"));
+  assert.equal(await world.run("auth", "bnka"), 0);
+  assert.equal(await world.run("auth", "bnkb"), 0);
+
+  const page = (...transactions: Record<string, unknown>[]): string =>
+    JSON.stringify({ transactions });
+  const run = "20260301T120000Z";
+  // A closed account's completed run, merged by the sweep.
+  await writePage(world.dataDir, "bnka-old", run, 1, page(debit("ref-secret-3", "2026-02-25")));
+  await completeRun(world.dataDir, "bnka-old", run, {
+    started: "2026-03-01T12:00:00Z",
+    window: { strategy: "default", dateFrom: "2026-01-30", dateTo: "2026-03-01" },
+    pages: 1,
+    attended: false,
+  });
+  // A run of the card, which has no iban, that the code cannot read.
+  await writePage(world.dataDir, "bnka-card", run, 1, page(credit("", "2026-02-25")));
+  // Runs under a key the configuration does not name.
+  await writePage(world.dataDir, "bnka-gone", run, 1, page(debit("ref-secret-4", "2026-02-25")));
+  // Entries that are not account keys, each named after something that may not be printed.
+  const inbox = join(world.dataDir, ".inbox");
+  await writeFile(join(inbox, "Recognisable-notes.txt"), DEBIT.text);
+  await writePage(
+    world.dataDir,
+    DEBIT.debtorIban,
+    run,
+    1,
+    page(credit("ref-secret-5", "2026-02-25")),
+  );
+
+  world.at("2026-03-02T03:00:00Z");
+  assert.equal(await world.run("sync"), 1);
+
+  const printed = world.lines.join("\n");
+  for (const outcome of [
+    /^merged account=bnka-old run=20260301T120000Z complete=yes /m,
+    /^bnka-card: bnka-card, run 20260301T120000Z, page 1, transaction 1 is booked without an entry_reference$/m,
+    /^bnka-card: run 20260301T120000Z stays in \.inbox\/bnka-card\/20260301T120000Z /m,
+    /^bnka-gone: 1 run\(s\) wait in \.inbox\/bnka-gone for an account the configuration does not name\./m,
+    /^\.inbox holds an entry that is not an account key\. It is kept; nothing has been removed\.$/m,
+    /^failed: bnka-card, bnka-gone, \.inbox$/m,
+  ]) {
+    assert.match(printed, outcome);
+  }
+  await scan([["the name of an entry of .inbox", "notes.txt"]]);
 });
 
 test("status never prints a session or an account, however things stand", async (t) => {

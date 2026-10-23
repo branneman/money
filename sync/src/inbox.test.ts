@@ -5,7 +5,15 @@ import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 
 import { SyncError } from "./errors.ts";
-import { checkWritable, completeRun, listRuns, removeRun, writePage } from "./inbox.ts";
+import {
+  checkWritable,
+  completeRun,
+  countWaiting,
+  listInbox,
+  listRuns,
+  removeRun,
+  writePage,
+} from "./inbox.ts";
 import type { Marker } from "./inbox.ts";
 
 let dir = "";
@@ -171,6 +179,33 @@ test("a removal that was interrupted is finished by the next one", async () => {
   );
   await removeRun(dir, ACCOUNT, RUN);
   assert.deepEqual(await readdir(join(dir, ".inbox", ACCOUNT)), []);
+});
+
+test("an absent inbox lists nothing, and nothing waits in it", async () => {
+  assert.deepEqual(await listInbox(dir), []);
+  assert.equal(await countWaiting(dir, ACCOUNT), 0);
+});
+
+test("the inbox lists what is directly in it, sorted, saying which entries are directories", async () => {
+  await mkdir(join(dir, ".inbox", "bnkb-current"), { recursive: true });
+  await mkdir(join(dir, ".inbox", ACCOUNT));
+  await writeFile(join(dir, ".inbox", "notes.txt"), "x");
+  await writeFile(join(dir, ".inbox", ".write-check"), "");
+  await mkdir(join(dir, ".inbox", ".hidden"));
+  assert.deepEqual(await listInbox(dir), [
+    { name: ACCOUNT, directory: true },
+    { name: "bnkb-current", directory: true },
+    { name: "notes.txt", directory: false },
+  ]);
+});
+
+test("what waits for an account is counted by name, without anything dot-prefixed", async () => {
+  await mkdir(join(dir, ".inbox", ACCOUNT), { recursive: true });
+  assert.equal(await countWaiting(dir, ACCOUNT), 0);
+  await writePage(dir, ACCOUNT, RUN, 1, "one");
+  await writePage(dir, ACCOUNT, "20261012T030000Z", 1, "two");
+  await mkdir(join(dir, ".inbox", ACCOUNT, ".removed-20261009T030000Z"));
+  assert.equal(await countWaiting(dir, ACCOUNT), 2);
 });
 
 test("the write check creates the inbox, and leaves nothing else behind", async () => {
