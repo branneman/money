@@ -306,6 +306,18 @@ test("what waits for a bank whose consent has expired is merged", async (t) => {
   assert.equal(await readFile(join(world.stateDir, "bnkb.json"), "utf8"), state);
 });
 
+test("what waits for a bank whose stored state cannot be used is merged", async (t) => {
+  const world = await authorised(t);
+  await leaveRuns(world, "bnkb-current");
+  await writeFile(join(world.stateDir, "bnkb.json"), "{ half a fi");
+
+  assert.equal(await world.run("sync"), 1);
+  assert.match(printed(world), /^bnkb: the stored state of bnkb is not what the sync wrote/m);
+  assert.match(printed(world), /^failed: bnkb$/m);
+  await assertSwept(world, "bnkb-current", ["b1"]);
+  assert.equal(await readFile(join(world.stateDir, "bnkb.json"), "utf8"), "{ half a fi");
+});
+
 test("what waits for an account the consent does not cover is merged", async (t) => {
   const world = await authorised(t);
   const state = await world.state("bnka");
