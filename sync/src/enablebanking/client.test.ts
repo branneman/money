@@ -255,3 +255,25 @@ test("every request has a time limit", async () => {
   await makeClient(fetch, () => "t").findAspsp("Example Bank", "NL");
   assert.ok(signal instanceof AbortSignal);
 });
+
+test("closeSession sends a DELETE for the session, with a token", async () => {
+  const { calls, client } = answering(200, '{"message":"OK"}');
+  await client.closeSession("session-1");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, "DELETE");
+  assert.equal(
+    calls[0].url,
+    `https://api.enablebanking.com/sessions/${encodeURIComponent("session-1")}`,
+  );
+  assert.equal(calls[0].headers.authorization, "Bearer the-token");
+  assert.equal(calls[0].body, undefined);
+});
+
+test("closeSession takes any 200 as done, and anything else as an ApiError", async () => {
+  await answering(200, "not json").client.closeSession("session-1");
+  await assert.rejects(
+    answering(404, '{"error":"SESSION_DOES_NOT_EXIST"}').client.closeSession("session-1"),
+    (error: unknown) =>
+      error instanceof ApiError && error.status === 404 && error.code === "SESSION_DOES_NOT_EXIST",
+  );
+});

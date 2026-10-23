@@ -445,3 +445,48 @@ test("two first pages in the same instant get keys of their own", async () => {
   assert.deepEqual(notes((await more(secondRun)).body), ["new"]);
   assert.deepEqual(notes((await more(firstRun)).body), ["old"]);
 });
+
+const uidsOf = (session: { body: Record<string, unknown> }): string[] =>
+  (session.body.accounts as { uid: string }[]).map((account) => account.uid);
+
+test("a session can be closed once, and its accounts are then refused", async () => {
+  const { call, authorise } = setup();
+  const { session } = await authorise();
+  const closed = await call("DELETE", `/sessions/${String(session.body.session_id)}`);
+  assert.equal(closed.status, 200);
+  const refused = await call("GET", `/accounts/${uidsOf(session)[0]}/transactions`);
+  assert.equal(refused.status, 401);
+  assert.equal(refused.body.error, "CLOSED_SESSION");
+  const again = await call("DELETE", `/sessions/${String(session.body.session_id)}`);
+  assert.equal(again.status, 401);
+  assert.equal(again.body.error, "CLOSED_SESSION");
+});
+
+test("closing a session nobody issued is refused", async () => {
+  const { call } = setup();
+  const response = await call("DELETE", "/sessions/00000000-0000-4000-8000-00000000ffff");
+  assert.equal(response.status, 404);
+  assert.equal(response.body.error, "SESSION_DOES_NOT_EXIST");
+});
+
+test("closing a session needs a valid token", async () => {
+  const { call, authorise } = setup();
+  const { session } = await authorise();
+  const response = await call(
+    "DELETE",
+    `/sessions/${String(session.body.session_id)}`,
+    undefined,
+    "no",
+  );
+  assert.equal(response.status, 401);
+  assert.equal(response.body.error, "UNAUTHORIZED_ACCESS");
+});
+
+test("closing one session leaves another open", async () => {
+  const { call, authorise } = setup();
+  const first = await authorise();
+  const second = await authorise();
+  await call("DELETE", `/sessions/${String(first.session.body.session_id)}`);
+  const open = await call("GET", `/accounts/${uidsOf(second.session)[0]}/transactions`);
+  assert.equal(open.status, 200);
+});

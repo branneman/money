@@ -32,6 +32,8 @@ export type Client = {
   listAspsps: (country: string) => Promise<string[]>;
   startAuth: (request: AuthRequest) => Promise<{ url: string }>;
   createSession: (code: string) => Promise<Session>;
+  // Ends a session at the bank. Any 200 is done, and the answer is not read.
+  closeSession: (sessionId: string) => Promise<void>;
   transactionsPage: (
     uid: string,
     window: Window,
@@ -56,7 +58,11 @@ const errorCodeOf = (text: string): string | null => {
 // `token` is asked for a token with every request. One minted when the command starts would
 // expire under a user who takes an hour at the bank, or under a long backfill.
 export const makeClient = (fetch: Fetch, token: () => string): Client => {
-  const send = async (method: "GET" | "POST", path: string, body?: unknown): Promise<string> => {
+  const send = async (
+    method: "GET" | "POST" | "DELETE",
+    path: string,
+    body?: unknown,
+  ): Promise<string> => {
     const headers: Record<string, string> = {
       authorization: `Bearer ${token()}`,
       accept: "application/json",
@@ -109,6 +115,9 @@ export const makeClient = (fetch: Fetch, token: () => string): Client => {
     createSession: async (code) => {
       const text = await send("POST", "/sessions", { code });
       return checkSession(parseJson(text, "the session"));
+    },
+    closeSession: async (sessionId) => {
+      await send("DELETE", `/sessions/${encodeURIComponent(sessionId)}`);
     },
     transactionsPage: (uid, window, continuationKey) => {
       const query = new URLSearchParams({ transaction_status: "BOOK" });

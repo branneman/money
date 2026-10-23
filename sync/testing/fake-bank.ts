@@ -59,6 +59,7 @@ type Session = {
   authorisedAt: number;
   uids: Map<string, FakeAccount>;
   revoked: boolean;
+  closed: boolean;
 };
 
 const HOUR = 3_600_000;
@@ -229,6 +230,7 @@ export const makeFakeBank = (options: {
       authorisedAt: clock().getTime(),
       uids: new Map(covered.map((account) => [nextId(), account])),
       revoked: false,
+      closed: false,
     };
     const sessionId = nextId();
     sessions.set(sessionId, session);
@@ -248,6 +250,14 @@ export const makeFakeBank = (options: {
     });
   };
 
+  const closeSession = (sessionId: string): Answer => {
+    const session = sessions.get(sessionId);
+    if (session === undefined) return refuse(404, "SESSION_DOES_NOT_EXIST");
+    if (session.closed) return refuse(401, "CLOSED_SESSION");
+    session.closed = true;
+    return answer(200, { message: "OK" });
+  };
+
   const transactions = (uid: string, query: URLSearchParams): Answer => {
     const session = [...sessions.values()].find((item) => item.uids.has(uid));
     const account = session?.uids.get(uid);
@@ -255,6 +265,7 @@ export const makeFakeBank = (options: {
       return refuse(404, "ACCOUNT_DOES_NOT_EXIST");
     }
     const now = clock().getTime();
+    if (session.closed) return refuse(401, "CLOSED_SESSION");
     if (session.revoked) return refuse(401, "REVOKED_SESSION");
     if (now >= session.validUntil) return refuse(401, "EXPIRED_SESSION");
 
@@ -378,6 +389,10 @@ export const makeFakeBank = (options: {
       const body = parseBody(init.body);
       if (body === undefined) return refuse(400, "WRONG_REQUEST_PARAMETERS");
       return route === "POST /auth" ? startAuth(body.value) : createSession(body.value);
+    }
+    const closing = /^\/sessions\/([^/]+)$/.exec(address.pathname);
+    if (init.method === "DELETE" && closing !== null) {
+      return closeSession(decodeURIComponent(closing[1]));
     }
     const account = /^\/accounts\/([^/]+)\/transactions$/.exec(address.pathname);
     if (init.method === "GET" && account !== null) {
