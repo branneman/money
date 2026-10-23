@@ -229,8 +229,7 @@ const fetchAccount = async (
   bank: string,
   account: string,
   uid: string,
-  backfill: boolean,
-  attended: boolean,
+  { backfill, attended }: { backfill: boolean; attended: boolean },
 ): Promise<number> => {
   const { settings, deps, log } = context;
   await recover(context, account);
@@ -279,14 +278,10 @@ export const fetchAccounts = async (
   let newly = 0;
   for (const [index, [account, uid]] of accounts.entries()) {
     try {
-      newly += await fetchAccount(
-        context,
-        bank,
-        account,
-        uid,
-        backfill.has(account),
-        options.attended,
-      );
+      newly += await fetchAccount(context, bank, account, uid, {
+        backfill: backfill.has(account),
+        attended: options.attended,
+      });
     } catch (error) {
       if (!isExpected(error)) throw error;
       failed.push(account);

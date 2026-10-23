@@ -173,7 +173,7 @@ test("accounts fail separately: one account's error leaves the rest synced", asy
   assert.equal(state?.accounts["bnka-joint"].last_success, "2026-03-02T03:00:00Z");
 });
 
-test("a backfill that died during auth is continued by sync, asking for the longest period again", async (t) => {
+test("a backfill that died during auth is continued by sync, which asks for the longest period and fails the account", async (t) => {
   const world = await makeWorld();
   t.after(world.cleanup);
   for (const id of ["a", "b", "c"]) world.add(A, booked(id, "2026-02-20"));
@@ -190,6 +190,10 @@ test("a backfill that died during auth is continued by sync, asking for the long
   assert.equal(await world.run("sync"), 1);
   assert.deepEqual(await idsOf(world, "bnka-current"), ["a", "b", "c"]);
   assert.equal(world.transactionRequests()[0].query.strategy, "longest");
+  assert.match(
+    printed(world),
+    /^bnka-current: fetched without a first success, so the bank gave only what it serves unattended\. Run: auth bnka$/m,
+  );
 });
 
 test("an account the stored consent does not cover fails, and says to run auth", async (t) => {
