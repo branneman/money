@@ -111,13 +111,17 @@ export const runAuth = async (
       `The consent holds ${session.accounts.length} account(s), ${withIban} of them with an iban.`,
     );
     // The session was made before the accounts could be matched, and nothing records it. Left
-    // open, every retry after ticking the wrong accounts would leave one more.
-    const refused = await closeSession(context, session.sessionId);
-    problems.push(
-      refused === null
-        ? "The consent just given was closed again."
-        : `The consent just given was not closed, and ends by itself on ${dateOf(session.validUntil)}: ${refused}.`,
-    );
+    // open, every retry after ticking the wrong accounts would leave one more. A bank that
+    // hands back the session already stored gave nothing new, and closing it would end the
+    // consent the nightly sync still fetches through.
+    if (previous?.session_id !== session.sessionId) {
+      const refused = await closeSession(context, session.sessionId);
+      problems.push(
+        refused === null
+          ? "The consent just given was closed again."
+          : `The consent just given was not closed, and ends by itself on ${dateOf(session.validUntil)}: ${refused}.`,
+      );
+    }
     throw new SyncError(problems.join("\n"));
   }
 

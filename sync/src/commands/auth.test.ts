@@ -235,6 +235,38 @@ test("a renewal returning the same session id closes nothing, and sync still fet
   assert.equal((await world.records("bnka-current")).length, 2);
 });
 
+test("a refused renewal that returns the stored session closes nothing, and sync still fetches through it", async (t) => {
+  const world = await start(t);
+  world.add(IBAN, booked("a", "2026-02-20"));
+  world.paste = (url) => world.bank.approve(url, { only: [IBAN, JOINT] });
+  assert.equal(await world.run("auth", "bnka"), 0);
+  const state = await world.state("bnka");
+
+  // The closed account is opened again, and the bank hands back the consent it holds, which
+  // does not cover it. Nothing new was given, so there is nothing to close.
+  const config = worldConfig();
+  config.accounts["bnka-old"] = { bank: "bnka", iban: "NL00BNKA0000000003" };
+  await writeFile(world.env.CONFIG_PATH, JSON.stringify(config));
+  world.at("2026-03-02T03:00:00Z");
+  world.paste = (url) => world.bank.approve(url, { same: true });
+  world.lines.length = 0;
+  assert.equal(await world.run("auth", "bnka"), 1);
+  assert.match(printed(world), /^bnka-old: the consent does not cover it$/m);
+  assert.equal(deletes(world).length, 0);
+  assert.ok(!printed(world).includes("consent just given"));
+  assert.deepEqual(await world.state("bnka"), state);
+
+  world.at("2026-03-03T03:00:00Z");
+  world.add(IBAN, booked("b", "2026-03-02"));
+  world.lines.length = 0;
+  assert.equal(await world.run("sync"), 1);
+  assert.match(printed(world), /^failed: bnka-old, bnkb$/m);
+  assert.deepEqual(
+    (await world.records("bnka-current")).map((record) => record.id),
+    ["a", "b"],
+  );
+});
+
 test("a renewal after the previous session expired closes nothing", async (t) => {
   const world = await start(t);
   assert.equal(await world.run("auth", "bnka"), 0);
