@@ -146,3 +146,32 @@ Written into the durable documents before the slice is done:
 ## Left open, for the owner
 
 - **A sandbox renewal** would show what Enable Banking answers to a `DELETE /sessions/{id}`, which nothing here has seen. Run `auth` twice against the sandbox, any time after the slice lands.
+
+## What moved while it was built
+
+Everything below is written into the documents that own it. This section is only the record of where the build differed from the text above.
+
+- **An entry of `.inbox` that is not an account key is reported by a sentence,** `.inbox holds an entry that is not an account key. It is kept; nothing has been removed.`, once for each such entry. The text above gives a phrase, not a line. The name added to `failed:` for them is `.inbox`, since the entry's own name was never validated and may not be printed.
+- **With no account fetchable, what the sweep fails is still named.** The run prints the line it printed before and then, only if the sweep failed something, `failed: <names>`. The text above says those failures are added to `failed:`, and without the line they would have been dropped without a word. The exit code is 1 either way.
+- **`failed:` names each account once.** An account the stored consent does not cover, or one passed over once the consent was gone, is swept, and a swept run it cannot read failed it a second time: it was listed twice and counted twice in `done`. The names are de-duplicated, in the order they first failed. Found in the final review, with a test.
+- **The fake bank's `approve` gained `same`.** With it the exchange hands back the open session the bank already holds, as a bank that reuses its consent on a renewal would. It was added to test a renewal that returns the same session id, which the tests above name and the fake could not otherwise produce.
+- **A session `auth` refuses to store is not closed when it is the one already stored.** A bank that hands back the stored session, followed by a failed match, made `auth` close the session the state still pointed to, and the next `sync` found the consent gone. Nothing new was given in that case, so nothing is closed and neither close line is printed; the error and exit 1 stay. Found in the final review, with a test. The accepted risk above, for a renewal that succeeds, is unchanged.
+- **`publish` does not pipe `git ls-remote`,** and refuses an answer whose first field is not 40 hexadecimal characters. Piped into `cut` under `bash -e` without `pipefail`, a failing `ls-remote` would have been hidden, and the step would have taken the branch for a newer commit and succeeded.
+- **`account.test.ts` asserts `started`** where it compared the old result whole. Adding the field broke those comparisons; it was not in the plan's file list.
+- **The closed-account sweep test authorises the account while it is open, leaves its runs, and only then closes it,** so the account has state of its own and the check that its state is left alone can fail.
+- **The convergence property reaches the sweep.** The text above has it run unchanged, but with one account that never closed and a consent that never expired the sweep always found nothing, against docs/testing.md's rule that a behaviour added to the sync is added to the generator. After a run that left something in the inbox, the account is now often closed in the configuration for the next run or two, and after every run with it closed, every version the bank served must already be in the archive. It was seen to fail with a sweep that passes over closed accounts and with a sync that does not sweep when nothing is fetched, and the four earlier breaks were tried again; where each now fails is recorded in the test.
+- **A bank whose stored state the sync cannot use has its accounts swept,** as the text above says; a test was added for it in the final review, which the list of tests above did not name.
+- **An account whose fetch began has failed "before its inbox could be merged",** not "while merging it": a fetch can fail in the repair of a record in two year files, before any merge.
+- **A check by `import` can meet a record in two `api/` year files** while the nightly sync is writing, since it takes no lock, and stop with the reader's message. It is rare, and running the check again clears it. [sync.md](../sync.md) says so.
+- **Every item under "Left open" in [the image spec](2026-10-14-image.md) is closed by this slice:** `publish` runs one at a time and keeps no token, a nested `node_modules` is kept out and checked for, the ownership step was seen to fail, the fetch takes its two booleans by name, the "continued by sync" test says the account fails, the two-year-files import test asserts its order again, and `scripts/check-image.sh` fails with a `FAIL` line, runs from anywhere and uses `--pull=never` and `--network none`.
+
+### Left open
+
+Found in review and not done in this slice; each is small.
+
+- **A file, not a directory, at `.inbox/<key>` of a configured account that is not fetched** stops the run after the banks with an error nobody expected (`ENOTDIR`), as a fetch of that account would.
+- **`<n> run(s)` under a key the configuration does not name counts every visible entry,** a stray file included.
+- **`scripts/check-image.sh` takes a missing image for the failure steps 1 and 2 expect,** and then says the usage line was not printed, which misleads.
+- **`publish` asks `https://github.com/`** for `main`'s head, rather than `GITHUB_SERVER_URL`.
+- **The fake bank closes a revoked or an expired session with 200,** and `same` can hand back an expired session; neither is tested.
+- **Untested:** a sweep that repairs a record in two year files before it merges; an empty directory under a name that is not an account key; one import file for two accounts of which only one has API records; and a `--write` whose `hidden` is above 0.
