@@ -1,9 +1,10 @@
-// The two claims the project rests on, over the real commands: however the nights fall and
-// wherever a run dies, the archive ends up showing what the bank holds, and every version
-// the bank ever returned is in it. The first and the final `auth` are never disturbed: a
-// backfill that dies part-way is covered by the named scenarios in commands/.
+// The two claims the project rests on, over the real commands: however the nights fall,
+// wherever a run dies, and whenever the account is closed for a while, the archive ends up
+// showing what the bank holds, and every version the bank ever returned is in it. The first
+// and the final `auth` are never disturbed: a backfill that dies part-way is covered by the
+// named scenarios in commands/.
 import assert from "node:assert/strict";
-import { rm } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 // The oracle compares with Node's own equality, so it shares no helper with the merge it
@@ -18,6 +19,7 @@ import type { Random } from "@money/shared/testing";
 import type { FakeAspsp, FakeBank, FakeVersion } from "../testing/fake-bank.ts";
 import { booked, CRASHED, makeWorld } from "../testing/world.ts";
 import type { World } from "../testing/world.ts";
+import { NOTHING_FETCHED } from "./commands/account.ts";
 import type { Checkpoint } from "./context.ts";
 import { addDays, dateOf, timestampOf } from "./time.ts";
 
@@ -48,11 +50,17 @@ const POINTS: Checkpoint[] = [
 
 type Raw = Record<string, unknown>;
 
-const config: Config = {
+// Closed in the configuration, the account is never fetched, and only the sweep merges what
+// waits for it.
+const configWith = (closed: boolean): Config => ({
   banks: { bnka: { aspsp: { name: "Example Bank", country: "NL" } } },
-  accounts: { [ACCOUNT]: { bank: "bnka", iban: IBAN } },
+  accounts: { [ACCOUNT]: { bank: "bnka", iban: IBAN, ...(closed ? { closed } : {}) } },
   imports: {},
-};
+});
+const config = configWith(false);
+
+const setClosed = (world: World, closed: boolean): Promise<void> =>
+  writeFile(world.env.CONFIG_PATH, JSON.stringify(configWith(closed)));
 
 // The run of a night starts at three; `minutes` moves away from that.
 const stamp = (night: number, minutes = 0): string =>
@@ -166,6 +174,16 @@ const current = (records: readonly ArchiveRecord[]) =>
 const shown = (records: readonly ArchiveRecord[]) =>
   view(records, {}).map((item) => ({ ...item, first_seen: "", revised: false }));
 
+// How many of the versions the bank returned the archive holds neither as a record's current
+// version nor as a revision.
+const notHeld = (served: FakeBank["served"], stored: readonly ArchiveRecord[]): number =>
+  served.filter(({ raw }) => {
+    const record = stored.find((item) => item.id === String(raw.entry_reference));
+    const versions =
+      record === undefined ? [] : [record.raw, ...record.revisions.map((item) => item.raw)];
+    return !versions.some((version) => isDeepStrictEqual(version, raw));
+  }).length;
+
 type Tally = {
   // Runs that died, by where.
   diedPageWritten: number;
@@ -187,6 +205,11 @@ type Tally = {
   steadyHeld: number;
   revised: number;
   withdrawnKept: number;
+  // Runs with the account closed that began while a version the bank had returned was held
+  // only by the inbox, which a sweep that failed would have stranded.
+  stranded: number;
+  // Inbox runs the sweep merged while the account was closed.
+  swept: number;
 };
 
 const DIED: Record<Checkpoint, keyof Tally> = {
@@ -209,25 +232,56 @@ const nothing = (): Tally => ({
   steadyHeld: 0,
   revised: 0,
   withdrawnKept: 0,
+  stranded: 0,
+  swept: 0,
 });
 
 const FAILED_REQUEST =
   /: (Enable Banking answered 500 ASPSP_ERROR|no answer from Enable Banking \(TypeError\))$/;
 const DONE = /^done failed=(\d+) newly_missing=(\d+)$/;
 
-type Scene = { seed: number; made: History; world: World; tally: Tally };
+type Scene = {
+  seed: number;
+  made: History;
+  world: World;
+  tally: Tally;
+  // Runs of `sync` still to come with the account closed in the configuration.
+  closed: number;
+};
 
-// One run of `sync`, and what its exit code has to be. A run fails for one reason only
-// here, a request the bank failed, and otherwise exits 1 only to report records newly
-// missing from a window, which the bank's changes do cause.
-const runSync = async ({ seed, world, tally }: Scene, point: Checkpoint | null): Promise<void> => {
+// One run of `sync`, and what its exit code has to be. A run with the account open fails
+// for one reason only here, a request the bank failed, and otherwise exits 1 only to report
+// records newly missing from a window, which the bank's changes do cause.
+const runSync = async (
+  { seed, world, tally }: Scene,
+  point: Checkpoint | null,
+  closed: boolean,
+): Promise<void> => {
   const from = world.lines.length;
+  const asked = world.bank.requests.length;
+  // Whether, as the run begins, a version the bank returned is held by the inbox alone.
+  const waiting = closed && notHeld(world.bank.served, await world.records(ACCOUNT)) > 0;
   const code = await world.run("sync");
   world.crashAt = null;
   const printed = world.lines.slice(from);
   if (code === CRASHED) {
     assert.ok(point !== null, `seed ${seed}: a run died that was not made to`);
     tally[DIED[point]] += 1;
+    return;
+  }
+  if (closed) {
+    // With its one account closed the run asks the bank nothing, and fails saying so, once it
+    // has merged what waits. Nothing may be left waiting then: no fetch is coming to merge it.
+    assert.equal(code, 1, `seed ${seed}: the exit code of a run with the account closed`);
+    assert.equal(printed.at(-1), NOTHING_FETCHED, `seed ${seed}: a run with the account closed`);
+    assert.equal(world.bank.requests.length, asked, `seed ${seed}: a closed account was fetched`);
+    assert.equal(
+      notHeld(world.bank.served, await world.records(ACCOUNT)),
+      0,
+      `seed ${seed}: with the account closed, a version the bank returned is not in the archive`,
+    );
+    if (waiting) tally.stranded += 1;
+    tally.swept += printed.filter((line) => line.startsWith("merged ")).length;
     return;
   }
   const failures = printed.filter((line) => FAILED_REQUEST.test(line)).length;
@@ -285,7 +339,8 @@ const nights = async (scene: Scene, random: Random, lookback: number): Promise<v
         }
       }
       const since = world.bank.served.length;
-      await runSync(scene, point);
+      const closed = scene.closed > 0;
+      await runSync(scene, point, closed);
       const left = await world.inbox(ACCOUNT);
       tally.longLeftovers += left.filter(
         (item) => item.marker === null && item.pages.length >= 2,
@@ -298,7 +353,22 @@ const nights = async (scene: Scene, random: Random, lookback: number): Promise<v
         const from = stamp(night, run * 5 + 1);
         tally.followed += changeServed(bias, made, world.bank.served, since, from);
       }
+      if (closed) {
+        scene.closed -= 1;
+        if (scene.closed === 0) await setClosed(world, false);
+      } else if (left.length > 0 && bias.chance(0.6)) {
+        // A closed account is never fetched, so what a run left in its inbox is merged by the
+        // sweep or by nothing. Only a closing right after such a run tests that, so that is
+        // when the account is closed, often, for the next run or two.
+        scene.closed = bias.int(1, 2);
+        await setClosed(world, true);
+      }
     }
+  }
+  // The final backfill authorises the account, which it can only do while it is open.
+  if (scene.closed > 0) {
+    scene.closed = 0;
+    await setClosed(world, false);
   }
 };
 
@@ -365,17 +435,15 @@ const checkFinal = async (scene: Scene, fresh: World): Promise<void> => {
 
   // Nothing is lost: every version the bank ever returned is the current one or a
   // revision, a withdrawn transaction included.
+  assert.equal(
+    notHeld(world.bank.served, stored),
+    0,
+    `seed ${seed}: a version the bank returned is not in the archive`,
+  );
   const served = new Map<string, Raw[]>();
   for (const { raw } of world.bank.served) {
     const id = String(raw.entry_reference);
     served.set(id, [...(served.get(id) ?? []), raw]);
-    const record = stored.find((item) => item.id === id);
-    const versions =
-      record === undefined ? [] : [record.raw, ...record.revisions.map((item) => item.raw)];
-    assert.ok(
-      versions.some((version) => isDeepStrictEqual(version, raw)),
-      `seed ${seed}: a version the bank returned is not in the archive`,
-    );
   }
 
   // Nothing is made up either. A record holds only versions the bank returned, its current
@@ -422,7 +490,7 @@ const converge = async (seed: number): Promise<Tally> => {
     aspsps: [bankWith(made.transactions)],
     start: stamp(NIGHTS),
   });
-  const scene: Scene = { seed, made, world, tally: nothing() };
+  const scene: Scene = { seed, made, world, tally: nothing(), closed: 0 };
   try {
     world.bank.pageSize = random.int(1, 5);
     assert.equal(await world.run("auth", "bnka"), 0, `seed ${seed}: the first authorisation`);
@@ -445,20 +513,29 @@ test("however the nights fall and wherever a run dies, the archive converges and
   }
   // Without these the property could pass on worlds that never test it, so every count has
   // a floor: three of each, and many runs that simply succeed. Observed with the generator
-  // as written, over 9 seeds of 20 nights: 6 runs died at `page-written`, 7 at `received`,
-  // 4 at `data-written` and 3 at `state-written`; the bank failed 17 requests; 50 runs
+  // as written, over 9 seeds of 20 nights: 4 runs died at `page-written`, 6 at `received`,
+  // 4 at `data-written` and 3 at `state-written`; the bank failed 16 requests; 42 runs
   // exited 0; 20 transactions were changed right after a run that left something in the
-  // inbox; 16 incomplete runs were merged later, and 7 times an incomplete run held two
-  // pages or more; 49 steady transactions that appeared after the first authorisation were
-  // found before the final backfill; 16 records were revised and 14 withdrawn records
-  // kept. The test takes about 29 seconds beside the rest of the suite.
+  // inbox; 13 incomplete runs were merged later, and 6 times an incomplete run held two
+  // pages or more; 43 steady transactions that appeared after the first authorisation were
+  // found before the final backfill; 17 records were revised and 13 withdrawn records
+  // kept; the sweep merged 13 runs with the account closed, and 8 runs with it closed began
+  // with a version that only the inbox held. The test takes about 13 seconds on its own, as
+  // long as before the account was ever closed, and about three times that beside the rest
+  // of the suite.
   //
-  // Each of four deliberate breaks made the property itself fail, before these floors were
-  // reached. Dropping an incomplete run: seeds 1, 6 and 8, "a version the bank returned is
-  // not in the archive". Merging only the run just received: seeds 1, 2, 3, 5, 6 and 8, the
-  // same message. Merging only the first page of an incomplete run: seeds 1 and 6, the same
-  // message. Ignoring the lookback: seeds 1 to 6, "was at the bank by the last full fetch
-  // and is not in the archive".
+  // Each of six deliberate breaks made the property itself fail, before these floors were
+  // reached, mostly with "with the account closed, a version the bank returned is not in the
+  // archive". A sweep that passes over closed accounts: seeds 1, 3, 6, 7 and 8. A sync that
+  // does not sweep when no account is fetched: the same seeds. Dropping an incomplete run:
+  // seeds 1, 6, 7 and 8. Merging only the first page of an incomplete run: seeds 1, 6 and 8.
+  // Merging only the run just received: seeds 1 and 5, and seed 2 with "a version the bank
+  // returned is not in the archive". Ignoring the lookback: seeds 1 to 5, "was at the bank by
+  // the last full fetch and is not in the archive".
+  //
+  // Closing the account moved some of those, since a closed run fetches nothing and the
+  // sweep merges what a fetch would have. Before it, merging only the run just received
+  // failed seeds 1, 2, 3, 5, 6 and 8, and ignoring the lookback seeds 1 to 6.
   //
   // Those seed lists hold for this generator and for the requests production makes today.
   // `random` gives the same schedule for a seed whatever the code does, but a failure is
