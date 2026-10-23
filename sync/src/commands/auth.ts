@@ -3,7 +3,7 @@
 import { plainIban } from "@money/shared";
 
 import type { Context } from "../context.ts";
-import { SyncError } from "../errors.ts";
+import { isExpected, SyncError } from "../errors.ts";
 import { readRedirect } from "../redirect.ts";
 import { readState, renewed, writeState } from "../state.ts";
 import { dateOf, timestampOf } from "../time.ts";
@@ -17,6 +17,19 @@ const consentStored = (bank: string, unfetched: readonly string[]): string =>
   `The consent is stored. Not fetched in full: ${unfetched.join(", ")}. ` +
   `Run auth ${bank} again now: only then can the bank be asked for the whole history. ` +
   "Until then the nightly sync stores only what the bank serves unattended, and fails.";
+
+// Closes a session at the bank. Returns null when it is closed, and otherwise the reason it
+// was not, for the caller to print: a bank that refuses is not a failure of the command.
+// An error nobody expected is not that, and stops the command.
+const closeSession = async (context: Context, sessionId: string): Promise<string | null> => {
+  try {
+    await context.client.closeSession(sessionId);
+    return null;
+  } catch (error) {
+    if (!isExpected(error)) throw error;
+    return error.message;
+  }
+};
 
 // `showIbans` is the one place an iban is printed, and only because it was asked for: a
 // sandbox bank's test accounts are not known beforehand, and the configuration needs them.
@@ -97,6 +110,14 @@ export const runAuth = async (
     problems.push(
       `The consent holds ${session.accounts.length} account(s), ${withIban} of them with an iban.`,
     );
+    // The session was made before the accounts could be matched, and nothing records it. Left
+    // open, every retry after ticking the wrong accounts would leave one more.
+    const refused = await closeSession(context, session.sessionId);
+    problems.push(
+      refused === null
+        ? "The consent just given was closed again."
+        : `The consent just given was not closed, and ends by itself on ${dateOf(session.validUntil)}: ${refused}.`,
+    );
     throw new SyncError(problems.join("\n"));
   }
 
@@ -107,6 +128,21 @@ export const runAuth = async (
     ignored: session.accounts.length - accounts.length,
     until: dateOf(session.validUntil),
   });
+
+  // Closed after the fetch, not before: that time is not spent waiting on an answer about
+  // the old session, while the bank serves older history only to a user who just came.
+  const closePrevious = async (): Promise<void> => {
+    // An expired session has nothing left to close, and the same id is the same session.
+    if (previous === null || previous.session_id === session.sessionId) return;
+    if (previous.valid_until <= timestampOf(deps.clock())) return;
+    const refused = await closeSession(context, previous.session_id);
+    if (refused === null) log("previous-closed", { bank });
+    else {
+      deps.out(
+        `The previous consent was not closed, and ends by itself on ${dateOf(previous.valid_until)}: ${refused}.`,
+      );
+    }
+  };
 
   // At once, before returning: a bank may serve older history only while the user has
   // just authenticated, and that fetch may not be repeatable.
@@ -132,6 +168,7 @@ export const runAuth = async (
     deps.out(consentStored(bank, accounts));
     throw error;
   }
+  await closePrevious();
   if (outcome.failed.length > 0) {
     deps.out(consentStored(bank, outcome.failed));
     return 1;

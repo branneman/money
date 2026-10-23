@@ -206,6 +206,15 @@ test("nothing a bank sent, and nothing that identifies a session, is printed on 
   assert.equal(await world.run("auth", "bnkb"), 0);
   assert.equal(await world.run("status"), 0);
 
+  // A renewal closes the session it replaced; the next one meets a bank that refuses. That
+  // renewal asks for the bank list, the authorisation, the session and a page for each of
+  // the two accounts first, so the close is its sixth request.
+  world.at("2026-03-01T12:00:00Z");
+  assert.equal(await world.run("auth", "bnka"), 0);
+  world.at("2026-03-01T13:00:00Z");
+  world.bank.failRequest(6, { status: 404, error: "SESSION_DOES_NOT_EXIST" });
+  assert.equal(await world.run("auth", "bnka"), 0);
+
   // A new transaction, and one the bank withdrew.
   world.at("2026-03-02T03:00:00Z");
   gone.push({ from: "2026-03-01T12:00:00Z", raw: null });
@@ -245,6 +254,8 @@ test("nothing a bank sent, and nothing that identifies a session, is printed on 
   const printed = world.lines.join("\n");
   for (const outcome of [
     /authorised bank=bnka/,
+    /^previous-closed bank=bnka$/m,
+    /The previous consent was not closed, and ends by itself on /,
     /were absent from a fetch that should hold them/,
     /Enable Banking answered 500 ASPSP_ERROR/,
     /page 1 is not valid JSON/,
@@ -319,8 +330,14 @@ test("a refused authorisation never prints what was pasted, nor what identifies 
   world.paste = (url) => world.bank.approve(url, { only: ["NL00BNKA0000000002"] });
   assert.equal(await world.run("auth", "bnka"), 1);
 
+  // The same refusal, with a bank that will not close the session it was just given.
+  world.bank.failRequest(4, { status: 404, error: "SESSION_DOES_NOT_EXIST" });
+  assert.equal(await world.run("auth", "bnka"), 1);
+
   const printed = world.lines.join("\n");
   for (const outcome of [
+    /The consent just given was closed again\./,
+    /The consent just given was not closed, and ends by itself on /,
     /that address belongs to another authorisation/,
     /that is not an address/,
     /that is not the redirect address of this application/,

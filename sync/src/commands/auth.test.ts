@@ -28,6 +28,8 @@ const start = async (
   return world;
 };
 const printed = (world: World): string => world.lines.join("\n");
+const deletes = (world: World): string[] =>
+  world.bank.requests.filter((request) => request.method === "DELETE").map((r) => r.path);
 const paths = (world: World): string[] =>
   world.bank.requests.map(
     (request) => `${request.method} ${request.path.replace(/\/accounts\/[^/]+/, "/accounts/uid")}`,
@@ -40,6 +42,8 @@ test("a first authorisation stores the session and fetches every account's whole
   world.add(JOINT, booked("j", "2026-02-20"));
 
   assert.equal(await world.run("auth", "bnka"), 0);
+  // A first authorisation has nothing to close.
+  assert.equal(deletes(world).length, 0);
   assert.deepEqual(paths(world), [
     "GET /aspsps",
     "POST /auth",
@@ -119,6 +123,27 @@ test("a configured account the consent does not cover is an error that names it"
   assert.match(printed(world), /The consent holds 1 account\(s\), 1 of them with an iban\./);
   assert.equal(await world.state("bnka"), null);
   assert.equal(world.transactionRequests().length, 0);
+  // The session was made before the accounts were matched, so it is closed again.
+  // The fake answers 200 only for a session it issued and has not closed, and this is the
+  // only one it issued.
+  assert.equal(deletes(world).length, 1);
+  assert.match(deletes(world)[0], /^\/sessions\/[^/]+$/);
+  assert.match(printed(world), /\nThe consent just given was closed again\.$/);
+});
+
+test("a refused session the bank will not close says so, and still fails", async (t) => {
+  const world = await start(t);
+  world.paste = (url) => world.bank.approve(url, { only: [IBAN] });
+  // Requests: the bank list, the authorisation, the session, then the close.
+  world.bank.failRequest(4, { status: 404, error: "SESSION_DOES_NOT_EXIST" });
+  assert.equal(await world.run("auth", "bnka"), 1);
+  assert.equal(deletes(world).length, 1);
+  assert.match(
+    printed(world),
+    /\nThe consent just given was not closed, and ends by itself on 2026-08-28: Enable Banking answered 404 SESSION_DOES_NOT_EXIST\.$/,
+  );
+  assert.ok(!printed(world).includes("was closed again"));
+  assert.equal(await world.state("bnka"), null);
 });
 
 test("auth --show-ibans prints the ibans the consent holds, and only when asked", async (t) => {
@@ -162,6 +187,83 @@ test("a renewal replaces the session and fetches from the last success, not the 
     (await world.records("bnka-current")).map((record) => record.id),
     ["a", "b"],
   );
+});
+
+test("a renewal closes the session it replaced, and sync then fetches through the new one", async (t) => {
+  const world = await start(t);
+  world.add(IBAN, booked("a", "2026-02-20"));
+  assert.equal(await world.run("auth", "bnka"), 0);
+  const old = (await world.state("bnka"))?.session_id;
+  assert.equal(deletes(world).length, 0);
+
+  world.at("2026-03-02T03:00:00Z");
+  assert.equal(await world.run("auth", "bnka"), 0);
+  assert.deepEqual(deletes(world), [`/sessions/${old}`]);
+  assert.match(printed(world), /^previous-closed bank=bnka$/m);
+
+  world.at("2026-03-03T03:00:00Z");
+  world.add(IBAN, booked("b", "2026-03-02"));
+  // The other bank was never authorised, which is the only reason this run fails.
+  world.lines.length = 0;
+  assert.equal(await world.run("sync"), 1);
+  assert.match(printed(world), /^failed: bnkb$/m);
+  assert.deepEqual(
+    (await world.records("bnka-current")).map((record) => record.id),
+    ["a", "b"],
+  );
+});
+
+test("a renewal after the previous session expired closes nothing", async (t) => {
+  const world = await start(t);
+  assert.equal(await world.run("auth", "bnka"), 0);
+  assert.equal((await world.state("bnka"))?.valid_until, "2026-08-28T03:00:00Z");
+  world.at("2026-09-01T03:00:00Z");
+  assert.equal(await world.run("auth", "bnka"), 0);
+  assert.equal(deletes(world).length, 0);
+  assert.ok(!printed(world).includes("previous-closed"));
+});
+
+test("a close the bank refuses is a note, and the renewal still succeeds", async (t) => {
+  const world = await start(t);
+  world.add(IBAN, booked("a", "2026-02-20"));
+  assert.equal(await world.run("auth", "bnka"), 0);
+
+  world.at("2026-03-02T03:00:00Z");
+  // A renewal asks for the bank list, the authorisation and the session, then one page for
+  // each of the two accounts, and closes last: the sixth request.
+  world.bank.requests.length = 0;
+  world.bank.failRequest(6, { status: 404, error: "SESSION_DOES_NOT_EXIST" });
+  assert.equal(await world.run("auth", "bnka"), 0);
+  assert.equal(world.bank.requests.length, 6);
+  assert.equal(world.bank.requests[5].method, "DELETE");
+  assert.match(
+    printed(world),
+    /^The previous consent was not closed, and ends by itself on 2026-08-28: Enable Banking answered 404 SESSION_DOES_NOT_EXIST\.$/m,
+  );
+  assert.ok(!printed(world).includes("previous-closed"));
+
+  world.at("2026-03-03T03:00:00Z");
+  world.add(IBAN, booked("b", "2026-03-02"));
+  // The other bank was never authorised, which is the only reason this run fails.
+  world.lines.length = 0;
+  assert.equal(await world.run("sync"), 1);
+  assert.match(printed(world), /^failed: bnkb$/m);
+  assert.equal((await world.records("bnka-current")).length, 2);
+});
+
+test("a renewal whose fetch fails still closes the previous session", async (t) => {
+  const world = await start(t);
+  world.add(IBAN, booked("a", "2026-02-20"));
+  assert.equal(await world.run("auth", "bnka"), 0);
+  const old = (await world.state("bnka"))?.session_id;
+
+  world.at("2026-03-02T03:00:00Z");
+  // The bank list, the authorisation, the session, then the first account's page.
+  world.bank.failRequest(4, { status: 500, error: "ASPSP_ERROR" });
+  assert.equal(await world.run("auth", "bnka"), 1);
+  assert.match(printed(world), /^The consent is stored\. Not fetched in full: /m);
+  assert.deepEqual(deletes(world), [`/sessions/${old}`]);
+  assert.match(printed(world), /^previous-closed bank=bnka$/m);
 });
 
 test("after the state is lost, a completed run left in the inbox does not stand in for the whole history", async (t) => {
