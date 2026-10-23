@@ -1,6 +1,6 @@
 # The sync's image: the server's source as it is in the repository, and nothing else.
 # Node runs the TypeScript directly, so there is no build. docs/infra.md has the reasoning.
-FROM node:24.21.0-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+FROM node:24.22.1-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205
 
 WORKDIR /app
 COPY package.json package-lock.json ./
