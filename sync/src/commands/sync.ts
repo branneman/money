@@ -80,7 +80,10 @@ export const runSync = async (context: Context): Promise<number> => {
     }
   }
   failed.push(...(await sweep(context, started)));
-  log("done", { failed: failed.length, newly_missing: newlyMissing });
-  if (failed.length > 0) deps.out(`failed: ${failed.join(", ")}`);
-  return failed.length > 0 || newlyMissing > 0 ? 1 : 0;
+  // An account passed over before the sweep can fail again in it. It is one account, named
+  // once, where it first failed.
+  const named = [...new Set(failed)];
+  log("done", { failed: named.length, newly_missing: newlyMissing });
+  if (named.length > 0) deps.out(`failed: ${named.join(", ")}`);
+  return named.length > 0 || newlyMissing > 0 ? 1 : 0;
 };

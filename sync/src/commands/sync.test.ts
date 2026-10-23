@@ -325,6 +325,26 @@ test("what waits for an account the consent does not cover is merged", async (t)
   assert.equal((await world.state("bnka"))?.accounts["bnka-joint"], undefined);
 });
 
+test("an account that fails before the sweep and again in it is named once", async (t) => {
+  const world = await authorised(t);
+  const state = await world.state("bnka");
+  assert.ok(state);
+  const kept = Object.fromEntries(
+    Object.entries(state.accounts).filter(([key]) => key !== "bnka-joint"),
+  );
+  await writeState(world.stateDir, "bnka", { ...state, accounts: kept });
+  const run = join(world.dataDir, ".inbox", "bnka-joint", "20260228T030000Z");
+  await mkdir(run, { recursive: true });
+  await writeFile(join(run, "2.json"), '{"transactions":[]}');
+
+  assert.equal(await world.run("sync"), 1);
+  // The precondition: it failed in both places.
+  assert.match(printed(world), /^bnka-joint: the stored consent does not cover it\./m);
+  assert.match(printed(world), /^bnka-joint: run 20260228T030000Z stays in /m);
+  assert.match(printed(world), /^done failed=1 newly_missing=0$/m);
+  assert.match(printed(world), /^failed: bnka-joint$/m);
+});
+
 test("a swept run that cannot be read stays, and fails only its account", async (t) => {
   const world = await authorised(t);
   // The card has no iban, so it is swept, and before the closed account, which comes after
