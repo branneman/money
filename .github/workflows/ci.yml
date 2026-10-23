@@ -80,7 +80,13 @@ jobs:
           echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           docker tag money:checked "$image:$GITHUB_SHA"
           docker push "$image:$GITHUB_SHA"
-          head=$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}" refs/heads/main | cut -f1)
+          # Not piped: the step has no pipefail, so a failing ls-remote would pass unseen.
+          answer=$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}" refs/heads/main)
+          head=${answer%%[[:space:]]*}
+          if ! [[ "$head" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "main's head could not be read from the remote" >&2
+            exit 1
+          fi
           if [ "$head" = "$GITHUB_SHA" ]; then
             docker tag money:checked "$image:latest"
             docker push "$image:latest"
