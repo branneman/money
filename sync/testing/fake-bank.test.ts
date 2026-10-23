@@ -49,14 +49,14 @@ const setup = (transactions: FakeAspsp["accounts"][number]["transactions"] = [])
       body: JSON.parse(await response.text()) as Record<string, unknown>,
     };
   };
-  const authorise = async (only?: readonly string[]) => {
+  const authorise = async (only?: readonly string[], same?: boolean) => {
     const started = await call("POST", "/auth", {
       access: { valid_until: new Date(time.now.getTime() + 180 * DAY).toISOString() },
       aspsp: { name: "Example Bank", country: "NL" },
       state: "state-1",
       redirect_url: REDIRECT,
     });
-    const landed = new URL(bank.approve(String(started.body.url), { only }));
+    const landed = new URL(bank.approve(String(started.body.url), { only, same }));
     const session = await call("POST", "/sessions", { code: landed.searchParams.get("code") });
     return { landed, session };
   };
@@ -128,6 +128,19 @@ test("a consent can cover only some accounts, and a code works once", async () =
   const again = await call("POST", "/sessions", { code: landed.searchParams.get("code") });
   assert.equal(again.status, 400);
   assert.equal(again.body.error, "WRONG_AUTHORIZATION_CODE");
+});
+
+test("a consent approved as the same one hands back the open session, and not a closed one", async () => {
+  const { authorise, call } = setup();
+  const first = await authorise();
+  const again = await authorise(undefined, true);
+  assert.equal(again.session.body.session_id, first.session.body.session_id);
+  assert.deepEqual(again.session.body.accounts, first.session.body.accounts);
+  assert.equal(
+    (await call("DELETE", `/sessions/${String(first.session.body.session_id)}`)).status,
+    200,
+  );
+  await assert.rejects(authorise(undefined, true), /holds no open session/);
 });
 
 test("an authorisation with a wrong bank, redirect or period is refused", async () => {

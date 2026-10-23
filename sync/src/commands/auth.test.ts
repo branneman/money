@@ -213,6 +213,28 @@ test("a renewal closes the session it replaced, and sync then fetches through th
   );
 });
 
+test("a renewal returning the same session id closes nothing, and sync still fetches through it", async (t) => {
+  const world = await start(t);
+  world.add(IBAN, booked("a", "2026-02-20"));
+  assert.equal(await world.run("auth", "bnka"), 0);
+  const before = (await world.state("bnka"))?.session_id;
+
+  world.at("2026-03-02T03:00:00Z");
+  world.paste = (url) => world.bank.approve(url, { same: true });
+  assert.equal(await world.run("auth", "bnka"), 0);
+  assert.equal((await world.state("bnka"))?.session_id, before);
+  assert.equal(deletes(world).length, 0);
+  assert.ok(!printed(world).includes("previous-closed"));
+  assert.ok(!printed(world).includes("was not closed"));
+
+  world.at("2026-03-03T03:00:00Z");
+  world.add(IBAN, booked("b", "2026-03-02"));
+  world.lines.length = 0;
+  assert.equal(await world.run("sync"), 1);
+  assert.match(printed(world), /^failed: bnkb$/m);
+  assert.equal((await world.records("bnka-current")).length, 2);
+});
+
 test("a renewal after the previous session expired closes nothing", async (t) => {
   const world = await start(t);
   assert.equal(await world.run("auth", "bnka"), 0);

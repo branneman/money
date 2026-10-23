@@ -44,7 +44,9 @@ export type FakeBank = {
   served: { iban: string; raw: Record<string, unknown> }[];
   pageSize: number;
   // Plays the user approving at the bank: returns the address the browser lands on.
-  approve: (url: string, options?: { only?: readonly string[] }) => string;
+  // With `same`, the exchange hands back the open session the bank already holds for this bank
+  // instead of a new one, as a bank that reuses its consent on a renewal would.
+  approve: (url: string, options?: { only?: readonly string[]; same?: boolean }) => string;
   // Makes the nth request from now fail.
   failRequest: (n: number, failure: Failure) => void;
   // Forgets every failure that has not happened yet.
@@ -81,7 +83,7 @@ export const makeFakeBank = (options: {
   const pending = new Map<string, { aspsp: FakeAspsp; state: string; validUntil: number }>();
   const codes = new Map<
     string,
-    { aspsp: FakeAspsp; validUntil: number; only: readonly string[] | null }
+    { aspsp: FakeAspsp; validUntil: number; only: readonly string[] | null; same: boolean }
   >();
   const sessions = new Map<string, Session>();
   const failures = new Map<number, Failure>();
@@ -161,6 +163,7 @@ export const makeFakeBank = (options: {
         aspsp: waiting.aspsp,
         validUntil: waiting.validUntil,
         only: approval.only ?? null,
+        same: approval.same ?? false,
       });
       const query = new URLSearchParams({ state: waiting.state, code });
       return `${redirectUrl}?${query.toString()}`;
@@ -221,6 +224,14 @@ export const makeFakeBank = (options: {
     const approved = codes.get(code);
     if (approved === undefined) return refuse(400, "WRONG_AUTHORIZATION_CODE");
     codes.delete(code);
+    if (approved.same) {
+      const open = [...sessions].filter(
+        ([, item]) => item.aspsp === approved.aspsp && !item.closed && !item.revoked,
+      );
+      if (open.length === 0) throw new Error("the fake bank holds no open session to hand back");
+      const [sessionId, session] = open[open.length - 1];
+      return sessionAnswer(sessionId, session);
+    }
     const covered = approved.aspsp.accounts.filter(
       (account) => approved.only === null || approved.only.includes(account.iban),
     );
@@ -234,7 +245,11 @@ export const makeFakeBank = (options: {
     };
     const sessionId = nextId();
     sessions.set(sessionId, session);
-    return answer(200, {
+    return sessionAnswer(sessionId, session);
+  };
+
+  const sessionAnswer = (sessionId: string, session: Session): Answer =>
+    answer(200, {
       session_id: sessionId,
       accounts: [...session.uids].map(([uid, account]) => ({
         account_id: { iban: account.iban },
@@ -244,11 +259,10 @@ export const makeFakeBank = (options: {
         identification_hash: uid,
         identification_hashes: [uid],
       })),
-      aspsp: { name: approved.aspsp.name, country: approved.aspsp.country },
+      aspsp: { name: session.aspsp.name, country: session.aspsp.country },
       psu_type: "personal",
-      access: { valid_until: new Date(approved.validUntil).toISOString() },
+      access: { valid_until: new Date(session.validUntil).toISOString() },
     });
-  };
 
   const closeSession = (sessionId: string): Answer => {
     const session = sessions.get(sessionId);
