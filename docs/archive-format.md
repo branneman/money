@@ -152,7 +152,7 @@ Readers never interpret `raw` directly. One pure function turns a record into a 
 
 ### When both sources cover the same day
 
-For each account, the earliest booking date among its API records is its **API start**. Import records dated on or after the API start are left out of the view. They stay in the archive.
+For each account, the earliest booking date among its API records is its **API start**. Import records dated on or after the API start are left out of the view. They stay in the archive. `import` reports how many rows of a file this rule hides ([sync.md](sync.md)).
 
 This rule depends only on what is stored, not on the order things were done in. Importing first and authorising later gives the same view as the other way round.
 

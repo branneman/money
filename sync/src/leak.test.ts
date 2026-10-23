@@ -8,8 +8,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 
-import { isObject, isText } from "@money/shared";
-import { aFormat } from "@money/shared/testing";
+import { isObject, isText, renderYearFiles } from "@money/shared";
+import { aFormat, anApiRecord } from "@money/shared/testing";
 
 import { describeError } from "./errors.ts";
 import { completeRun, writePage } from "./inbox.ts";
@@ -612,6 +612,15 @@ test("import never prints a cell, a header name, the path or an argument, whethe
   });
   t.after(world.cleanup);
   const scan = watch(world);
+  // The account has API records from the day before the rows, so the summary counts rows
+  // the view will hide, and that count is printed under the scan.
+  const apiFolder = join(world.dataDir, "bnka-current", "api");
+  await mkdir(apiFolder, { recursive: true });
+  for (const [name, text] of renderYearFiles([
+    anApiRecord({ id: "20250101-10000001", date: "2025-01-01" }),
+  ])) {
+    await writeFile(join(apiFolder, name), text);
+  }
   const folder = join(dirname(world.dataDir), "zqxfolder-51d");
   await mkdir(folder);
   let files = 0;
@@ -678,8 +687,14 @@ test("import never prints a cell, a header name, the path or an argument, whethe
   // The runs that were accepted did print their summaries, and the character list holds
   // single characters and nothing else.
   const printed = world.lines.join("\n");
-  assert.match(printed, /import-account account=bnka-current rows=2 new=2/);
-  assert.match(printed, /import-account account=bnka-current rows=1 new=0 changed=1/);
+  assert.match(
+    printed,
+    /import-account account=bnka-current rows=2 new=2 changed=0 unchanged=0 hidden=2 /,
+  );
+  assert.match(
+    printed,
+    /import-account account=bnka-current rows=1 new=0 changed=1 unchanged=0 hidden=1 /,
+  );
   assert.match(printed, /import-checked format=planted-export accounts=1 rows=2 written=yes/);
   const characterLines = world.lines.filter((line) => line.startsWith("  "));
   assert.ok(characterLines.length > 0);

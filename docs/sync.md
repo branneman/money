@@ -328,8 +328,8 @@ Where an import overlaps what the API has fetched, both are stored and the reade
 ### What it prints
 
 ```text
-import-account account=bnka-current rows=412 new=380 changed=0 unchanged=32 from=2021-01-04 to=2024-12-31
-import-account account=bnka-joint rows=95 new=95 changed=0 unchanged=0 from=2021-02-01 to=2024-12-30
+import-account account=bnka-current rows=412 new=380 changed=0 unchanged=32 hidden=12 from=2021-01-04 to=2024-12-31
+import-account account=bnka-joint rows=95 new=95 changed=0 unchanged=0 hidden=0 from=2021-02-01 to=2024-12-30
 import-characters distinct=2
   U+00E9 é 14
   U+20AC € 3
@@ -338,6 +338,8 @@ Nothing was written. Run the same command with --write to import.
 ```
 
 - **One line per account**, with the first and last booking date in the file for it.
+- **`hidden` is the number of the file's rows for that account that the view will leave out**: those dated on or after the account's API start ([archive-format.md](archive-format.md), "When both sources cover the same day"). They are stored all the same. An account with no API records has no API start and shows `hidden=0`. It is information only: it never refuses a file or changes the exit code, since an export that overlaps the API's reach is normal. It is as of now: a later, deeper backfill moves the API start earlier and hides more of what is already stored, and nothing is rewritten when it does.
+- **`import` reads the account's `api/` year files to count it**, a check and `--write` alike. It never writes or repairs `api/`, which only the sync writes. So an `api/` the reader refuses, a record left in two `api/` year files included, stops the import with the reader's message, and the next nightly `sync` repairs a doubled record.
 - **`changed` should be 0 on a first import.** Anything else, on a file from the same bank as before, is worth a look before `--write`.
 - **The character list is the one thing printed that is not a key, a date or a count.** It holds single characters with their code points. `import` is run by hand, at a terminal.
 - With `--write`, each account also gets an `import-written` line with the number of year files written, the last line says `written=yes`, and the closing sentence is left out.

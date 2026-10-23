@@ -5,9 +5,9 @@ import { test } from "node:test";
 import type { TestContext } from "node:test";
 
 import { normalise, renderYearFiles } from "@money/shared";
-import type { ArchiveRecord, Config } from "@money/shared";
+import type { ApiRecord, ArchiveRecord, Config } from "@money/shared";
 import { readAccountSource } from "@money/shared/node";
-import { aFormat, anImportRaw } from "@money/shared/testing";
+import { aFormat, anApiRecord, anImportRaw } from "@money/shared/testing";
 
 import { renderExport } from "../../testing/export.ts";
 import { makeWorld, worldConfig } from "../../testing/world.ts";
@@ -49,7 +49,7 @@ test("a check prints the summary and writes nothing, not even a directory or a l
   const path = await exported(world, TWO);
   assert.equal(await world.run("import", FORMAT, path), 0);
   assert.deepEqual(world.lines, [
-    "import-account account=bnka-current rows=2 new=2 changed=0 unchanged=0 from=2025-01-02 to=2025-01-03",
+    "import-account account=bnka-current rows=2 new=2 changed=0 unchanged=0 hidden=0 from=2025-01-02 to=2025-01-03",
     "import-characters distinct=0",
     "import-checked format=example-export accounts=1 rows=2 written=no",
     "Nothing was written. Run the same command with --write to import.",
@@ -95,7 +95,7 @@ test("the same file twice changes nothing, byte for byte", async (t) => {
   assert.equal(await world.run("import", FORMAT, path, "--write"), 0);
   assert.deepEqual(await world.files(), before);
   assert.deepEqual(world.lines, [
-    "import-account account=bnka-current rows=2 new=0 changed=0 unchanged=2 from=2025-01-02 to=2025-01-03",
+    "import-account account=bnka-current rows=2 new=0 changed=0 unchanged=2 hidden=0 from=2025-01-02 to=2025-01-03",
     "import-characters distinct=0",
     "import-written account=bnka-current files=0",
     "import-checked format=example-export accounts=1 rows=2 written=yes",
@@ -109,7 +109,7 @@ test("a later export that overlaps adds only what is new", async (t) => {
   world.lines.length = 0;
   const later = [TWO[1], row({ Sequence: "3", Booked: "2025-01-04" })];
   assert.equal(await world.run("import", FORMAT, await exported(world, later), "--write"), 0);
-  assert.match(world.lines[0], /rows=2 new=1 changed=0 unchanged=1/);
+  assert.match(world.lines[0], /rows=2 new=1 changed=0 unchanged=1 hidden=0/);
   const records = await stored(world, "bnka-current");
   assert.deepEqual(
     records.map((record) => [record.id, record.first_seen]),
@@ -128,7 +128,7 @@ test("a row that differs from what is stored becomes a revision, and is counted 
   world.lines.length = 0;
   const changed = [row({ Sequence: "1", "Text 1": "Another line" })];
   assert.equal(await world.run("import", FORMAT, await exported(world, changed), "--write"), 0);
-  assert.match(world.lines[0], /rows=1 new=0 changed=1 unchanged=0/);
+  assert.match(world.lines[0], /rows=1 new=0 changed=1 unchanged=0 hidden=0/);
   const [first] = await stored(world, "bnka-current");
   assert.equal(first.raw["Text 1"], "Another line");
   assert.deepEqual(first.revisions, [
@@ -153,8 +153,8 @@ test("a file for two accounts lands per account, and per year", async (t) => {
     ],
   );
   assert.deepEqual(world.lines.slice(0, 2), [
-    "import-account account=bnka-card rows=1 new=1 changed=0 unchanged=0 from=2025-01-02 to=2025-01-02",
-    "import-account account=bnka-current rows=2 new=2 changed=0 unchanged=0 from=2024-12-31 to=2025-01-02",
+    "import-account account=bnka-card rows=1 new=1 changed=0 unchanged=0 hidden=0 from=2025-01-02 to=2025-01-02",
+    "import-account account=bnka-current rows=2 new=2 changed=0 unchanged=0 hidden=0 from=2024-12-31 to=2025-01-02",
   ]);
 });
 
@@ -292,7 +292,11 @@ test("a record left in two year files stops a check, and is repaired under --wri
 
   world.lines.length = 0;
   assert.equal(await world.run("import", FORMAT, moved, "--write"), 0);
-  assert.match(world.lines.join("\n"), /rows=1 new=0 changed=0 unchanged=1/);
+  assert.equal(world.lines[0], "recovered account=bnka-current records=1");
+  assert.equal(
+    world.lines[1],
+    "import-account account=bnka-current rows=1 new=0 changed=0 unchanged=1 hidden=0 from=2024-12-31 to=2024-12-31",
+  );
   assert.deepEqual([...(await world.files()).keys()], ["bnka-current/import/2024.json"]);
 });
 
@@ -324,4 +328,46 @@ test("--write says when it repaired a record left in two year files", async (t) 
     [...(await world.files()).keys()],
     [join("bnka-current", "import", "2025.json")],
   );
+});
+
+// Writes the API year files of an account, as the sync would have left them.
+const plantApi = async (world: World, records: ApiRecord[]): Promise<void> => {
+  const folder = join(world.dataDir, "bnka-current", "api");
+  await mkdir(folder, { recursive: true });
+  for (const [name, text] of renderYearFiles(records)) await writeFile(join(folder, name), text);
+};
+
+test("hidden counts the file's rows on or after the API start", async (t) => {
+  const world = await start(t);
+  await plantApi(world, [anApiRecord({ id: "20250110-10000001", date: "2025-01-10" })]);
+  const rows = [
+    row({ Sequence: "1", Booked: "2025-01-09" }),
+    row({ Sequence: "2", Booked: "2025-01-10" }),
+    row({ Sequence: "3", Booked: "2025-01-11" }),
+  ];
+  assert.equal(await world.run("import", FORMAT, await exported(world, rows)), 0);
+  assert.equal(
+    world.lines[0],
+    "import-account account=bnka-current rows=3 new=3 changed=0 unchanged=0 hidden=2 from=2025-01-09 to=2025-01-11",
+  );
+});
+
+test("hidden is 0 for an account with no API records", async (t) => {
+  const world = await start(t);
+  assert.equal(await world.run("import", FORMAT, await exported(world, TWO)), 0);
+  assert.match(world.lines[0], / unchanged=0 hidden=0 from=/);
+});
+
+test("an api/ record in two year files stops the import, and nothing is written", async (t) => {
+  const world = await start(t);
+  await plantApi(world, [
+    anApiRecord({ id: "20241231-10000001", date: "2024-12-31" }),
+    anApiRecord({ id: "20250102-10000002", date: "2025-01-02" }),
+  ]);
+  // The same record again, in the other year file.
+  await plantApi(world, [anApiRecord({ id: "20250102-10000002", date: "2024-12-31" })]);
+  const before = await world.files();
+  assert.equal(await world.run("import", FORMAT, await exported(world, TWO), "--write"), 1);
+  assert.match(world.lines.join("\n"), /is stored in more than one year file/);
+  assert.deepEqual(await world.files(), before);
 });

@@ -2,7 +2,7 @@
 // writes only when asked: an import is permanent, like everything in the archive.
 import { readFile } from "node:fs/promises";
 
-import { merge, renderYearFiles } from "@money/shared";
+import { apiStarts, merge, renderYearFiles } from "@money/shared";
 import type { ArchiveRecord, Target } from "@money/shared";
 import { readAccountSource, recoverAccountSource, writeYearFiles } from "@money/shared/node";
 
@@ -34,6 +34,7 @@ type Merged = {
   added: number;
   revised: number;
   unchanged: number;
+  hidden: number;
   from: string;
   to: string;
   records: ArchiveRecord[];
@@ -81,6 +82,13 @@ export const runImport = async (
     }
     const target: Target = { account, source: "import", format: formatKey };
     const result = merge(stored, incoming, target, now);
+    // The view leaves out what the API start covers. The API is only read here: the import
+    // never repairs it, which only the sync does.
+    const apiStart = apiStarts(await readAccountSource(settings.dataDir, account, "api")).get(
+      account,
+    );
+    const hidden =
+      apiStart === undefined ? 0 : incoming.filter((item) => item.date >= apiStart).length;
     const dates = incoming.map((item) => item.date).toSorted();
     merged.push({
       account,
@@ -88,6 +96,7 @@ export const runImport = async (
       added: result.added.length,
       revised: result.revised.length,
       unchanged: result.unchanged,
+      hidden,
       from: dates[0],
       to: dates[dates.length - 1],
       records: result.records,
@@ -102,6 +111,7 @@ export const runImport = async (
       new: item.added,
       changed: item.revised,
       unchanged: item.unchanged,
+      hidden: item.hidden,
       from: item.from,
       to: item.to,
     });
