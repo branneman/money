@@ -288,7 +288,8 @@ const fetchAccount = async (
 // Fetches each account in turn. An expected failure stops that account only, unless it
 // says the consent is gone, which stops the rest of the bank. Anything unexpected is not
 // caught: it stops the run. `started` names every account whose fetch was begun, and so
-// whose inbox has been merged or has failed it; `sync` sweeps the inbox of every other.
+// whose inbox has been merged, or which has failed before its inbox could be merged; `sync`
+// sweeps the inbox of every other.
 export const fetchAccounts = async (
   context: Context,
   bank: string,
