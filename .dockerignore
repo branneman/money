@@ -7,6 +7,9 @@
 !sync/
 !bin/money
 
+# A node_modules inside a workspace is the machine's, never the image's.
+**/node_modules
+
 # Tests and their helpers are not part of what runs.
 **/*.test.ts
 **/testing/

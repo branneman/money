@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: package.json
@@ -27,6 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: package.json
@@ -40,6 +44,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - run: docker build --build-arg "REVISION=$GITHUB_SHA" -t money:checked .
       - run: scripts/check-image.sh money:checked
 
@@ -53,18 +59,31 @@ jobs:
     permissions:
       contents: read
       packages: write
+    # A group serialises runs, it does not order them: if the older commit's tests finish
+    # last, its publish runs last. So the group stops two pushes interleaving, and the check
+    # before :latest stops an older commit taking the tag back.
+    concurrency:
+      group: publish
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - run: docker build --build-arg "REVISION=$GITHUB_SHA" -t money:checked .
       - run: scripts/check-image.sh money:checked
       # The commit's tag first, so :latest never names an image whose own tag is missing.
-      - name: Push as :<commit> and :latest
+      - name: Push as :<commit> and, from main's head, as :latest
         env:
           TOKEN: ${{ github.token }}
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY,,}"
           echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           docker tag money:checked "$image:$GITHUB_SHA"
-          docker tag money:checked "$image:latest"
           docker push "$image:$GITHUB_SHA"
-          docker push "$image:latest"
+          head=$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}" refs/heads/main | cut -f1)
+          if [ "$head" = "$GITHUB_SHA" ]; then
+            docker tag money:checked "$image:latest"
+            docker push "$image:latest"
+          else
+            echo ":latest is left to the newer commit on main"
+          fi
