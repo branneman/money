@@ -78,6 +78,17 @@ test("a first authorisation stores the session and fetches every account's whole
   assert.deepEqual(await readdir(world.stateDir), ["bnka.json"]);
 });
 
+test("an open account with fetch false need not be in the consent, and is not fetched", async (t) => {
+  const config = worldConfig();
+  config.accounts["bnka-joint"] = { bank: "bnka", iban: JOINT, fetch: false };
+  const world = await start(t, { config });
+  world.paste = (url) => world.bank.approve(url, { only: [IBAN] });
+  assert.equal(await world.run("auth", "bnka"), 0);
+  assert.ok(!printed(world).includes("bnka-joint"));
+  assert.deepEqual(Object.keys((await world.state("bnka"))?.accounts ?? {}), ["bnka-current"]);
+  assert.equal(world.transactionRequests().length, 1);
+});
+
 test("the headers a bank lists as required are printed by name", async (t) => {
   const aspsps = worldAspsps();
   aspsps[0].requiredPsuHeaders = ["Psu-Ip-Address", "Psu-User-Agent"];

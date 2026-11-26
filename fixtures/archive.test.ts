@@ -18,7 +18,7 @@ import {
 } from "./generate.ts";
 import { END } from "./household.ts";
 import { ACCOUNTS, CONFIG, FORMATS, importedAt, SWITCH } from "./world.ts";
-import type { AccountKey } from "./world.ts";
+import type { AccountInfo, AccountKey } from "./world.ts";
 
 const records = buildArchive();
 const files = renderArchive(records);
@@ -68,6 +68,22 @@ test("every configured account has records, and only from the sources that reach
     [...new Set(records.map((record) => record.account))].toSorted(),
     Object.keys(CONFIG.accounts).toSorted(),
   );
+});
+
+// A sync against this configuration asks the API for exactly the open accounts it reaches:
+// one with an IBAN that only exports reach says so with fetch false.
+test("the configuration leaves every account the API does not reach unfetched", () => {
+  for (const [key, account] of Object.entries(ACCOUNTS) as [AccountKey, AccountInfo][]) {
+    const configured = CONFIG.accounts[key];
+    const fetched =
+      configured.iban !== undefined && configured.closed !== true && configured.fetch !== false;
+    assert.equal(fetched, account.reach.api !== undefined && account.closed !== true, key);
+    assert.equal(
+      configured.fetch,
+      account.iban !== undefined && !account.reach.api ? false : undefined,
+      key,
+    );
+  }
 });
 
 test("accounts without an IBAN are recognised by their import id", () => {

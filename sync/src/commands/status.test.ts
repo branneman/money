@@ -31,6 +31,19 @@ test("status prints each consent and each account's last full fetch, and asks th
   assert.equal(world.bank.requests.length, 0);
 });
 
+test("status leaves out an open account with fetch false, which needs no consent", async (t) => {
+  const config = worldConfig();
+  config.accounts["bnka-savings"] = { bank: "bnka", iban: "NL00BNKA0000000009", fetch: false };
+  const world = await makeWorld({ config });
+  t.after(world.cleanup);
+  assert.equal(await world.run("auth", "bnka"), 0);
+  assert.equal(await world.run("auth", "bnkb"), 0);
+  world.lines.length = 0;
+  world.at("2026-03-05T03:00:00Z");
+  assert.equal(await world.run("status"), 0);
+  assert.ok(!world.lines.some((line) => line.includes("bnka-savings")));
+});
+
 test("status fails for a bank that was never authorised", async (t) => {
   const world = await makeWorld();
   t.after(world.cleanup);
@@ -45,10 +58,11 @@ test("status fails for a bank that was never authorised", async (t) => {
 for (const [name, accounts] of [
   ["no accounts at all", {}],
   [
-    "only accounts that are imported or closed",
+    "only accounts that are imported, closed or left unfetched",
     {
       "bnka-card": { bank: "bnka", import_id: "1001" },
       "bnka-old": { bank: "bnka", iban: "NL00BNKA0000000003", closed: true },
+      "bnka-savings": { bank: "bnka", iban: "NL00BNKA0000000009", fetch: false },
     },
   ],
 ] as const) {
@@ -57,7 +71,7 @@ for (const [name, accounts] of [
     t.after(world.cleanup);
     assert.equal(await world.run("status"), 1);
     assert.deepEqual(world.lines, [
-      "no account is fetched through the API: none is open and has an iban",
+      "no account is fetched through the API: each is closed, has no iban, or has fetch set to false",
     ]);
   });
 }

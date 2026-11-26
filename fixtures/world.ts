@@ -199,6 +199,8 @@ export const CONFIG: Config = {
         ...(account.iban === undefined ? {} : { iban: account.iban }),
         ...(account.import_id === undefined ? {} : { import_id: account.import_id }),
         ...(account.closed === undefined ? {} : { closed: true }),
+        // Known by an IBAN, so import finds it, but only exports reach it.
+        ...(account.iban !== undefined && account.reach.api === undefined ? { fetch: false } : {}),
       },
     ]),
   ),

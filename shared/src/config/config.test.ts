@@ -29,6 +29,15 @@ test("an amount column may declare a thousands separator", () => {
   assert.deepEqual(result.ok && result.config, config);
 });
 
+test("an open account with an iban may be left unfetched, and import still knows it", () => {
+  const config = aConfig({
+    accounts: { "bnka-savings": { bank: "bnka", iban: "NL00BNKA0000000009", fetch: false } },
+  });
+  const result = validateConfig(structuredClone(config));
+  assert.ok(result.ok);
+  assert.deepEqual(result.ok && result.config, config);
+});
+
 test("a configuration with only the three sections, all empty, is valid", () => {
   assert.ok(validateConfig({ banks: {}, accounts: {}, imports: {} }).ok);
 });
@@ -69,6 +78,15 @@ const wrong: [string, unknown, RegExp][] = [
       },
     }),
     /accounts\.a: closed/,
+  ],
+  [
+    "a fetch flag that is not a boolean",
+    aConfig({
+      accounts: {
+        a: { bank: "bnka", iban: "NL00BNKA0000000001", fetch: "no" as unknown as boolean },
+      },
+    }),
+    /accounts\.a: fetch must be true or false/,
   ],
   [
     "a numeric import_id beside a valid iban",

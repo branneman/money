@@ -25,12 +25,14 @@
     },
     "bnka-personal-savings": {
       "bank": "bnka",
-      "iban": "NL00BNKA0000000003"
+      "iban": "NL00BNKA0000000003",
+      "fetch": false
     },
     "bnka-joint-savings": {
       "bank": "bnka",
       "iban": "NL00BNKA0000000004",
-      "closed": true
+      "closed": true,
+      "fetch": false
     },
     "bnka-card": {
       "bank": "bnka",
@@ -47,11 +49,13 @@
     },
     "bnkb-personal-savings": {
       "bank": "bnkb",
-      "iban": "NL00BNKB0000000003"
+      "iban": "NL00BNKB0000000003",
+      "fetch": false
     },
     "bnkb-joint-savings": {
       "bank": "bnkb",
-      "iban": "NL00BNKB0000000004"
+      "iban": "NL00BNKB0000000004",
+      "fetch": false
     },
     "bnkb-card": {
       "bank": "bnkb",

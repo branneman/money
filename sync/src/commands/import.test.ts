@@ -158,6 +158,19 @@ test("a file for two accounts lands per account, and per year", async (t) => {
   ]);
 });
 
+// Import knows an account by its identifiers alone: neither flag that keeps the API away
+// from an account keeps its export rows out.
+test("rows of a closed account and of one left unfetched are stored like any other", async (t) => {
+  const config = worldConfig();
+  config.accounts["bnka-savings"] = { bank: "bnka", iban: "NL00BNKA0000000009", fetch: false };
+  const world = await makeWorld({ config: { ...config, imports: { [FORMAT]: aFormat() } } });
+  t.after(world.cleanup);
+  const rows = [row({ Account: "NL00BNKA0000000003" }), row({ Account: "NL00BNKA0000000009" })];
+  assert.equal(await world.run("import", FORMAT, await exported(world, rows), "--write"), 0);
+  assert.equal((await stored(world, "bnka-old")).length, 1);
+  assert.equal((await stored(world, "bnka-savings")).length, 1);
+});
+
 test("one bad row among good ones writes nothing, even with --write", async (t) => {
   const world = await start(t);
   const rows = [...TWO, row({ Sequence: "3", Amount: "1.234,56" })];

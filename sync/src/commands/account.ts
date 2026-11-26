@@ -21,11 +21,12 @@ import { runNameOf, timestampOf } from "../time.ts";
 import { fetchWindow } from "../window.ts";
 import type { Window } from "../window.ts";
 
-// Bank key to the accounts the API is asked for: open, and known by an IBAN.
+// Bank key to the accounts the API is asked for: open, known by an IBAN, and not left out
+// with `fetch: false`, as an account the API cannot reach is.
 export const fetchable = (config: Config): Map<string, string[]> => {
   const byBank = new Map<string, string[]>();
   for (const [key, account] of Object.entries(config.accounts)) {
-    if (account.iban === undefined || account.closed === true) continue;
+    if (account.iban === undefined || account.closed === true || account.fetch === false) continue;
     byBank.set(account.bank, [...(byBank.get(account.bank) ?? []), key]);
   }
   return byBank;
@@ -34,7 +35,7 @@ export const fetchable = (config: Config): Map<string, string[]> => {
 // What `status` and `sync` say, and fail with, when `fetchable` finds nothing. Without it
 // both would print nothing and exit 0, every night, while nothing was being fetched.
 export const NOTHING_FETCHED =
-  "no account is fetched through the API: none is open and has an iban";
+  "no account is fetched through the API: each is closed, has no iban, or has fetch set to false";
 
 export type FetchOptions = {
   // Whether the user has just been at the bank. Only `auth` fetches so; `sync` never does.

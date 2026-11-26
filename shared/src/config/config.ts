@@ -27,7 +27,13 @@ export type ImportFormat = {
   original_currency?: Column;
 };
 
-export type Account = { bank: string; iban?: string; import_id?: string; closed?: boolean };
+export type Account = {
+  bank: string;
+  iban?: string;
+  import_id?: string;
+  closed?: boolean;
+  fetch?: boolean;
+};
 
 export type Config = {
   banks: Record<string, { aspsp: { name: string; country: string } }>;
@@ -213,7 +219,7 @@ export const validateConfig = (value: unknown): ConfigResult => {
       continue;
     }
     problems.push(
-      ...unknownFields(account, ["bank", "iban", "import_id", "closed"]).map(
+      ...unknownFields(account, ["bank", "iban", "import_id", "closed", "fetch"]).map(
         (problem) => `${at}: ${problem}`,
       ),
     );
@@ -224,8 +230,10 @@ export const validateConfig = (value: unknown): ConfigResult => {
     if (!isText(account.iban) && !isText(account.import_id)) {
       problems.push(`${at}: needs an iban or an import_id`);
     }
-    if (account.closed !== undefined && typeof account.closed !== "boolean") {
-      problems.push(`${at}: closed must be true or false`);
+    for (const flag of ["closed", "fetch"] as const) {
+      if (account[flag] !== undefined && typeof account[flag] !== "boolean") {
+        problems.push(`${at}: ${flag} must be true or false`);
+      }
     }
     for (const field of ["iban", "import_id"] as const) {
       if (account[field] !== undefined && !isText(account[field])) {

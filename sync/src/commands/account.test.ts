@@ -50,7 +50,7 @@ const UNATTENDED_FIRST =
 const fetchUnattended = (world: World, uids: Record<string, string>) =>
   fetchSingle(world, uids, false);
 
-test("the accounts to fetch are the open ones with an IBAN, by bank", async (t) => {
+test("the accounts to fetch are the open ones with an IBAN, by bank, unless fetch is false", async (t) => {
   const { world } = await start(t);
   assert.deepEqual(
     [...fetchable(world.config)],
@@ -61,6 +61,21 @@ test("the accounts to fetch are the open ones with an IBAN, by bank", async (t) 
   );
   const cards = { ...world.config, accounts: { "bnka-card": { bank: "bnka", import_id: "1001" } } };
   assert.deepEqual([...fetchable(cards)], []);
+  const unfetched = {
+    ...world.config,
+    accounts: {
+      ...world.config.accounts,
+      "bnka-joint": { bank: "bnka", iban: "NL00BNKA0000000002", fetch: false },
+      "bnkb-current": { bank: "bnkb", iban: "NL00BNKB0000000001", fetch: true },
+    },
+  };
+  assert.deepEqual(
+    [...fetchable(unfetched)],
+    [
+      ["bnka", ["bnka-current"]],
+      ["bnkb", ["bnkb-current"]],
+    ],
+  );
 });
 
 test("a first fetch asks for the longest period, stores everything and records its start", async (t) => {

@@ -119,7 +119,7 @@ A refused file is named by row number and by the format's field, never by its co
 
 Every command exits 1 with one message. The ones a first run meets:
 
-- **`no account is fetched through the API: none is open and has an iban`**, from `status` or `sync`: the configuration's `accounts` is empty, or every account in it has only an `import_id` or is `closed`. Give each account the API should fetch its `iban`.
+- **`no account is fetched through the API: each is closed, has no iban, or has fetch set to false`**, from `status` or `sync`: the configuration's `accounts` is empty, or every account in it has only an `import_id`, is `closed`, or has `fetch: false`. Give each account the API should fetch its `iban`, and no `fetch: false`.
 - **`Enable Banking lists no bank under the configured name and country`**: the request worked, so the application id and the key are right. The name or the country in the configuration file differs from the list. Run `banks <country>` and copy the name again.
 - **`Enable Banking lists no bank for the country XX`**: the country code is wrong, or the application is shown no bank there.
 - **`Enable Banking answered 401`** or **`403`**: the application id and the key do not belong together, the key was not encoded whole, or the application is not usable yet.

@@ -1,7 +1,7 @@
-// What waits in the inbox for an account the night did not fetch: one closed or without an
-// iban, every account of a bank with no usable consent, one the consent does not cover, and
-// those passed over once the consent was gone. Only a fetch drains an account's inbox, so
-// without this its pages would wait for a fetch that may never come.
+// What waits in the inbox for an account the night did not fetch: one closed, without an
+// iban or with fetch false, every account of a bank with no usable consent, one the consent
+// does not cover, and those passed over once the consent was gone. Only a fetch drains an
+// account's inbox, so without this its pages would wait for a fetch that may never come.
 import { ACCOUNT_KEY } from "@money/shared";
 
 import type { Context } from "../context.ts";

@@ -15,6 +15,7 @@ const A = "NL00BNKA0000000001";
 const JOINT = "NL00BNKA0000000002";
 const OLD = "NL00BNKA0000000003";
 const B = "NL00BNKB0000000001";
+const SAVINGS = "NL00BNKA0000000009";
 
 // Both banks authorised on the first of March, each with one transaction, and the second
 // of March about to begin.
@@ -71,12 +72,13 @@ const assertSwept = async (world: World, account: string, held: string[] = []): 
   }
 };
 
-// Every account closed or import-only: nothing is fetched through the API.
+// Every account closed, import-only or left unfetched: nothing is fetched through the API.
 const nothingOpen = (): Config => ({
   ...worldConfig(),
   accounts: {
     "bnka-card": { bank: "bnka", import_id: "1001" },
     "bnka-old": { bank: "bnka", iban: OLD, closed: true },
+    "bnka-savings": { bank: "bnka", iban: SAVINGS, fetch: false },
   },
 });
 
@@ -96,7 +98,7 @@ test("sync fails, asking nothing, when no account is fetched through the API", a
   assert.equal(await world.run("sync"), 1);
   assert.match(
     printed(world),
-    /^no account is fetched through the API: none is open and has an iban$/m,
+    /^no account is fetched through the API: each is closed, has no iban, or has fetch set to false$/m,
   );
   assert.equal(world.bank.requests.length, 0);
 });
@@ -291,6 +293,19 @@ test("a closed account's waiting runs are merged and removed, and its state is l
   assert.equal(await readFile(join(world.stateDir, "bnka.json"), "utf8"), state);
 });
 
+test("an open account with fetch false is not fetched, needs no consent, and what waits is merged", async (t) => {
+  const world = await authorised(t);
+  const config = worldConfig();
+  config.accounts["bnka-savings"] = { bank: "bnka", iban: SAVINGS, fetch: false };
+  await writeFile(world.env.CONFIG_PATH, JSON.stringify(config));
+  await leaveRuns(world, "bnka-savings");
+  assert.equal(await world.run("sync"), 0);
+  await assertSwept(world, "bnka-savings");
+  assert.ok(!printed(world).includes("bnka-savings: "));
+  assert.equal(world.transactionRequests().length, 3);
+  assert.match(printed(world), /done failed=0 newly_missing=0/);
+});
+
 test("what waits for a bank whose consent has expired is merged", async (t) => {
   const aspsps = worldAspsps();
   aspsps[1].maximumConsentValidity = 10 * 86_400;
@@ -430,7 +445,7 @@ test("with every account closed, sync still merges what waits, then stops as bef
   await assertSwept(world, "bnka-old");
   assert.equal(
     world.lines.at(-1),
-    "no account is fetched through the API: none is open and has an iban",
+    "no account is fetched through the API: each is closed, has no iban, or has fetch set to false",
   );
   assert.equal(world.bank.requests.length, 0);
 });
@@ -442,7 +457,7 @@ test("with every account closed, what the sweep cannot merge is still named as f
   assert.equal(await world.run("sync"), 1);
   assert.deepEqual(world.lines, [
     "bnka-gone: 1 run(s) wait in .inbox/bnka-gone for an account the configuration does not name. They are kept; nothing has been removed.",
-    "no account is fetched through the API: none is open and has an iban",
+    "no account is fetched through the API: each is closed, has no iban, or has fetch set to false",
     "failed: bnka-gone",
   ]);
 });
