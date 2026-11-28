@@ -13,6 +13,7 @@ import { makeHandler } from "./handler.ts";
 import { makeLog } from "./log.ts";
 import { parseSecret, rotateSecret, SECRET_FILE } from "./secret.ts";
 import { makeHandlerDeps, makeServer } from "./serve.ts";
+import type { ServerConfig } from "./server-config.ts";
 import { loadServerConfig } from "./server-config.ts";
 import { directoryProblems, readSettings, writableDirectoryProblem } from "./settings.ts";
 import type { Settings } from "./settings.ts";
@@ -21,7 +22,10 @@ export type Running = { port: number; close(): Promise<void> };
 
 export type Deps = {
   clock: () => Date;
+  // Standard output: what a person may capture. For hash-password, only the hash.
   out: (line: string) => void;
+  // Standard error: prompts and every message that is not the hash.
+  err: (line: string) => void;
   randomBytes: (size: number) => Buffer;
   isTerminal: boolean;
   readHidden: (prompt: string) => Promise<string>;
@@ -36,8 +40,12 @@ const USAGE = "usage: serve | hash-password | rotate-session-secret";
 
 const NO_SECRET = "the session secret is missing or invalid. Run: money rotate-session-secret";
 
-const fail = (deps: Deps, problems: readonly string[]): Outcome => {
-  for (const problem of problems) deps.out(problem);
+const fail = (
+  deps: Deps,
+  problems: readonly string[],
+  say: (line: string) => void = deps.out,
+): Outcome => {
+  for (const problem of problems) say(problem);
   return { exit: 1 };
 };
 
@@ -52,8 +60,11 @@ const readText = async (path: string): Promise<string | null> => {
   }
 };
 
-const startupProblems = async (settings: Settings): Promise<string[]> => {
+const startupProblems = async (
+  settings: Settings,
+): Promise<{ problems: string[]; loaded: ServerConfig | null }> => {
   const problems = await directoryProblems(settings);
+  let loaded: ServerConfig | null = null;
 
   const secret = await readText(join(settings.appDataDir, SECRET_FILE));
   if (secret === null || parseSecret(secret) === null) problems.push(NO_SECRET);
@@ -62,14 +73,15 @@ const startupProblems = async (settings: Settings): Promise<string[]> => {
     const config = await readText(settings.configPath);
     if (config === null) problems.push("CONFIG_PATH does not name a file");
     else {
-      const loaded = loadServerConfig(config);
-      if (!loaded.ok) problems.push(...loaded.problems);
+      const result = loadServerConfig(config);
+      if (result.ok) loaded = result.value;
+      else problems.push(...result.problems);
     }
   } catch (error) {
     if (!isRefused(error)) throw error;
     problems.push("CONFIG_PATH names a file this user cannot read");
   }
-  return problems;
+  return { problems, loaded };
 };
 
 const serve = async (env: Environment, deps: Deps): Promise<Outcome> => {
@@ -77,8 +89,8 @@ const serve = async (env: Environment, deps: Deps): Promise<Outcome> => {
   if (!read.ok) return fail(deps, read.problems);
   const { settings } = read;
 
-  const problems = await startupProblems(settings);
-  if (problems.length > 0) return fail(deps, problems);
+  const { problems, loaded } = await startupProblems(settings);
+  if (problems.length > 0 || loaded === null) return fail(deps, problems);
 
   const log = makeLog(deps.out);
   const handler = makeHandler(makeHandlerDeps(settings, deps.clock, log));
@@ -91,10 +103,10 @@ const hashPasswordCommand = async (deps: Deps): Promise<Outcome> => {
   const password = await deps.readHidden("password: ");
   // Asked twice only where a person is typing; a pipe has nobody to mistype.
   if (deps.isTerminal && (await deps.readHidden("again: ")) !== password) {
-    return fail(deps, ["the two passwords differ"]);
+    return fail(deps, ["the two passwords differ"], deps.err);
   }
   if (password.length < MIN_PASSWORD_LENGTH) {
-    return fail(deps, [`a password needs at least ${MIN_PASSWORD_LENGTH} characters`]);
+    return fail(deps, [`a password needs at least ${MIN_PASSWORD_LENGTH} characters`], deps.err);
   }
   deps.out(await hashPassword(password, deps.randomBytes(16)));
   return { exit: 0 };

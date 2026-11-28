@@ -23,9 +23,14 @@ after(async () => {
   for (const root of roots) await rm(root, { recursive: true, force: true });
 });
 
-type Run = { lines: string[]; asked: string[]; closers: Array<() => Promise<void>> };
+type Run = {
+  lines: string[];
+  errors: string[];
+  asked: string[];
+  closers: Array<() => Promise<void>>;
+};
 
-const newRun = (): Run => ({ lines: [], asked: [], closers: [] });
+const newRun = (): Run => ({ lines: [], errors: [], asked: [], closers: [] });
 
 // Real listening on a free port of 127.0.0.1; every other dependency a small fake.
 const depsFor = (run: Run, options: { isTerminal?: boolean; answers?: string[] } = {}): Deps => {
@@ -33,6 +38,7 @@ const depsFor = (run: Run, options: { isTerminal?: boolean; answers?: string[] }
   return {
     clock: () => new Date("2026-11-02T09:00:00Z"),
     out: (line) => run.lines.push(line),
+    err: (line) => run.errors.push(line),
     randomBytes,
     isTerminal: options.isTerminal ?? false,
     readHidden: (prompt) => {
@@ -183,7 +189,7 @@ const raw = (port: number, bytes: string): Promise<string> =>
     setTimeout(() => reject(new Error("the connection was left open")), 3000).unref();
   });
 
-test("a malformed request is a closed socket or a 400 with the CSP, and is not logged", async () => {
+test("a malformed request is a 400 with the CSP, and is not logged", async () => {
   const { env } = await layout();
   const run = newRun();
   const rejections: unknown[] = [];
@@ -193,12 +199,10 @@ test("a malformed request is a closed socket or a 400 with the CSP, and is not l
     const result = await main(["serve"], env, depsFor(run));
     assert.ok("running" in result);
     const answer = await raw(result.running.port, "GET / HTTP/1.1\r\nBad Header\r\n\r\n");
-    if (answer !== "") {
-      assert.match(answer, /^HTTP\/1\.1 400 /);
-      assert.ok(
-        answer.includes(`Content-Security-Policy: ${SECURITY_HEADERS["Content-Security-Policy"]}`),
-      );
-    }
+    assert.match(answer, /^HTTP\/1\.1 400 /);
+    assert.ok(
+      answer.includes(`Content-Security-Policy: ${SECURITY_HEADERS["Content-Security-Policy"]}`),
+    );
     // Still serving afterwards.
     assert.equal((await get(result.running.port, "/health")).status, 200);
     await new Promise((resolve) => setImmediate(resolve));
@@ -220,7 +224,9 @@ test("hash-password on a terminal asks twice and prints a hash that verifies", a
   );
   assert.deepEqual(result, { exit: 0 });
   assert.deepEqual(run.asked, ["password: ", "again: "]);
+  // Standard output holds the hash and nothing else, so a capture of it is usable.
   assert.equal(run.lines.length, 1);
+  assert.deepEqual(run.errors, []);
   const hash = parseHash(run.lines[0]);
   assert.ok(hash !== null);
   assert.ok(await verifyPassword(password, hash));
@@ -238,7 +244,8 @@ test("hash-password refuses two passwords that differ", async () => {
     }),
   );
   assert.deepEqual(result, { exit: 1 });
-  assert.deepEqual(run.lines, ["the two passwords differ"]);
+  assert.deepEqual(run.errors, ["the two passwords differ"]);
+  assert.deepEqual(run.lines, []);
 });
 
 test("hash-password refuses a password under 12 characters", async () => {
@@ -249,7 +256,8 @@ test("hash-password refuses a password under 12 characters", async () => {
     depsFor(run, { isTerminal: true, answers: ["short", "short"] }),
   );
   assert.deepEqual(result, { exit: 1 });
-  assert.deepEqual(run.lines, ["a password needs at least 12 characters"]);
+  assert.deepEqual(run.errors, ["a password needs at least 12 characters"]);
+  assert.deepEqual(run.lines, []);
 });
 
 test("hash-password reads one line without a terminal", async () => {
@@ -268,7 +276,8 @@ test("hash-password without a terminal still refuses a short password", async ()
   const run = newRun();
   const result = await main(["hash-password"], {}, depsFor(run, { answers: ["short"] }));
   assert.deepEqual(result, { exit: 1 });
-  assert.deepEqual(run.lines, ["a password needs at least 12 characters"]);
+  assert.deepEqual(run.errors, ["a password needs at least 12 characters"]);
+  assert.deepEqual(run.lines, []);
 });
 
 test("rotate-session-secret without APP_DATA_DIR says so", async () => {
