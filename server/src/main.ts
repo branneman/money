@@ -66,8 +66,13 @@ const startupProblems = async (
   const problems = await directoryProblems(settings);
   let loaded: ServerConfig | null = null;
 
-  const secret = await readText(join(settings.appDataDir, SECRET_FILE));
-  if (secret === null || parseSecret(secret) === null) problems.push(NO_SECRET);
+  try {
+    const secret = await readText(join(settings.appDataDir, SECRET_FILE));
+    if (secret === null || parseSecret(secret) === null) problems.push(NO_SECRET);
+  } catch (error) {
+    if (!isRefused(error)) throw error;
+    problems.push("APP_DATA_DIR/session-secret cannot be read by this user");
+  }
 
   try {
     const config = await readText(settings.configPath);

@@ -14,17 +14,26 @@ const NO_PASSWORD = "no password was given";
 const readLine = (): Promise<string> =>
   new Promise((resolve, reject) => {
     const lines = createInterface({ input: process.stdin });
+    let given = false;
     lines.once("line", (line) => {
-      // Settled before closing: closing emits "close", which would otherwise reject.
+      // Closing emits "close", which must not be taken for the end of input.
+      given = true;
       resolve(line);
       lines.close();
     });
-    lines.once("close", () => reject(new Error(NO_PASSWORD)));
+    lines.once("close", () => {
+      if (given) return;
+      process.stderr.write(`${NO_PASSWORD}\n`);
+      reject(new Error(NO_PASSWORD));
+    });
   });
 
 // Input that arrived after a line break in the same chunk, kept for the next read: a paste
 // of "password\npassword\n" answers both questions.
 let pending = "";
+// A carriage return ended the last line at the end of a chunk: a line feed first in the
+// next chunk is the same break, not an empty line.
+let skipLineFeed = false;
 
 // Typed characters are not echoed, and the prompt and newline go to stderr so that
 // standard output stays the hash alone. Raw mode hands over every key, so Ctrl-C and
@@ -50,16 +59,19 @@ const readHiddenOnTerminal = (prompt: string): Promise<string> =>
       reject(new Error(NO_PASSWORD));
     };
     const take = (chunk: string): void => {
-      const split = splitInput(pending, chunk);
+      const split = splitInput(pending, chunk, skipLineFeed);
       pending = split.rest;
+      skipLineFeed = split.skipLineFeed;
       if (split.aborted) abandon();
       else if (split.line !== null) {
         finish();
         resolve(split.line);
       }
     };
-    const onData = (chunk: Buffer): void => take(chunk.toString("utf8"));
+    // Decoded as a stream, so a character split across two chunks is not broken.
+    const onData = (chunk: string): void => take(chunk);
     const onGone = (): void => abandon();
+    input.setEncoding("utf8");
     input.setRawMode(true);
     input.resume();
     input.on("data", onData);

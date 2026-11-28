@@ -1,20 +1,21 @@
 import { readFile, stat } from "node:fs/promises";
 
+import { codeOf, isRefused } from "@money/shared/node";
+
 // A value read from a file that may be replaced while the server runs. null means the file
 // is missing, unreadable or does not parse right now: callers fail closed.
 export type Live<T> = { current(): Promise<T | null> };
 
 const MISSING = "missing";
 
-const isCode = (error: unknown, ...codes: string[]): boolean =>
-  error instanceof Error && "code" in error && codes.includes(String(error.code));
-
 // Any other failure is a fault in the server or its volume, not a bad file, so it propagates.
 const tolerated = async <R>(read: () => Promise<R>): Promise<R | null> => {
   try {
     return await read();
   } catch (error) {
-    if (isCode(error, "ENOENT", "EACCES")) return null;
+    // A file this user may not read, or a directory where the file should be, is a bad
+    // file: failing closed with 503 is right, not a 500 on every request.
+    if (isRefused(error) || ["ENOENT", "EISDIR"].includes(codeOf(error) ?? "")) return null;
     throw error;
   }
 };

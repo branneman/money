@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 
@@ -65,6 +65,18 @@ describe("reloading", { concurrency: true }, () => {
       assert.equal(await sessionStatus(world, cookie), 200);
       assert.equal((await tryLogin(world)).status, 204);
       assert.equal(count(world, CONFIG_INVALID), 1);
+    });
+  });
+
+  test("a configuration replaced by a directory is refused with 503, logged once", async () => {
+    await withWorld(async (world) => {
+      const cookie = await signedIn(world);
+      await rm(world.configPath);
+      await mkdir(world.configPath);
+      await assertRefusing(world, cookie);
+      await assertRefusing(world, cookie);
+      assert.equal(count(world, CONFIG_INVALID), 1);
+      assert.ok(!world.output.some((line) => line.startsWith("failed")));
     });
   });
 

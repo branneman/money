@@ -38,11 +38,26 @@ const failed = (log: Log, response: ServerResponse, error: unknown): void => {
     .end();
 };
 
+// What Node's parser refused, by its error code. The answer and the log line are fixed
+// text, so nothing of what was sent can reach either.
+const REFUSALS: Readonly<Record<string, { status: string; log: string }>> = {
+  ERR_HTTP_REQUEST_TIMEOUT: { status: "408 Request Timeout", log: "request timeout" },
+  HPE_HEADER_OVERFLOW: { status: "431 Request Header Fields Too Large", log: "headers too large" },
+};
+const MALFORMED = { status: "400 Bad Request", log: "malformed request refused" };
+
 // A request Node's parser refused never reaches the handler, so it would carry no headers
 // of its own. Answered with the security headers and a closed connection, and logged
 // without anything of what was sent.
-const refuse = (log: Log, socket: Duplex): void => {
-  log.event("malformed request refused");
+const refuse = (log: Log, error: Error, socket: Duplex): void => {
+  const code = "code" in error ? String(error.code) : undefined;
+  // A client's own reset is nobody to answer and nothing to report.
+  if (code === "ECONNRESET") {
+    socket.destroy();
+    return;
+  }
+  const refusal = (code !== undefined ? REFUSALS[code] : undefined) ?? MALFORMED;
+  log.event(refusal.log);
   if (!socket.writable) {
     socket.destroy();
     return;
@@ -54,13 +69,13 @@ const refuse = (log: Log, socket: Duplex): void => {
   })
     .map(([name, value]) => `${name}: ${value}\r\n`)
     .join("");
-  socket.end(`HTTP/1.1 400 Bad Request\r\n${headers}\r\n`);
+  socket.end(`HTTP/1.1 ${refusal.status}\r\n${headers}\r\n`);
 };
 
 export const makeServer = (handler: Handler, log: Log): Server => {
   const server = createServer((request, response) => {
     handler(request, response).catch((error: unknown) => failed(log, response, error));
   });
-  server.on("clientError", (_error, socket) => refuse(log, socket));
+  server.on("clientError", (error, socket) => refuse(log, error, socket));
   return server;
 };

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import { connect } from "node:net";
 import type { AddressInfo } from "node:net";
@@ -125,6 +125,18 @@ test("serve with an invalid secret names the command too", async () => {
   const run = newRun();
   assert.deepEqual(await main(["serve"], env, depsFor(run)), { exit: 1 });
   assert.deepEqual(run.lines, [NO_SECRET]);
+});
+
+test("serve with an unreadable secret and an unreadable configuration prints both problems", async () => {
+  const { env } = await layout();
+  await chmod(join(env.APP_DATA_DIR, SECRET_FILE), 0o000);
+  await chmod(env.CONFIG_PATH, 0o000);
+  const run = newRun();
+  assert.deepEqual(await main(["serve"], env, depsFor(run)), { exit: 1 });
+  assert.deepEqual(run.lines, [
+    "APP_DATA_DIR/session-secret cannot be read by this user",
+    "CONFIG_PATH names a file this user cannot read",
+  ]);
 });
 
 test("serve with a sync-only configuration prints the server's problems", async () => {
