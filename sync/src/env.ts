@@ -1,7 +1,7 @@
 import { createPrivateKey } from "node:crypto";
 import type { KeyObject } from "node:crypto";
 
-export type Environment = Readonly<Record<string, string | undefined>>;
+import type { Environment } from "@money/shared";
 
 export type Settings = {
   appId: string;

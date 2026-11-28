@@ -10,6 +10,7 @@ import { laterCopy } from "./recover.ts";
 import { planWrites } from "./writes.ts";
 
 export { writeAtomic } from "../util/atomic.ts";
+export * from "../util/directories.ts";
 
 const SOURCES: readonly Source[] = ["api", "import"];
 

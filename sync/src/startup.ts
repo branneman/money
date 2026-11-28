@@ -1,37 +1,12 @@
-import { readFile, stat } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 
 import { validateConfig } from "@money/shared";
-import type { Config } from "@money/shared";
+import type { Config, Environment } from "@money/shared";
+import { codeOf, directoryProblem, isRefused } from "@money/shared/node";
 
 import { readSettings } from "./env.ts";
-import type { Environment, Settings } from "./env.ts";
+import type { Settings } from "./env.ts";
 import { SyncError } from "./errors.ts";
-
-const codeOf = (error: unknown): string | undefined =>
-  error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined;
-
-// This user is refused, which in the image means a mount owned by someone else.
-const isRefused = (error: unknown): boolean => ["EACCES", "EPERM"].includes(codeOf(error) ?? "");
-
-type Directory = "yes" | "absent" | "unreachable";
-
-const directoryAt = async (path: string): Promise<Directory> => {
-  try {
-    return (await stat(path)).isDirectory() ? "yes" : "absent";
-  } catch (error) {
-    if (codeOf(error) === "ENOENT" || codeOf(error) === "ENOTDIR") return "absent";
-    if (isRefused(error)) return "unreachable";
-    throw error;
-  }
-};
-
-// The problem with a directory setting, or nothing when it names a directory.
-const directoryProblem = async (name: string, path: string): Promise<string[]> => {
-  const found = await directoryAt(path);
-  if (found === "absent") return [`${name} does not name an existing directory`];
-  if (found === "unreachable") return [`${name} cannot be reached by this user`];
-  return [];
-};
 
 // The configuration, or null with its problems added to the list.
 const readConfig = async (path: string, problems: string[]): Promise<Config | null> => {

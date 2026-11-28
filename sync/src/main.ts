@@ -1,3 +1,5 @@
+import type { Environment } from "@money/shared";
+
 import { runAuth } from "./commands/auth.ts";
 import { runBanks } from "./commands/banks.ts";
 import { runImport } from "./commands/import.ts";
@@ -5,7 +7,6 @@ import { runStatus } from "./commands/status.ts";
 import { runSync } from "./commands/sync.ts";
 import type { Context, Deps } from "./context.ts";
 import { makeClient } from "./enablebanking/client.ts";
-import type { Environment } from "./env.ts";
 import { SyncError } from "./errors.ts";
 import { checkWritable } from "./inbox.ts";
 import { mintToken } from "./jwt.ts";
