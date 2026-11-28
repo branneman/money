@@ -163,25 +163,41 @@ describe("login", { concurrency: true }, () => {
     });
   });
 
-  test("10 simultaneous logins for unknown usernames: some 503, the rest 401, and each 401 is one failure", async () => {
+  test("a burst of logins for unknown usernames overflows the queue: 503 holds no failure, 401 holds one", async () => {
     await withWorld(async (world) => {
-      const usernames = Array.from({ length: 10 }, (_, index) => `tw-unknown-${index}`);
-      const burst = await Promise.all(
-        usernames.map((name) => attempt(world, name, "not the password")),
-      );
-      const statuses = burst.map((response) => response.status);
-      assert.ok(statuses.includes(503));
+      // Waves of ten until one is answered 503, so that a slow machine, where the first
+      // hash ends before the rest arrive, only needs another wave. At most 30 requests.
+      const WAVE = 10;
+      const CAP = 30;
+      const answered: { username: string; status: number }[] = [];
+      while (!answered.some((item) => item.status === 503) && answered.length < CAP) {
+        const usernames = Array.from(
+          { length: WAVE },
+          (_, index) => `tw-unknown-${answered.length + index}`,
+        );
+        const wave = await Promise.all(
+          usernames.map((username) => attempt(world, username, "not the password")),
+        );
+        wave.forEach((response, index) =>
+          answered.push({ username: usernames[index], status: response.status }),
+        );
+      }
+      const statuses = answered.map((item) => item.status);
       assert.ok(
         statuses.every((status) => status === 401 || status === 503),
         statuses.join(),
       );
-      for (const [index, username] of usernames.entries()) {
-        // Answered 401: one failure held, so four more are 401 and the next 429. Answered
-        // 503: none held, so five are 401 and the next 429.
-        const held = statuses[index] === 401 ? 1 : 0;
-        await failTimes(world, username, 5 - held);
-        assert.equal((await attempt(world, username, "not the password")).status, 429);
-      }
+      const overflowed = answered.find((item) => item.status === 503);
+      const refused = answered.find((item) => item.status === 401);
+      assert.ok(overflowed !== undefined, `no 503 in ${answered.length} logins`);
+      assert.ok(refused !== undefined);
+
+      // Answered 503: nothing was counted, so five more are 401 and the next 429.
+      await failTimes(world, overflowed.username, 5);
+      assert.equal((await attempt(world, overflowed.username, "not the password")).status, 429);
+      // Answered 401: one failure is held, so four more are 401 and the next 429.
+      await failTimes(world, refused.username, 4);
+      assert.equal((await attempt(world, refused.username, "not the password")).status, 429);
     });
   });
 
