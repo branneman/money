@@ -144,6 +144,25 @@ describe("login", { concurrency: true }, () => {
     });
   });
 
+  test("a locked username is refused with 429 even when the queue is full", async () => {
+    await withWorld(async (world) => {
+      await failTimes(world, PEOPLE.ana.username, 5);
+      // Nine fill the queue: one hashing and eight waiting, for about two seconds.
+      const filling = Array.from({ length: 9 }, (_, index) =>
+        attempt(world, `tw-filler-${index}`, "not the password"),
+      );
+      // One hash takes about a quarter of a second, so after this the nine are queued
+      // and still waiting. A locked username must not join them, or it would meet 503.
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const locked = await attempt(world, PEOPLE.ana.username, PEOPLE.ana.password);
+      assert.equal(locked.status, 429);
+      assert.match(String(locked.headers["retry-after"]), /^\d+$/);
+      assert.equal(locked.body, LIMITED);
+      const settled = await Promise.all(filling);
+      assert.ok(settled.every((response) => response.status === 401));
+    });
+  });
+
   test("10 simultaneous logins for unknown usernames: some 503, the rest 401, and each 401 is one failure", async () => {
     await withWorld(async (world) => {
       const usernames = Array.from({ length: 10 }, (_, index) => `tw-unknown-${index}`);
