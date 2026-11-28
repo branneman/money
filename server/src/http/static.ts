@@ -1,4 +1,4 @@
-import { resolve, sep } from "node:path";
+import { relative, resolve, sep } from "node:path";
 
 // Pure path logic: nothing here touches the filesystem. The caller reads the
 // file and answers 404 when there is none.
@@ -66,9 +66,15 @@ export const contentTypeOf = (path: string): string | null => {
     : null;
 };
 
-// esbuild's "[name]-[hash]": the name changes whenever the content does, so a
-// year is safe. 5b's build must name its files that way.
+// esbuild's "[name]-[hash]": the name changes whenever the content does, so a year is safe.
+// Only the bundler's own output is trusted to be named that way: a file under assets/ in
+// the client directory. 5b's build must emit its hashed files there. A hash-shaped name
+// anywhere else is only a name, and stays no-cache.
 const HASHED_NAME = /-[A-Z0-9]{8}\.[a-z0-9.]+$/;
+const ASSETS = "assets";
 
-export const cacheControlOf = (path: string): string =>
-  HASHED_NAME.test(path) ? "public, max-age=31536000, immutable" : "no-cache";
+export const cacheControlOf = (clientDir: string, path: string): string => {
+  const inside = relative(resolve(clientDir), path).split(sep);
+  const hashed = inside[0] === ASSETS && inside.length > 1 && HASHED_NAME.test(path);
+  return hashed ? "public, max-age=31536000, immutable" : "no-cache";
+};

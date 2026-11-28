@@ -74,11 +74,18 @@ test("content types are known for the served extensions only", () => {
   assert.equal(contentTypeOf("/d/noext"), null);
 });
 
-test("hashed names are immutable for a year, others are no-cache", () => {
-  assert.equal(cacheControlOf("/d/app-ABCD1234.js"), "public, max-age=31536000, immutable");
-  assert.equal(cacheControlOf("/d/app-ABCD1234.js.map"), "public, max-age=31536000, immutable");
-  assert.equal(cacheControlOf("/d/app.js"), "no-cache");
-  assert.equal(cacheControlOf("/d/index.html"), "no-cache");
-  assert.equal(cacheControlOf("/d/app-abcd1234.js"), "no-cache");
-  assert.equal(cacheControlOf("/d/app-ABC.js"), "no-cache");
+test("hashed names under assets/ are immutable for a year, others are no-cache", () => {
+  const immutable = "public, max-age=31536000, immutable";
+  assert.equal(cacheControlOf(dir, `${dir}/assets/app-ABCD1234.js`), immutable);
+  assert.equal(cacheControlOf(dir, `${dir}/assets/app-ABCD1234.js.map`), immutable);
+  assert.equal(cacheControlOf(dir, `${dir}/assets/deep/font-ABCD1234.woff2`), immutable);
+  // A hash-shaped name anywhere else is only a name.
+  assert.equal(cacheControlOf(dir, `${dir}/app-ABCD1234.js`), "no-cache");
+  assert.equal(cacheControlOf(dir, `${dir}/other/app-ABCD1234.js`), "no-cache");
+  assert.equal(cacheControlOf(dir, `${dir}/assets/app.js`), "no-cache");
+  assert.equal(cacheControlOf(dir, `${dir}/index.html`), "no-cache");
+  assert.equal(cacheControlOf(dir, `${dir}/assets/app-abcd1234.js`), "no-cache");
+  assert.equal(cacheControlOf(dir, `${dir}/assets/app-ABC.js`), "no-cache");
+  // The directory the client lives in may itself be called assets.
+  assert.equal(cacheControlOf("/srv/assets", "/srv/assets/app-ABCD1234.js"), "no-cache");
 });

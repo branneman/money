@@ -14,7 +14,8 @@ const withClient = async (run: (world: ServerWorld) => Promise<void>): Promise<v
   const world = await makeServerWorld();
   const files: Record<string, string> = {
     "index.html": INDEX,
-    "app-ABCD1234.js": "console.log(1);\n",
+    "assets/app-ABCD1234.js": "console.log(1);\n",
+    "app-ABCD1234.js": "console.log(2);\n",
     ".env": "SECRET=1\n",
     "a/.git/config": "[core]\n",
     "%2e%2e/x.js": "a literal name\n",
@@ -35,13 +36,16 @@ const withClient = async (run: (world: ServerWorld) => Promise<void>): Promise<v
 };
 
 describe("static files", { concurrency: true }, () => {
-  test("a hashed file is served with its content type and cached for a year", async () => {
+  test("a hashed file under assets/ is cached for a year, one elsewhere is not", async () => {
     await withClient(async (world) => {
-      const response = await world.request("GET", "/app-ABCD1234.js");
+      const response = await world.request("GET", "/assets/app-ABCD1234.js");
       assert.equal(response.status, 200);
       assert.equal(response.body, "console.log(1);\n");
       assert.equal(response.headers["content-type"], "text/javascript; charset=utf-8");
       assert.equal(response.headers["cache-control"], "public, max-age=31536000, immutable");
+      const elsewhere = await world.request("GET", "/app-ABCD1234.js");
+      assert.equal(elsewhere.status, 200);
+      assert.equal(elsewhere.headers["cache-control"], "no-cache");
     });
   });
 

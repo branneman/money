@@ -1,5 +1,15 @@
 import assert from "node:assert/strict";
-import { chmod, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  lstat,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -29,6 +39,19 @@ test("writeAtomic creates the file with the mode it is given", async () => {
   await inTemporaryDirectory(async (dir) => {
     const path = join(dir, "secret");
     await writeAtomic(path, "x", 0o600);
+    assert.equal((await stat(path)).mode & 0o777, 0o600);
+  });
+});
+
+test("writeAtomic removes a symlink at the temporary path and does not write through it", async () => {
+  await inTemporaryDirectory(async (dir) => {
+    const path = join(dir, "secret");
+    const victim = join(dir, "victim");
+    await writeFile(victim, "untouched");
+    await symlink(victim, join(dir, ".secret.tmp"));
+    await writeAtomic(path, "x", 0o600);
+    assert.equal(await readFile(victim, "utf8"), "untouched");
+    assert.equal((await lstat(path)).isFile(), true);
     assert.equal((await stat(path)).mode & 0o777, 0o600);
   });
 });

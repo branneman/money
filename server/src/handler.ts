@@ -78,7 +78,10 @@ const staticFile = async ({ deps }: Context, url: string): Promise<Reply> => {
     const body = await file.readFile();
     return {
       status: 200,
-      headers: { "Content-Type": type, "Cache-Control": cacheControlOf(path) },
+      headers: {
+        "Content-Type": type,
+        "Cache-Control": cacheControlOf(deps.settings.clientDir, path),
+      },
       body,
     };
   } finally {

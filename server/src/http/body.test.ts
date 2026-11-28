@@ -57,6 +57,13 @@ test("valid JSON is parsed, and charset parameters are allowed", async () => {
   });
 });
 
+test("invalid UTF-8 inside a JSON string is 400, not a replaced character", async () => {
+  await withServer(async (port, outcome) => {
+    await send(port, json, [Buffer.from([0x7b, 0x22, 0x61, 0x22, 0x3a, 0x22, 0xff, 0x22, 0x7d])]);
+    assert.deepEqual(await outcome, { ok: false, status: 400 });
+  });
+});
+
 test("text/plain is 415", async () => {
   await withServer(async (port, outcome) => {
     await send(port, { "Content-Type": "text/plain" }, [Buffer.from("{}")]);

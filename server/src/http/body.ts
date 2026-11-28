@@ -4,6 +4,9 @@ export type JsonBody =
   | { readonly ok: true; readonly value: unknown }
   | { readonly ok: false; readonly status: 400 | 413 | 415 };
 
+// Fatal: invalid UTF-8 is refused, not quietly replaced by a character the sender never sent.
+const UTF8 = new TextDecoder("utf-8", { fatal: true });
+
 const isJsonMediaType = (contentType: string | undefined): boolean =>
   contentType !== undefined &&
   (contentType.split(";", 1)[0] ?? "").trim().toLowerCase() === "application/json";
@@ -41,7 +44,7 @@ export const readJson = (request: IncomingMessage, limit: number): Promise<JsonB
     };
     const onEnd = (): void => {
       try {
-        finish({ ok: true, value: JSON.parse(Buffer.concat(chunks).toString("utf8")) });
+        finish({ ok: true, value: JSON.parse(UTF8.decode(Buffer.concat(chunks))) });
       } catch {
         finish({ ok: false, status: 400 }); // invalid JSON, or an empty body
       }

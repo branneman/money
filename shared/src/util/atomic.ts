@@ -14,6 +14,7 @@ export const writeAtomic = async (
   // A neighbour left by a crash would keep its own mode, since the mode applies only when
   // the file is created.
   await rm(temporary, { force: true });
-  await writeFile(temporary, text, { flush: true, mode });
+  // "wx": a file or link planted since the remove makes this fail, never write through it.
+  await writeFile(temporary, text, { flush: true, mode, flag: "wx" });
   await rename(temporary, path);
 };
