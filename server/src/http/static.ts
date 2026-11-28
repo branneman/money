@@ -4,6 +4,7 @@ import { resolve, sep } from "node:path";
 // file and answers 404 when there is none.
 
 const MAX_SEGMENT_BYTES = 255;
+const MAX_PATH_BYTES = 1024;
 
 // Maps a request target to a path inside clientDir, or null for "404".
 export const resolveStatic = (clientDir: string, rawPath: string): string | null => {
@@ -35,7 +36,10 @@ export const resolveStatic = (clientDir: string, rawPath: string): string | null
 
   // The per-segment refusals above should make this unreachable; it is the
   // belt to their braces.
-  return target.startsWith(root + sep) ? target : null;
+  if (!target.startsWith(root + sep)) return null;
+  // Many short segments can still pass PATH_MAX (1024 on macOS), and open would fail with
+  // ENAMETOOLONG. The handler treats that as not found too; this keeps it from trying.
+  return Buffer.byteLength(target) > MAX_PATH_BYTES ? null : target;
 };
 
 const CONTENT_TYPES: Readonly<Record<string, string>> = {

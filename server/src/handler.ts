@@ -56,7 +56,9 @@ const version = ({ deps }: Context): Promise<Reply> =>
   Promise.resolve(json(200, { revision: deps.settings.revision }));
 
 const isMissing = (error: unknown): boolean =>
-  error instanceof Error && "code" in error && ["ENOENT", "ENOTDIR"].includes(String(error.code));
+  error instanceof Error &&
+  "code" in error &&
+  ["ENOENT", "ENOTDIR", "ENAMETOOLONG"].includes(String(error.code));
 
 // Opened once and checked through the same handle, so what is served is the regular file
 // that was checked: a directory, even one named like a file, is not found.
