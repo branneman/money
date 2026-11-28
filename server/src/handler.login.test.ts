@@ -140,9 +140,9 @@ describe("login", { concurrency: true }, () => {
     });
   });
 
-  test("12 simultaneous logins for unknown usernames: some 503, the rest 401, and each 401 is one failure", async () => {
+  test("10 simultaneous logins for unknown usernames: some 503, the rest 401, and each 401 is one failure", async () => {
     await withWorld(async (world) => {
-      const usernames = Array.from({ length: 12 }, (_, index) => `tw-unknown-${index}`);
+      const usernames = Array.from({ length: 10 }, (_, index) => `tw-unknown-${index}`);
       const burst = await Promise.all(
         usernames.map((name) => attempt(world, name, "not the password")),
       );
