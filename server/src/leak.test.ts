@@ -11,8 +11,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
+import { renderYearFiles } from "@money/shared";
 import type { ArchiveRecord, Config } from "@money/shared";
-import { writeAtomic } from "@money/shared/node";
+import { readArchive, writeAtomic } from "@money/shared/node";
 import { aConfig, anApiRaw, anApiRecord, anImportRaw, anImportRecord } from "@money/shared/testing";
 
 import { hashPassword, parseHash } from "./auth/password.ts";
@@ -29,6 +30,10 @@ const ANA = { key: "zqana", username: "zq-user-ana-81", password: "zq-password-a
 const BEN = { key: "zqben", username: "zq-user-ben-37", password: "zq-password-ben-5108" };
 const WRONG_PASSWORD = "zq-wrong-7731";
 const UNKNOWN_USERNAME = "zq-nobody-55";
+const CARA = "zqcara";
+const BURST = "zq-burst-";
+const NO_SECRET = "the session secret is missing or invalid. Run: money rotate-session-secret";
+const USAGE = "usage: serve | hash-password | rotate-session-secret";
 const WRONG_CSRF = "zq-csrf-wrong-6620";
 const SOLO = "bnka-zqsolo";
 const SHARED = "bnka-zqshared";
@@ -60,6 +65,14 @@ const ARCHIVE: Planted[] = [
   ]),
 ];
 
+// Account keys are printed on purpose, as the sync prints them, so only the server's own
+// requests are scanned for them: its lines name a route's pattern, never an account.
+const ACCOUNT_KEYS: Planted[] = [
+  ["an account key", SOLO],
+  ["an account key", SHARED],
+  ["an account key that does not exist", UNKNOWN_ACCOUNT],
+];
+
 const PEOPLE: Planted[] = [
   ["a person's key", ANA.key],
   ["a person's key", BEN.key],
@@ -69,10 +82,9 @@ const PEOPLE: Planted[] = [
   ["a password", BEN.password],
   ["a wrong password", WRONG_PASSWORD],
   ["a username nobody has", UNKNOWN_USERNAME],
+  ["a username tried in a burst", BURST],
+  ["a person the configuration does not know", CARA],
   ["a CSRF token the test made up", WRONG_CSRF],
-  ["an account key", SOLO],
-  ["an account key", SHARED],
-  ["an account key that does not exist", UNKNOWN_ACCOUNT],
 ];
 
 const records = (): ArchiveRecord[] => [
@@ -116,28 +128,54 @@ const records = (): ArchiveRecord[] => [
   }),
 ];
 
-const plantedConfig = async (): Promise<Config> =>
+// Hashed once, with the real parameters. A hash is planted whole and in each part, since
+// a line quoting the salt or the key would identify a password just as well.
+const HASHES = {
+  ana: await hashPassword(ANA.password, Buffer.alloc(16, 1)),
+  ben: await hashPassword(BEN.password, Buffer.alloc(16, 2)),
+};
+const HASH_PARTS: Planted[] = Object.values(HASHES).flatMap((hash): Planted[] => {
+  const [, , salt, key] = hash.split("$");
+  return [
+    ["a password hash", hash],
+    ["the salt of a password hash, as encoded", salt],
+    ["the key of a password hash, as encoded", key],
+  ];
+});
+
+const plantedConfig = (): Config =>
   aConfig({
     accounts: {
       [SOLO]: { bank: "bnka", iban: SOLO_IBAN, owners: [ANA.key] },
       [SHARED]: { bank: "bnka", iban: SHARED_IBAN, owners: [ANA.key, BEN.key] },
     },
     people: {
-      [ANA.key]: {
-        username: ANA.username,
-        password: await hashPassword(ANA.password, Buffer.alloc(16, 1)),
-      },
-      [BEN.key]: {
-        username: BEN.username,
-        password: await hashPassword(BEN.password, Buffer.alloc(16, 2)),
-      },
+      [ANA.key]: { username: ANA.username, password: HASHES.ana },
+      [BEN.key]: { username: BEN.username, password: HASHES.ben },
     },
   });
 
-// A configuration that cannot load, and holds a username and a person's key to be found.
-const badConfigText = JSON.stringify({
-  people: { [ANA.key]: { username: ANA.username, password: "zq-not-a-hash" } },
-});
+// Valid but for one password, which is no hash: reaches the check of the people.
+const badHashConfig = (): Config => {
+  const config = plantedConfig();
+  return {
+    ...config,
+    people: { ...config.people, [ANA.key]: { username: ANA.username, password: "zq-not-a-hash" } },
+  };
+};
+
+// Valid but for a username two people share, and an owner nobody knows.
+const badPeopleConfig = (): Config => {
+  const config = plantedConfig();
+  return {
+    ...config,
+    accounts: {
+      ...config.accounts,
+      [SOLO]: { bank: "bnka", iban: SOLO_IBAN, owners: [ANA.key, CARA] },
+    },
+    people: { ...config.people, [BEN.key]: { username: ANA.username, password: HASHES.ben } },
+  };
+};
 
 // The value of a cookie, whole and in its parts, and the token a session hands out: each
 // identifies a session, so none may be printed.
@@ -195,7 +233,7 @@ const rawBytes = (host: string, bytes: string): Promise<string> =>
   });
 
 test("nothing a person typed, no session and nothing the archive holds is printed by the running server", async () => {
-  const world = await makeServerWorld({ config: await plantedConfig(), records: records() });
+  const world = await makeServerWorld({ config: plantedConfig(), records: records() });
   try {
     const secrets: Planted[] = [];
     const signIn = async (person: typeof ANA): Promise<string> => {
@@ -224,7 +262,7 @@ test("nothing a person typed, no session and nothing the archive holds is printe
     while (!answered.includes(503) && answered.length < 60) {
       const wave = await Promise.all(
         Array.from({ length: 10 }, (_, index) =>
-          attempt(world, `zq-burst-${answered.length + index}`, WRONG_PASSWORD),
+          attempt(world, `${BURST}${answered.length + index}`, WRONG_PASSWORD),
         ),
       );
       answered.push(...wave.map((response) => response.status));
@@ -264,16 +302,23 @@ test("nothing a person typed, no session and nothing the archive holds is printe
     assert.match(answer, /^HTTP\/1\.1 400 /);
 
     // Files that go bad while the server runs: the configuration, then the secret.
-    await writeFile(world.configPath, badConfigText);
+    await writeFile(world.configPath, JSON.stringify(badHashConfig()));
     assert.equal((await world.request("GET", "/health")).status, 503);
-    await world.writeConfig(await plantedConfig());
+    await world.writeConfig(plantedConfig());
     await writeFile(join(world.appDataDir, SECRET_FILE), `${WRONG_PASSWORD}\n`);
     assert.equal((await world.request("GET", "/health")).status, 503);
     await world.rotateSecret();
 
-    // A 500: a file where an account's directory belongs.
+    // A 500: a planted record stored in two year files, which the archive's error names.
+    // The message is checked to hold planted values, so the scan of the log proves something.
     const fresh = await signIn(ANA);
-    await writeFile(join(world.dataDir, "zq-stray"), "");
+    const [first] = records();
+    const [twin] = renderYearFiles([{ ...first, date: "2025-12-01" }]).values();
+    await writeFile(join(world.dataDir, SOLO, "api", "2025.json"), twin);
+    await assert.rejects(
+      readArchive(world.dataDir),
+      (error: Error) => error.message.includes(SOLO) && error.message.includes("zq-ref-1"),
+    );
     assert.equal(await get("/api/accounts", fresh), 500);
 
     assertPrinted(world.output, [
@@ -301,7 +346,9 @@ test("nothing a person typed, no session and nothing the archive holds is printe
     ]);
     assertNothingPrinted(world.output, [
       ...PEOPLE,
+      ...ACCOUNT_KEYS,
       ...ARCHIVE,
+      ...HASH_PARTS,
       ...secrets,
       ["the world's own data directory", world.dataDir],
       ["the path of a malformed request", "zq-leaked-path"],
@@ -341,25 +388,41 @@ test("nothing a person typed or the environment holds is printed by the commands
       REVISION: "rev1",
     };
     for (const path of [env.DATA_DIR, env.APP_DATA_DIR, env.CLIENT_DIR]) await mkdir(path);
-    const refusals: Printed = { out: [], err: [] };
-    const serve = (vars: Record<string, string>) =>
-      main(["serve"], vars, depsFor(refusals, [], false));
+    // Each refusal has a buffer of its own, so a line is attributed to the path that printed it.
+    const refusals: Printed[] = [];
+    const serve = async (vars: Record<string, string>, command = "serve"): Promise<Printed> => {
+      const printed: Printed = { out: [], err: [] };
+      refusals.push(printed);
+      assert.deepEqual(await main([command], vars, depsFor(printed, [], false)), { exit: 1 });
+      return printed;
+    };
+    const writeConfig = (config: Config) =>
+      writeAtomic(env.CONFIG_PATH, JSON.stringify(config), 0o644);
+    const mentions = (printed: Printed, text: string): boolean =>
+      printed.out.some((line) => line.includes(text));
 
-    // Variables the server refuses to be given, and a configuration that cannot load.
-    assert.deepEqual(await serve({ ...env, EB_PRIVATE_KEY: "zq-key-value" }), { exit: 1 });
-    assert.deepEqual(await serve({ ...env, STATE_DIR: "zq-state-value" }), { exit: 1 });
-    await writeAtomic(env.CONFIG_PATH, badConfigText, 0o644);
-    assert.deepEqual(await serve(env), { exit: 1 });
-    // A secret that is invalid, and a command nobody has.
-    await writeFile(join(env.APP_DATA_DIR, SECRET_FILE), `${WRONG_PASSWORD}\n`);
-    assert.deepEqual(await serve(env), { exit: 1 });
-    assert.deepEqual(await main(["zq-command"], env, depsFor(refusals, [], false)), { exit: 1 });
-    assertPrinted(refusals.out, [
-      "the session secret is missing or invalid. Run: money rotate-session-secret",
-      "usage: serve | hash-password | rotate-session-secret",
+    // Variables the server refuses to be given.
+    const key = await serve({ ...env, EB_PRIVATE_KEY: "zq-key-value" });
+    assert.ok(mentions(key, "EB_PRIVATE_KEY"));
+    const state = await serve({ ...env, STATE_DIR: "zq-state-value" });
+    assert.ok(mentions(state, "STATE_DIR"));
+    // A configuration valid but for a password that is no hash.
+    await writeConfig(badHashConfig());
+    assertPrinted((await serve(env)).out, [
+      "people, entry 1: password is not a hash money hash-password made",
     ]);
-    assert.ok(refusals.out.some((line) => line.includes("EB_PRIVATE_KEY")));
-    assert.ok(refusals.out.some((line) => line.includes("STATE_DIR")));
+    // A configuration valid but for a username two people share, and an owner nobody knows.
+    await writeConfig(badPeopleConfig());
+    const people = await serve(env);
+    assert.ok(mentions(people, "owners names a person the configuration does not know"));
+    assert.ok(mentions(people, "username"), people.out.join("\n"));
+    // A valid configuration, and then a secret that is missing, and one that is invalid.
+    await writeConfig(plantedConfig());
+    assertPrinted((await serve(env)).out, [NO_SECRET]);
+    await writeFile(join(env.APP_DATA_DIR, SECRET_FILE), `${WRONG_PASSWORD}\n`);
+    assertPrinted((await serve(env)).out, [NO_SECRET]);
+    // A command nobody has.
+    assertPrinted((await serve(env, "zq-command")).out, [USAGE]);
 
     // hash-password: the hash alone on standard output, the password nowhere.
     const hashing: Printed = { out: [], err: [] };
@@ -396,9 +459,10 @@ test("nothing a person typed or the environment holds is printed by the commands
     const secret = (await readFile(join(env.APP_DATA_DIR, SECRET_FILE), "utf8")).trim();
 
     assertNothingPrinted(
-      [...[refusals, hashing, rotating].flatMap((printed) => [...printed.out, ...printed.err])],
+      [...[...refusals, hashing, rotating].flatMap((printed) => [...printed.out, ...printed.err])],
       [
         ...PEOPLE,
+        ...HASH_PARTS,
         ["the key given in the environment", "zq-key-value"],
         ["the state directory given in the environment", "zq-state-value"],
         ["an invalid password hash", "zq-not-a-hash"],
