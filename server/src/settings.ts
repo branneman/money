@@ -53,7 +53,7 @@ export const readSettings = (env: Environment): SettingsResult => {
   };
 };
 
-const writableDirectoryProblem = async (name: string, path: string): Promise<string[]> => {
+export const writableDirectoryProblem = async (name: string, path: string): Promise<string[]> => {
   const problems = await directoryProblem(name, path);
   if (problems.length > 0) return problems;
   try {

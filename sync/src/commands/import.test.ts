@@ -273,7 +273,7 @@ test("import takes a format, a file, and --write only at the end", async (t) => 
     world.lines.length = 0;
     assert.equal(await world.run(...argv), 1);
     assert.deepEqual(world.lines, [
-      "usage: auth <bank> [--show-ibans] | sync | status | banks <country> | import <format> <file> [--write]",
+      "usage: auth <bank> [--show-ibans] | sync | status | banks <country> | import <format> <file> [--write] | serve | hash-password | rotate-session-secret",
     ]);
   }
 });

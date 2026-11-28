@@ -1,3 +1,11 @@
 #!/bin/sh
 # The command line, by one name, so nobody has to remember where it lives in the image.
-exec node /app/sync/src/cli.ts "$@"
+# The server's three commands go to the server; everything else is the sync's.
+case "${1:-}" in
+serve | hash-password | rotate-session-secret)
+    exec node /app/server/src/cli.ts "$@"
+    ;;
+*)
+    exec node /app/sync/src/cli.ts "$@"
+    ;;
+esac

@@ -3,7 +3,7 @@
 // here, the clock is the test's, and every line the server prints is kept.
 import { randomBytes } from "node:crypto";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
-import { Agent, createServer, request as httpRequest } from "node:http";
+import { Agent, request as httpRequest } from "node:http";
 import type { IncomingHttpHeaders } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -15,11 +15,10 @@ import { writeAtomic, writeYearFiles } from "@money/shared/node";
 import { aConfig, anApiRecord, anImportRecord } from "@money/shared/testing";
 
 import { hashPassword } from "../src/auth/password.ts";
-import { makeLimiter } from "../src/auth/limiter.ts";
-import { makeQueue, QUEUE_LIMIT } from "../src/auth/queue.ts";
-import { makeHandler, watchFiles } from "../src/handler.ts";
+import { makeHandler } from "../src/handler.ts";
 import { makeLog } from "../src/log.ts";
 import { rotateSecret } from "../src/secret.ts";
+import { makeHandlerDeps, makeServer } from "../src/serve.ts";
 import type { Settings } from "../src/settings.ts";
 
 // Invented people, with the passwords they type. Nothing here is a real credential.
@@ -128,16 +127,7 @@ export const makeServerWorld = async (
   const clock = (): Date => new Date(now);
   const output: string[] = [];
   const log = makeLog((line) => output.push(line));
-  const handler = makeHandler({
-    settings,
-    clock,
-    log,
-    ...watchFiles(settings, log),
-    limiter: makeLimiter(clock),
-    queue: makeQueue(QUEUE_LIMIT),
-  });
-
-  const server = createServer((request, response) => void handler(request, response));
+  const server = makeServer(makeHandler(makeHandlerDeps(settings, clock, log)), log);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address() as AddressInfo;
   const host = `127.0.0.1:${port}`;
