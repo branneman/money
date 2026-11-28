@@ -3,6 +3,8 @@ import { resolve, sep } from "node:path";
 // Pure path logic: nothing here touches the filesystem. The caller reads the
 // file and answers 404 when there is none.
 
+const MAX_SEGMENT_BYTES = 255;
+
 // Maps a request target to a path inside clientDir, or null for "404".
 export const resolveStatic = (clientDir: string, rawPath: string): string | null => {
   if (!rawPath.startsWith("/")) return null;
@@ -24,6 +26,9 @@ export const resolveStatic = (clientDir: string, rawPath: string): string | null
   const segments = decoded.slice(1).split("/");
   // Empty segments (// and a trailing /), ".", ".." and every dotfile.
   if (segments.some((segment) => segment === "" || segment.startsWith("."))) return null;
+
+  // Longer than a filesystem allows: opening it would fail with ENAMETOOLONG, not "missing".
+  if (segments.some((segment) => Buffer.byteLength(segment) > MAX_SEGMENT_BYTES)) return null;
 
   const last = segments[segments.length - 1] ?? "";
   const target = last.includes(".") ? resolve(root, ...segments) : resolve(root, "index.html"); // a client-side route

@@ -113,6 +113,15 @@ describe("static files", { concurrency: true }, () => {
     });
   });
 
+  test("a path segment over 255 bytes is 404, and not a failure", async () => {
+    await withClient(async (world) => {
+      const response = await world.request("GET", `/${"a".repeat(300)}.js`);
+      assert.equal(response.status, 404);
+      assert.equal(response.body, NOT_FOUND);
+      assert.ok(!world.output.some((line) => line.startsWith("failed")));
+    });
+  });
+
   test("an empty client directory answers / with 404", async () => {
     const world = await makeServerWorld();
     try {
