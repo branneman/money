@@ -1,6 +1,6 @@
 # Archive format
 
-The contract between the parts of this project. `sync` and `import` write the archive; the dashboard reads it. Everything else can change without touching this; a change here touches everything, and the archive outlives every version of the code.
+The contract between the parts of this project. `sync` and `import` write the archive; the app reads it. Everything else can change without touching this; a change here touches everything, and the archive outlives every version of the code.
 
 Three rules hold throughout:
 
@@ -127,7 +127,7 @@ The same rules apply to both sources. For each incoming transaction:
 
 ## Reading: the normalised view
 
-Readers never interpret `raw` directly. One pure function turns a record into a **normalised transaction**, and everything in the dashboard, tagging rules included, works on that.
+Readers never interpret `raw` directly. One pure function turns a record into a **normalised transaction**, and everything in the app, tagging rules included, works on that.
 
 | Field                  | Type            | Notes                                                       |
 | ---------------------- | --------------- | ----------------------------------------------------------- |

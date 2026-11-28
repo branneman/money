@@ -1,8 +1,8 @@
 # CLAUDE.md
 
-Nightly sync of the user's own bank transactions, from one or more banks, via the Enable Banking API, into per-account JSON files; an import for exported files; and later a dashboard that categorises the archive by rules.
+Nightly sync of the user's own bank transactions, from one or more banks, via the Enable Banking API, into per-account JSON files; an import for exported files; and an app over the archive, which shows each person the accounts they own and later categorises them by rules.
 
-Read docs/architecture.md first. The design lives in docs/ (archive-format.md, sync.md, dashboard.md, infra.md, testing.md, sandbox.md). This file holds rules for working in the repo, and does not repeat the design.
+Read docs/architecture.md first. The design lives in docs/ (archive-format.md, sync.md, app.md, infra.md, testing.md, sandbox.md). This file holds rules for working in the repo, and does not repeat the design.
 
 ## Data protection: hard rules
 
@@ -25,6 +25,8 @@ The production system handles real bank data. That data must stay in the EU, so 
 - `npm run lint`: ESLint. `npm run format`: Prettier, writing. `npm run format:check`: Prettier, checking.
 - `npm run fixtures`: regenerate `fixtures/archive/` after changing the generator. Never edit the year files by hand; a test fails if they drift from the generator.
 - The pre-commit hook (`.githooks/pre-commit`) runs typecheck, lint, format check and tests on the whole repo. Never bypass it with `--no-verify`.
+- `npm run server`: the app's server over the fixtures, on port 8080, with its data under `tmp/dev/`. The fixture logins are in docs/app.md.
+- `node server/src/cli.ts hash-password`: a password hash for the configuration. `rotate-session-secret` and `serve` are the server's other commands.
 - `docker build -t money:local . && scripts/check-image.sh money:local`: build the image and check it by running it.
 - `node --env-file=.env.sandbox sync/src/cli.ts <auth <bank> | sync | status | banks <country> | import <format> <file> [--write]>`, against the sandbox only. docs/sandbox.md has the setup.
 
@@ -34,12 +36,12 @@ The production system handles real bank data. That data must stay in the EU, so 
 - **Readability first.** Small modules, explicit names, no cleverness.
 - **No silent error handling.** No empty `catch`, no defaults that paper over missing data, no partial writes. Fail loudly and exit non-zero.
 - **Validate at the boundary.** Check API responses on arrival and fail on unexpected shapes, rather than guessing.
-- **Dependencies follow docs/architecture.md.** `shared`, `sync` and `api` have no runtime dependencies beyond other workspaces; a test enforces it. `app` may have a few, each chosen deliberately. Ask before adding any dependency, runtime or development, anywhere; prefer FOSS.
+- **Dependencies follow docs/architecture.md.** `shared`, `sync` and `server` have no runtime dependencies beyond other workspaces; a test enforces it. `client` may have a few, each chosen deliberately. Ask before adding any dependency, runtime or development, anywhere; prefer FOSS.
 - **Development dependencies today:** `typescript`, `@types/node`, `eslint`, `@eslint/js`, `typescript-eslint`, `eslint-config-prettier`, `prettier`. `typescript` stays on 6.x until `typescript-eslint` supports 7.
 
 ## TypeScript without a build step
 
-Node strips types and runs `.ts` files directly; it never type-checks. This applies to everything Node runs. Only `app` is bundled.
+Node strips types and runs `.ts` files directly; it never type-checks. This applies to everything Node runs. Only `client` is bundled.
 
 - Erasable syntax only: no `enum`, `namespace`, parameter properties or `import =`.
 - Relative imports include the `.ts` extension. Type-only imports use `import type`.
@@ -48,7 +50,7 @@ Node strips types and runs `.ts` files directly; it never type-checks. This appl
 
 ## Configuration
 
-Defined in docs/sync.md and docs/dashboard.md. In short: secrets and paths come from environment variables (documented in `.env.example`), and banks, accounts and import formats from one JSON file at `CONFIG_PATH`. Production config exists only on the host. Sandbox config lives in `.env.sandbox` and `tmp/`, both gitignored. Every command validates its configuration at startup and fails if anything is missing or wrong.
+Defined in docs/sync.md and docs/app.md. In short: secrets and paths come from environment variables (documented in `.env.example`), and banks, accounts, import formats, the app's people and each account's owners from one JSON file at `CONFIG_PATH`. Production config exists only on the host. Sandbox config lives in `.env.sandbox` and `tmp/`, both gitignored. Every command validates its configuration at startup and fails if anything is missing or wrong.
 
 ## Layout
 
@@ -58,8 +60,9 @@ npm workspaces, each a package named `@money/<name>`. The reasoning is in docs/a
 shared/            pure core: archive format, merge, normalised view,
                    configuration, categorising
 sync/              the command line: auth, sync, status, import
-api/               the dashboard's server
-app/               the dashboard's interface, in the browser
+server/            the app's server: login, sessions, lenses, routes
+  testing/         the test world: a real server over temporary files
+client/            the app's interface, in the browser (not built yet)
 fixtures/
   household.ts     what the invented household did
   world.ts         its accounts, and how each reaches the archive
@@ -74,7 +77,8 @@ Dockerfile         the image; .dockerignore lets in only what it needs
 scripts/           repository checks, and the image check
 docs/              durable design docs, flat
   specs/           one dated spec per slice
-tmp/               gitignored: sandbox data, state and key
+tmp/               gitignored: sandbox data, state and key; the
+                   development server's data
 ```
 
 Tests sit next to the code as `*.test.ts`.
@@ -88,7 +92,8 @@ docs/testing.md is the reference. In short:
 - **Tier 2:** run the real `sync` against the in-memory fake bank and a temporary directory. Property-based: any sequence of fetch windows converges to the same files, and nothing is ever lost.
 - **Fakes, not mocks.** Inject the clock, `fetch` and the filesystem root; replace them with small real implementations.
 - **Tests run with `TZ=Europe/Amsterdam`**, set by `npm test`. Run tests through it, not with a bare `node --test`.
-- Higher tiers (dashboard over HTTP, the sandbox, the deployment) come later. A given bank may not be available in the sandbox, so bank-specific behaviour is covered by the fake bank.
+- **Tier 2s:** run the real server over HTTP on `127.0.0.1`, against a temporary configuration, archive and `APP_DATA_DIR` (`server/testing/world.ts`): login, sessions, rate limiting, CSRF, lenses, headers, static files.
+- Higher tiers (the browser, the sandbox, the deployment) come later. A given bank may not be available in the sandbox, so bank-specific behaviour is covered by the fake bank.
 
 ## Scope
 
@@ -98,7 +103,7 @@ docs/testing.md is the reference. In short:
 
 ## Working conventions
 
-- **Conventional commits:** `type(scope): message`. Types: `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `chore`, `ci`, `security`. Scope is the workspace (`shared`, `sync`, `api`, `app`) or the component (`fixtures`, `tooling`), and is left out when a change spans several.
+- **Conventional commits:** `type(scope): message`. Types: `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `chore`, `ci`, `security`. Scope is the workspace (`shared`, `sync`, `server`, `client`) or the component (`fixtures`, `tooling`), and is left out when a change spans several.
 - **After a push, watch the run.** `gh run watch <id> --exit-status`, and on a failure `gh run view <id> --log-failed`. "The suite passed locally" is not a claim about `main`. A red run left unwatched is worse than a red run: the next commit lands on top of it and the cause moves. This applies from the day CI exists.
 - **A decision made while building goes into the durable doc, not only the spec.** A dated spec is history once its slice ships, and nobody designing the next slice reads it. Whatever a slice settles or changes, including where the code departed from its own spec, is written into the flat doc that owns the subject before the slice is called done. The spec itself is not rewritten; it gets a closing section saying what moved.
 - **Merge via rebase + fast-forward only. Never create a merge commit.** Before integrating a branch: `git rebase main`, then `git checkout main && git merge --ff-only <branch>`. History stays linear, so `git log` reads as the order work actually landed rather than something to untangle from a merge bubble.

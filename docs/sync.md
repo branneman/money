@@ -32,6 +32,8 @@ sync (nightly)              import (by hand)
 | `banks <country>`        | the user    | The bank names Enable Banking lists for one country.    |
 | `import <format> <file>` | the user    | Checks an exported file; with `--write`, merges it too. |
 
+`money` also takes the server's three commands, `serve`, `hash-password` and `rotate-session-secret`, which the sync's usage line lists too ([app.md](app.md)).
+
 `auth`, `sync` and `import --write` take a lock in `STATE_DIR`, so only one of them writes at a time. `status`, `banks` and an `import` that only checks take none.
 
 Under the lock, and before any request, `auth` and `sync` prove that `DATA_DIR` can be written where a fetch writes first, and `import --write` does the same before it reads the archive: they create `DATA_DIR/.inbox` if it is absent, write a dot-prefixed file in it, and remove it. Startup checks only that the directory exists, and everything before the first page only reads, so without this a data volume mounted read-only would be found after the bank had answered. A failure says `DATA_DIR cannot be written`, with the error's code, and never the path.
@@ -46,7 +48,7 @@ Every command exits non-zero on any failure, with a message that says what to do
 
 Every command checks all of this at startup, in two stages, and stops at the first stage that finds something. First the environment: every problem in it is reported together. Then, once the environment is sound, the two directories and the configuration file: every problem there is reported together. A message names a variable and never repeats its value. A mount this user is not allowed into is reported the same way, as `CONFIG_PATH names a file this user cannot read`, `DATA_DIR cannot be reached by this user` or `STATE_DIR cannot be reached by this user`: the setting is named, and the path never is.
 
-**A configuration file**, at `CONFIG_PATH`, holds what is structured: the banks, the accounts and the import formats.
+**A configuration file**, at `CONFIG_PATH`, holds what is structured: the banks, the accounts, the import formats, and the app's people and who owns which account.
 
 ```json
 {
@@ -54,14 +56,28 @@ Every command checks all of this at startup, in two stages, and stops at the fir
     "bnka": { "aspsp": { "name": "Example Bank", "country": "NL" } }
   },
   "accounts": {
-    "bnka-current": { "bank": "bnka", "iban": "NL00BNKA0000000001" },
-    "bnka-joint": { "bank": "bnka", "iban": "NL00BNKA0000000002" },
-    "bnka-card": { "bank": "bnka", "import_id": "1234" },
-    "bnka-savings": { "bank": "bnka", "iban": "NL00BNKA0000000003", "fetch": false },
-    "bnkb-current": { "bank": "bnkb", "iban": "NL00BNKB0000000001", "closed": true }
+    "bnka-current": { "bank": "bnka", "iban": "NL00BNKA0000000001", "owners": ["alex"] },
+    "bnka-joint": { "bank": "bnka", "iban": "NL00BNKA0000000002", "owners": ["alex", "sam"] },
+    "bnka-card": { "bank": "bnka", "import_id": "1234", "owners": ["alex", "sam"] },
+    "bnka-savings": {
+      "bank": "bnka",
+      "iban": "NL00BNKA0000000003",
+      "fetch": false,
+      "owners": ["alex"]
+    },
+    "bnkb-current": {
+      "bank": "bnkb",
+      "iban": "NL00BNKB0000000001",
+      "closed": true,
+      "owners": ["sam"]
+    }
   },
   "imports": {
     "bnka-export": {}
+  },
+  "people": {
+    "alex": { "username": "<generated>", "password": "scrypt$N=131072,r=8,p=1$<salt>$<key>" },
+    "sam": { "username": "<generated>", "password": "scrypt$N=131072,r=8,p=1$<salt>$<key>" }
   }
 }
 ```
@@ -71,12 +87,13 @@ Every command checks all of this at startup, in two stages, and stops at the fir
 - **`closed`**: the account is kept and shown, and never fetched again.
 - **`fetch`**: `false` for an open account that the API cannot reach, or is not asked to. A bank may keep a savings account behind a current account and leave it out of every consent; each of its movements also appears on the current account it is linked to. Such an account keeps its `iban`, so `import` still finds its rows, but `auth` does not require the consent to cover it, `sync` never fetches it, and `status` leaves it out. It is `closed` without the claim that it is closed: what waits for it in the inbox is swept, as for a closed account. Left out, it is `true`.
 - **`imports`**: import formats by key, as described in [archive-format.md](archive-format.md).
+- **`people`** and **`owners`**: the app's, and optional for the sync. `people` holds one entry per person, keyed by a short readable name, with the `username` they log in with and their `password` hash; `owners` on an account names the people who may see it, by those keys. The sync ignores both, and a file without them is as valid as one with them. When they are present, the validator still checks their shape for every command: a key of lowercase letters, digits and `-` that starts with a letter, a username of 1 to 64 letters, digits, `-`, `_` and `.` that no one else has, a password that is a non-empty text, nothing else in an entry, and owners that name known people, none twice. What the server requires beyond that, and the format of a hash, are in [app.md](app.md).
 
 - **Keys.** Bank keys and import format keys match `[a-z0-9-]+`, like account keys.
 - **Identifiers.** An `iban` or an `import_id` that is present must be a non-empty text, even when the other one is valid. No two accounts may share one. IBANs are compared as `auth` and `import` match them, without spaces and case, so one IBAN written two ways is still shared: a row or a consent would otherwise match two accounts.
 - **Unknown fields are refused**, at every level: a section, a bank and its `aspsp`, an account, an import format and each of its column objects. A mistyped field would otherwise read as an optional one left out, and yield nulls without a word. The message names the field only when it is made of lowercase letters and underscores, so an account number typed where a field belongs is never repeated.
 - **An import format's `id` column may be named by no other field of that format.** Identifiers appear in messages, so the identifier may not also be the account, the amount, a counterparty or a description. Its `delimiter` may not be a double quote or a line ending.
-- **Messages never contain a value from the file.** They name keys and fields. An unknown bank is reported without its name, and an entry whose key is malformed is named by its position, such as `accounts, entry 2`.
+- **Messages never contain a value from the file.** They name keys and fields. An unknown bank is reported without its name, and an entry whose key is malformed is named by its position, such as `accounts, entry 2`. A person is always named by position, as `people, entry 2`, never by key or username.
 
 The file is validated at startup, and anything wrong with it stops the command. Both containers read it; neither writes it. The real file names real banks and accounts, so it lives with the production configuration. This repository holds only a made-up example, which the tests use.
 

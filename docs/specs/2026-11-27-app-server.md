@@ -285,3 +285,40 @@ Written into the durable documents before the slice is done:
 
 - **How the app stores what people write.** Budgets, pots, a year plan, ownership of transactions and per-person settings are coming in 5c, and with two people editing at once. The mechanics of concurrency are settled either way: the server is the only writer, puts its writes in one queue and writes by temporary file and rename, and every save names the version it was based on and is refused when it is stale. What is open is the store. **The lean: small JSON documents, each with its own version, so that two people editing different budgets never conflict.** What would change it to SQLite, which Node ships as `node:sqlite`: a model that turns out relational, ownership of transactions being the likely first case, or a change that must save several things together. SQLite would cost infra a consistent snapshot before the backup and a different restore check. Decided in 5c, with the data model in hand.
 - **Logout everywhere for one person** is changing their password. If that is too blunt, a per-person counter in the configuration, signed into the cookie, would do it; not built until it is wanted.
+
+## What moved while it was built
+
+Everything below is written into the documents that own it. This section is only the record of where the build differed from the text above.
+
+- **`writeAtomic` moved from `sync` to `shared`** (`shared/src/util/atomic.ts`, exported from `@money/shared/node`). It takes a mode, and removes a stale temporary file first, so the file is always created with that mode: the secret's is `0600`.
+- **The directory checks moved to `shared` too** (`shared/src/util/directories.ts`, in `@money/shared/node`), and the `Environment` type to `shared/src/config/environment.ts`, in the browser-safe entry. The sync and the server share them.
+- **The handler is four modules, not one.** `server/src/handler.ts` holds the routing, static files and the net that turns a failure into a `500`; `server/src/api.ts` the API routes and login; `server/src/reply.ts` replies as data. `server/src/serve.ts` holds `makeHandlerDeps` and `makeServer`, shared by `main` and the test world. `server/src/line-input.ts` is the pure line buffer under the hidden terminal reader.
+- **`main`'s dependencies gained `err`.** `hash-password` prints only the hash on standard output, and its prompts and messages go to standard error, so the hash can be captured. `listen` takes the `http.Server` rather than a handler, because the `clientError` handler needs it.
+- **A hash is accepted only if scrypt can derive it.** "Weaker than these parameters" became exact: N a power of 2 and at least 2¹⁷, r at least 8, p from 1 to 16, a 16-byte salt, a 32-byte key, and memory, 128·r·(N + 2) + 128·r·p, within 256 MiB. A weaker or unusable hash stops the server at start.
+- **The dummy hash moves with the parameters.** When stored hashes are raised, `DUMMY_HASH` and `SCRYPT` are raised with them, or a wrong password for that person takes longer than an unknown username.
+- **The rate limit holds under concurrency.** The limit is checked again inside the hash queue, and a failure is recorded right after its hash, so a username locked while its logins wait gets no further checks. A locked username never joins the queue. A `429` or a `503` counts nothing.
+- **The `Origin` must be canonical**: `new URL(origin).origin === origin`, over `http` or `https`, with a host. Userinfo, a path, uppercase and `null` are refused.
+- **Static paths gained limits.** A path is decoded once; a segment over 255 bytes, or a resolved path over 1024 bytes, is not found, as is `ENAMETOOLONG`; only regular files are served, so a directory is `404`; `/api/*` never falls back to `index.html`; a trailing slash other than `/` is `404`.
+- **`413`, `415` and a cross-site `403` close the connection**, since the body was never read.
+- **Malformed requests**, Node's `clientError`, are answered `400` with the security headers and logged by a fixed line only. A handler whose promise rejects is logged as `failed <ErrorClass>` and answered `500`.
+- **The startup line** is `serving port=<n> revision=<rev> people=<n> accounts=<n>`.
+- **`/health`** answers `{"status":"ok"}`, or `503` with `{"error":"unavailable"}` while the configuration or the secret is invalid, and is `no-store` like `/version`.
+- **The image no longer sets `DATA_DIR` or `STATE_DIR`.** `bin/money` sets them to `/data` and `/state` for the sync's commands only, when they are unset. The server's commands get neither, so the web container holds no `STATE_DIR` for the tripwire to refuse. Infra runs every sync command through `money`, so the sync container is unchanged. The web container sets `DATA_DIR` itself.
+- **`npm run server`** runs `scripts/dev-server.ts`: the fixtures' archive and configuration, `APP_DATA_DIR` and `CLIENT_DIR` under `tmp/dev/`, the secret made on the first run, port 8080, `REVISION=dev`. The fixture people are `mila` (`fx-mila-Qp2w9Lz7`, `fixture password mila`) and `tom` (`fx-tom-Hk4r8Vn2`, `fixture password tom`).
+- **The test world** issues requests through `node:http` with a keep-alive agent per request, so a `Connection: close` is the server's own, and hashes its two people once per process with the real parameters.
+- **The leak test plants a value on every path it scans**: usernames, those of the burst included, people's keys, passwords and their hashes, whole and by salt and key, cookies and CSRF tokens, the session secret, the archive's values, and a `500` whose error message holds planted archive values.
+- **The image check's `/app` listing** includes `server` and the empty `client`, and its ownership step covers `/app-data`. It also asserts that the image sets neither `DATA_DIR` nor `STATE_DIR`.
+
+### Left open
+
+Found in review and not done in this slice; the final review triages them.
+
+- **`readJson` replaces invalid UTF-8** instead of refusing it.
+- **`writeAtomic` could open its temporary file with `wx`** after removing a stale one.
+- **The limiter prunes by a full scan on every call**, which is fine at a few thousand usernames.
+- **A login waiting in the queue uses the configuration** as it was when the login arrived.
+- **The hidden terminal reader** does not handle a character split across chunks, escape sequences, or a CR and LF split across chunks.
+- **`clientError` logs every reset**, a client's own included.
+- **The image check does not assert** `/app-data`'s mode `0700`, an empty `/app/client`, or an explicit `DATA_DIR` winning over the default.
+- **The full-queue test waits 300 ms** before its last login, rather than waiting for an event.
+- **The owner should run `money hash-password` once on a real terminal**, typing, backspace, Enter, Ctrl-C and Ctrl-D, since no test reaches the terminal path.

@@ -1,6 +1,6 @@
 # Money
 
-Nightly, unattended sync of your own bank transactions into a self-hosted JSON archive, with a dashboard over it.
+Nightly, unattended sync of your own bank transactions into a self-hosted JSON archive, with a web app over it.
 
 ## Goal
 
@@ -8,34 +8,34 @@ Keep a complete archive of all transactions on your own bank accounts, across on
 
 - **Unattended.** A nightly run fetches new and recently changed transactions. The only manual step is renewing bank consent, at most every 180 days, as PSD2 requires.
 - **Complete history.** A bank's API only reaches back so far, often two years at most, so the archive is the source of truth. Nothing is ever deleted, and older years stay available after the bank stops serving them.
-- **Read-only.** Account information only, no payments.
+- **Account information only.** No payments: nothing in this project can move money, and the app never writes bank data.
 - **Private.** Bank data stays in the EU and exists in production only. It never enters this repository, a developer's machine, or the context of AI tools. Development runs on synthetic data.
 
 Around that archive:
 
 - **Import** of files exported from a bank's website, for history the API no longer serves and for accounts it cannot reach.
-- **A dashboard** (second phase): tables and charts with filtering, sorting and grouping, and one category per transaction, assigned by ordered rules the user writes. It never changes bank data.
+- **The app** (second phase): each person logs in and sees the accounts they own, in tables and charts with filtering, sorting and grouping, with one category per transaction, assigned by ordered rules the user writes. It never changes bank data.
 
 Out of scope: payments.
 
 ## Status
 
-Built: the archive format, the synthetic archive, the sync, with its commands `auth <bank>`, `sync`, `status` and `banks <country>`, and the import, `import <format> <file>`, and the image, which CI publishes from `main`. Not built yet: the dashboard. [docs/architecture.md](docs/architecture.md) has the build order.
+Built: the archive format, the synthetic archive, the sync, with its commands `auth <bank>`, `sync`, `status` and `banks <country>`, and the import, `import <format> <file>`, and the image, which CI publishes from `main`. Of the app, the server: login, sessions, each person kept to their own accounts, strict headers, and its commands. Not built yet: the app's client, its screens, and categories. [docs/architecture.md](docs/architecture.md) has the build order.
 
 ## Tech stack
 
 - **Node.js 24 LTS (≥ 24.12) and TypeScript**, in one repository of npm workspaces. Node runs `.ts` files directly by stripping types, so nothing that runs on the server is built. `tsc --noEmit` does the type-checking.
-- **No runtime dependencies on the server.** The sync, the import and the dashboard's server use only what Node ships: `fetch`, `node:crypto`, `node:fs`, `node:http`. The dashboard's browser interface may use libraries, bundled at build time. See [docs/architecture.md](docs/architecture.md).
+- **No runtime dependencies on the server.** The sync, the import and the app's server use only what Node ships: `fetch`, `node:crypto`, `node:fs`, `node:http`. The app's client, in the browser, may use libraries, bundled at build time. See [docs/architecture.md](docs/architecture.md).
 - **[Enable Banking](https://enablebanking.com) API** as the licensed intermediary to each bank's PSD2 interface. Any bank it supports can be connected; nothing in the code is specific to one bank. Enable Banking is a registered account information service provider (AISP) supervised by the Finnish FIN-FSA. We use its _restricted production_ mode: free for personal use, limited to accounts linked to the application.
 - **JSON files** for storage: one directory per account, one file per calendar year.
-- **Dockerised**, run nightly. One image, two containers: the sync, and later the dashboard. See [docs/infra.md](docs/infra.md).
+- **Dockerised**, run nightly. One image, two containers: the sync, and the app's server. See [docs/infra.md](docs/infra.md).
 
 ## Documentation
 
 - [docs/architecture.md](docs/architecture.md): the parts and how they fit. Start here.
 - [docs/archive-format.md](docs/archive-format.md): the files everything shares.
 - [docs/sync.md](docs/sync.md): authorising, the nightly sync, and import.
-- [docs/dashboard.md](docs/dashboard.md): the web app and its category rules.
+- [docs/app.md](docs/app.md): the web app: login, sessions, lenses, and its category rules.
 - [docs/infra.md](docs/infra.md): how this is hosted, backed up and monitored.
 - [docs/testing.md](docs/testing.md): how this is tested.
 - [docs/sandbox.md](docs/sandbox.md): running the sync against the Enable Banking sandbox.
@@ -44,7 +44,7 @@ Built: the archive format, the synthetic archive, the sync, with its commands `a
 
 This repository holds no real bank data, and the working directory never does either. There is no local production configuration and no local copy of the archive.
 
-- **`fixtures/archive/`** is a synthetic archive in the layout [docs/archive-format.md](docs/archive-format.md) describes: two made-up banks, ten accounts, both sources, with `fixtures/config.json` beside it. The dashboard is built against it.
+- **`fixtures/archive/`** is a synthetic archive in the layout [docs/archive-format.md](docs/archive-format.md) describes: two made-up banks, ten accounts, both sources, with `fixtures/config.json` beside it, which also names two invented people and the accounts each owns. The app is built against it.
 - **`npm run fixtures`** produces it, deterministically. Change the generator and run `npm run fixtures`; never edit the files by hand. A test fails if the two drift apart.
 - The `sync` code is developed against a fake bank in tests, and against the Enable Banking sandbox with data and state under `tmp/sandbox/`.
 
@@ -63,3 +63,25 @@ node --env-file=.env.sandbox sync/src/cli.ts import <format> <file>   # check an
 ```
 
 `<bank>` is the bank's key in the configuration file. Each command exits 0, or 1 with a message that says what to do.
+
+## Running the app's server
+
+```sh
+npm run server
+```
+
+The real server over the synthetic archive and configuration, on `http://localhost:8080`, with its own data and a session secret, made on the first run, under `tmp/dev/`. There are no screens yet, so it is tried with requests: `/health`, `/version`, `POST /api/login`, `/api/session`, `/api/accounts`. The two invented people log in with:
+
+| Person | Username           | Password                |
+| ------ | ------------------ | ----------------------- |
+| `mila` | `fx-mila-Qp2w9Lz7` | `fixture password mila` |
+| `tom`  | `fx-tom-Hk4r8Vn2`  | `fixture password tom`  |
+
+The server's commands, which the image runs as `money <command>`:
+
+```sh
+node server/src/cli.ts hash-password           # a hash for a password, for the configuration
+money rotate-session-secret                    # a new session secret: everyone is logged out
+```
+
+`hash-password` needs nothing but the repository. `rotate-session-secret` writes into `APP_DATA_DIR`. Changing a person's username or password is a new configuration, and is in [docs/app.md](docs/app.md).

@@ -1,6 +1,6 @@
 # Testing
 
-How this project is tested. Adapted from foerier's testing reference, for a nightly sync and a file import that merge bank transactions into an append-only JSON archive, and later a dashboard that categorises that archive by rules.
+How this project is tested. Adapted from foerier's testing reference, for a nightly sync and a file import that merge bank transactions into an append-only JSON archive, and an app that shows each person their part of that archive and, later, categorises it by rules.
 
 This is a permanent reference: it stays up to date as the approach evolves.
 
@@ -10,21 +10,21 @@ Testing is about confidence, not coverage numbers. Catch regressions as cheaply 
 
 **Tests must test real behaviour.** A test that cannot be wrong provides no confidence and is noise. Anything that crosses a boundary (the clock, the filesystem, `fetch`, randomness) is injected and replaced with a **real, minimal fake implementation of the interface**, never a mocking-framework mock. The code is already shaped for this: logic is pure functions, and I/O is passed in at the edges.
 
-**The risk here is silent data loss.** A crash is loud and the next night repairs it. A merge that drops, duplicates or overwrites a transaction is quiet, and after two years the bank no longer has the original. The tiers in bold are where that risk is caught.
+**The risk here is silent data loss.** A crash is loud and the next night repairs it. A merge that drops, duplicates or overwrites a transaction is quiet, and after two years the bank no longer has the original. The tiers in bold are where that risk is caught. For the app's server the risk is different: a person shown what is not theirs, a login that lets the wrong one in, or a value from the archive in a log line. Tier 2s is where that is caught.
 
 ## The pyramid
 
 ```text
-[T5] E2E smoke            later    one journey through the deployed dashboard
+[T5] E2E smoke            later    one journey through the deployed app
 [T4] Contract             later    the deployment, and the real Enable Banking sandbox
-[T3] Component            later    only if the dashboard grows client-side UI
-[T2s] Server integration  later    the dashboard over HTTP, against the synthetic archive
+[T3] Component            later    only if the client grows UI worth testing apart
+[T2s] Server integration  now      the app's server over HTTP: login, sessions, lenses
 [T2] SYNC CONVERGENCE     now      any sequence of fetches converges; nothing is ever lost
-[T1] UNIT                 now      merge, normalise, fetch window, import, rules
+[T1] UNIT                 now      merge, normalise, fetch window, import, auth, rules
 [T0] Static analysis      now      tsc, lint, format, fixture freshness, pre-commit
 ```
 
-Only tiers 0 to 2 are needed for the sync. The rest arrive with the dashboard and the deployment, and are sketched at the end so their place is known.
+Only tiers 0 to 2 are needed for the sync, and Tier 2s for the app's server. The rest arrive with the client and the deployment, and are sketched at the end so their place is known.
 
 ## Tier 0: static analysis
 
@@ -34,7 +34,7 @@ Only tiers 0 to 2 are needed for the sync. The rest arrive with the dashboard an
 - **`tsc --noEmit`.** Node strips types and never checks them, so this is the only thing that does. `erasableSyntaxOnly` also rejects syntax Node cannot strip.
 - **ESLint** with `typescript-eslint`, for correctness rules: unused variables, floating promises, unreachable code. A floating promise matters more than usual here, because an unawaited write is a partial write.
 - **Prettier**, formatting only.
-- **The dependency rule.** A test reads every workspace's `package.json` and fails if `shared`, `sync` or `api` lists a runtime dependency that is not another workspace, optional and peer dependencies included ([architecture.md](architecture.md)).
+- **The dependency rule.** A test reads every workspace's `package.json` and fails if `shared`, `sync` or `server` lists a runtime dependency that is not another workspace, optional and peer dependencies included ([architecture.md](architecture.md)).
 - **The browser-safe entry.** A test walks every file `shared/src/index.ts` reaches and fails, naming the file, if one imports a `node:` module.
 - **Fixture freshness.** A test regenerates the synthetic archive in memory and fails if the committed files differ. A hand-edited fixture, or a generator change committed without its output, cannot slip through.
 
@@ -62,14 +62,17 @@ Covers:
 - **validation at the boundary**: each unexpected API shape fails with a clear message instead of being guessed at;
 - **JWT construction**: header, claims and TTL, signed with a throwaway key generated in the test;
 - **consent**: the warning window and the expired case;
+- **the server's pieces**: the hash format, its parsing and the refusal of every parameter scrypt could not derive or that is weaker than the server's; cookie signing, expiry at exactly seven days, a login time in the future, a tampered name, time or signature, and two cookies of one name; the per-person key; the CSRF token; the rate limiter over a moved clock; the hash queue and its limit; the canonical `Origin`; body limits; static path resolution, each way out of the directory included; the lens; the settings, with every bank credential refused; reading a file that changes; and the hidden terminal reader's line buffer;
 - later, **categorising**: first match wins, rule order decides, every condition type, no match gives `uncategorised`, and an invalid regular expression is refused;
-- later, the dashboard's **filter, sort and group** functions.
+- later, the app's **filter, sort and group** functions.
 
-**Tooling:** `node:test` and `node:assert/strict`, as `*.test.ts` next to the code under test. That covers `shared`, `sync` and `api`. The `app` workspace picks its own test tooling with its libraries, in its slice's spec. The clock is an injected function returning a fixed instant. No test reads the real time or the network.
+**Tooling:** `node:test` and `node:assert/strict`, as `*.test.ts` next to the code under test. That covers `shared`, `sync` and `server`. The `client` workspace picks its own test tooling with its libraries, in its slice's spec. The clock is an injected function returning a fixed instant. No test reads the real time or the network beyond `127.0.0.1`.
 
 **The timezone is pinned.** `npm test` sets `TZ=Europe/Amsterdam`. Bank dates are calendar dates in UTC, and the people reading them are an hour or two ahead of it. Under UTC, a test of that boundary passes against the very bug it exists to catch: a transaction booked on the 1st showing up on the 31st, or the other way round. Pinned to a zone that differs from UTC, the assertion means something. Tests that are about this boundary say so, and use instants just before and after midnight in both zones.
 
 **Logging is behaviour, so it is tested.** Logs may hold counts, dates and keys only, and job output leaves the production host on every run (see [infra.md](infra.md)). `sync/src/leak.test.ts` drives the real commands over transactions with recognisable identifiers, amounts, IBANs, names and descriptions, and with a recognisable key, session, account `uid`s and error texts, captures everything printed, and asserts none of those values appear. It covers runs that work and runs that fail, a page that holds one transaction twice and is refused by the merge, a refused authorisation, `status` in every state, a failed request and a refused start. Each test also checks that the path it scans was actually reached, so a scan of nothing cannot pass. Two things print text from a response on purpose and are outside it: `banks`, and `auth` with `--show-ibans`. The test also drives `import`, as a check, a write and every kind of refusal, over a file whose cells, header names and path are all recognisable, and with a format key nobody configured. The list of non-ASCII characters that `import` prints is asserted apart: each of its lines holds a code point, one character and a count, and nothing else.
+
+`server/src/leak.test.ts` is the server's half, held to a stricter rule: its lines hold counts, route patterns, account keys and fixed texts, and nothing about a person. It drives the running server through good logins, a wrong password, an unknown username, the limit, a full queue, logout with a wrong and a right token, the session, each person's accounts and another's, a tampered cookie, a malformed request, an invalid configuration and an invalid secret, each recovering, and a `500` whose error message holds values from the archive. A second test drives the commands: `serve` refused for a bank credential, `STATE_DIR`, a bad configuration and a missing or invalid secret; `hash-password` succeeding and refusing; `rotate-session-secret`. It plants a recognisable value on every path it scans: every username tried, those of the burst included, the people's keys, every password and every hash, whole and by its salt and its key, every cookie and CSRF token, the session secret, and the archive's values. Each path's own line is asserted present first. It was seen to fail when a refused login printed its username, a full queue printed the burst's, a failure printed its error's message, and a configuration problem printed the hash it refused.
 
 ## Tier 2: sync convergence
 
@@ -141,15 +144,41 @@ Named scenarios pin the edges a generator reaches only by luck:
 
 **`sync/src/cli.ts` is not run by any test.** It is the only edge: it supplies the real environment, clock, network and terminal, and the tests call the function below it with fakes. What covers it is the type-check, and running the commands by hand against the sandbox.
 
+## Tier 2s: the server over HTTP
+
+**Charter:** the real server, listening on a free port of `127.0.0.1`, over a temporary `APP_DATA_DIR`, a configuration and an archive the test writes, and the test's clock. Requests go through `node:http`, so headers, status codes, cookies and closed connections are what a browser would get. It proves that a person logs in only with their own username and password, sees only their own accounts, and is refused everything else in a way that tells them nothing.
+
+**The test world** is `server/testing/world.ts`. It builds the handler the way `serve` does, through `server/src/serve.ts`, and keeps every line the server prints. Two invented people, `ana` and `ben`: `ana` owns one account alone and one with `ben`, and the archive holds a few records in each. Their passwords are hashed once per process with the real parameters, since the cost is part of what is tested; the suite can afford a few seconds. Each request has a keep-alive agent of its own, so a `Connection: close` in a reply is the server's, not the client's. The world can rewrite the configuration, rotate the secret and move the clock while the server runs.
+
+Covers, one file per subject (`server/src/handler.*.test.ts`):
+
+- **login**: the cookie and exactly its attributes; a wrong password and an unknown username answered alike; a real username in another case, with a space around it, and a person's key typed as the username, refused; the sixth failure `429` with `Retry-After`, for a real username and an unknown one alike, the right password included, while another username is served; a success clearing the count; the window ending; a username of 65 characters never counted and one of 64 counted; a full queue answered `503`; a username locked while its logins wait checked no further, also when the queue is full; `413` and `415` closing the connection;
+- **sessions**: the cookie refused at exactly seven days and accepted a millisecond before; a tampered cookie; a person named `__proto__` or `constructor`; a cookie under the old secret after a rotation; one issued before the person's username or password changed; one for a person since removed; and the other person's session surviving each of those; logout;
+- **cross-site requests**: a missing, empty or wrong token, another person's, and one of an earlier cookie; a foreign `Origin`, `null`, none, `Sec-Fetch-Site: cross-site`, the wrong content type; each refused, on login and on logout, with nothing changed;
+- **lenses**: each person sees exactly their accounts in `/api/session` and `/api/accounts`, with the right counts; another's account and an unknown key answer the same `404` and body; taking an owner away takes effect on the next request, without a new login;
+- **reloading**: a configuration that is invalid JSON and a secret that is too short each fail closed, `/health` and login included, are logged once across many requests, and recover on a valid file;
+- **headers**: every security header, and `no-store` where it belongs, on an API answer, a login, `/health`, `/version`, a static file, a `404` and a `405` under `/api/` and outside it, and a `500`;
+- **static files**: a hashed file, its content type and its caching; `index.html` for `/` and a path without an extension; an escape decoded once; a directory, a missing file and an extension not served; a segment over 255 bytes and a path too long for the filesystem; `/api/` paths that are not routes; an empty client directory; and each way out of the directory refused;
+- **the commands** (`server/src/main.test.ts`): `serve` refusing to start with each missing setting, with an `EB_*` variable or `STATE_DIR`, with a sync-only configuration, a missing file or directory, and without a secret, then serving with everything valid and printing its startup line; a malformed request answered `400` with the headers; a handler that fails answered `500`; `hash-password` on a terminal and without one, and each refusal; `rotate-session-secret` writing an owner-only secret that parses.
+
+**The breaks it was seen to fail under**, each applied alone: no cross-site check on login, and none on logout; no token check on logout; a lens that returns every account; `403` for another person's account where an unknown key is `404`; the last good configuration served when the new one is invalid, and the same for the secret; no limit check before the queue, and none inside it; `413` and `415` without `Connection: close`; a path segment over 255 bytes, and a path too long for the filesystem, answered `500`; and the server without its handler for malformed requests. The world itself was corrected once by such a break: without an agent, Node's client sends `Connection: close` on its own, and the test passed with the server's own removed.
+
+**What this tier cannot prove** is anything about the browser: how it holds the cookie, the Content Security Policy against a real bundle, CSRF from the real login page. Those come with the client. Nor the front door: that the `Host` arrives intact is proved by the first login through it ([infra.md](infra.md)).
+
+**`server/src/cli.ts` is not run by any test**, as `sync/src/cli.ts` is not. The terminal it reads a password from is the one path no test reaches; the line buffer under it is tested, and the command is tried by hand on a real terminal.
+
 ## Test data
 
 Three kinds, never mixed, and **never real**. This repo does not hold real bank data in any form: not in files, not in fixtures, not in a test's inline literals. That includes the shape of a real bank's export file: import tests use a made-up format for a made-up bank.
 
 - **Tiers 1 and 2: factory functions** with defaults and overrides, in `shared/testing/`. A test reads as `aTransaction({ booking_date: "2025-12-31" })`: the field under test and nothing else. The library grows one function at a time.
 - **Tier 2: generated histories**, from the seeded generator described above.
-- **Dashboard development and its later tiers: the synthetic archive** in `fixtures/archive/`, about 6,000 transactions in 33 year files over ten accounts at two made-up banks, both sources, written by the generator (`fixtures/household.ts`, `world.ts` and `generate.ts`) through the real merge, in the same format production writes. Three accounts are closed, the savings accounts only exports reach are configured with `fetch: false`, and savings interest is paid only on a positive balance. It deliberately contains the awkward cases: revised transactions, identical-looking pairs, foreign currency, missing counterparties, merchant names that vary in spelling, transfers that appear on both accounts, and nights where the sync was down.
+- **Tier 2s: a small world per test**, written by `server/testing/world.ts` through the real store.
+- **The app's development and its later tiers: the synthetic archive** in `fixtures/archive/`, about 6,000 transactions in 33 year files over ten accounts at two made-up banks, both sources, written by the generator (`fixtures/household.ts`, `world.ts` and `generate.ts`) through the real merge, in the same format production writes. Three accounts are closed, the savings accounts only exports reach are configured with `fetch: false`, and savings interest is paid only on a positive balance. It deliberately contains the awkward cases: revised transactions, identical-looking pairs, foreign currency, missing counterparties, merchant names that vary in spelling, transfers that appear on both accounts, and nights where the sync was down.
 
 Change the archive by changing the generator and running `npm run fixtures`. Never edit a year file by hand.
+
+The generated `fixtures/config.json` names two invented people, with invented usernames and passwords hashed at the real parameters, and every account's owners. A test logs each of them in. [app.md](app.md) lists the logins for `npm run server`.
 
 Merchants, insurers, utilities and public bodies are real company names, because realistic grouping needs them. The household, its people, employers, account numbers and every payment institution among the counterparties are invented. No counterparty names a bank. A few invented merchants carry the prefix a card-terminal provider puts before a name, as statements do. A test holds the generated archive to one committed list of known counterparties, `fixtures/counterparties.ts`, so a new name is a deliberate addition, and an entry nothing uses fails as well. Card rows have no counterparty, so the first line of their text is held to a list in the same file.
 
@@ -167,13 +196,17 @@ When the record format changes, the old format gets a small frozen fixture under
 
 ## The image
 
-`scripts/check-image.sh <image>` runs a built image the way the host will: `money` with no command fails with the usage line, a command without configuration names what is missing, the image runs as uid 1000, `/data` and `/state` are the image user's, `/app` holds the source and the workspace links and nothing else, no test, fixture, environment file or nested `node_modules` is in it, and an import check reads a mounted file of invented rows with a configuration of invented banks and a key generated for the run.
+`scripts/check-image.sh <image>` runs a built image the way the host will: `money` with no command fails with the usage line, a command without configuration names what is missing, the image runs as uid 1000, `/data`, `/state` and `/app-data` are the image user's and writable by it, `/app` holds the source, the empty client directory and the workspace links and nothing else, no test, fixture, environment file or nested `node_modules` is in it, and an import check reads a mounted file of invented rows with a configuration of invented banks and a key generated for the run.
+
+Then the server, started as the host starts it. `money hash-password` hashes a password generated for the run; a configuration of one invented person and one account is mounted read-only beside an empty archive; and a detached container runs `money rotate-session-secret`, then `money serve`. Requests are made from inside that container with Node's `fetch`, since it has no network. `/health` must be `200`, `/version` must name the revision in the image's label, a login with the password must be `204` with a `__Host-session` cookie, and one with a wrong password `401`. Last, the image must set neither `DATA_DIR` nor `STATE_DIR`, and `money serve` must refuse to start with `EB_PRIVATE_KEY` or `STATE_DIR` set, naming it.
 
 Every `docker run` in it uses `--pull=never` and `--network none`, so a mistyped image name fails instead of pulling another image, and nothing it runs may need a network. A run whose output it captures ends in a `FAIL` line naming the check, never a silent exit. It finds the repository root from its own path, so it runs from any directory.
 
 CI runs it on every push, and again before publishing from `main`. Locally: `docker build -t money:local . && scripts/check-image.sh money:local`.
 
-It was seen to fail when test files were let into the image, and when the development tools were installed into it. Since then also when `/data` was not the image user's, when a nested `node_modules` was let in, when the image it was given did not exist, and when a run whose output it captures failed.
+It was seen to fail when test files were let into the image, and when the development tools were installed into it. Since then also when `/data` was not the image user's, when a nested `node_modules` was let in, when the image it was given did not exist, and when a run whose output it captures failed. Of the server's steps, only the login's has been seen to fail, and under a changed expectation rather than a broken image.
+
+What it does not assert yet: that `/app-data` has mode `0700`, that `/app/client` is empty, or that a `DATA_DIR` given to `money` wins over its default.
 
 What it does not prove: anything about a host, a volume, the schedule or the backup. Those are the infra repo's, and are checked there.
 
@@ -181,29 +214,30 @@ What it does not prove: anything about a host, a volume, the schedule or the bac
 
 Not built yet. One line each, so their charter is settled before they are needed:
 
-- **Tier 2s, server integration.** The real dashboard server over HTTP, reading `fixtures/archive/` and a rules directory in a temporary folder: routing, login and session handling, rate limiting, query results, saving rules, and refusing a save based on an outdated version.
-- **Tier 3, component.** Only if the dashboard grows client-side UI that is worth testing apart from the server.
-- **Tier 4, contract.** Two targets. The Enable Banking sandbox, to prove the fake bank still matches the real API. And the deployed dashboard after each deploy, to prove what a local run cannot: the front door, the login through it, the read-only mount.
+- **Tier 2s, what comes with the screens.** Query results, saving rules, and refusing a save based on an outdated version, added to the tier above.
+- **Tier 3, component.** Only if the client grows UI that is worth testing apart from the server.
+- **Tier 4, contract.** Two targets. The Enable Banking sandbox, to prove the fake bank still matches the real API. And the deployed app after each deploy, to prove what a local run cannot: the front door, the login through it with the `Host` intact, the read-only mount.
 - **Tier 5, E2E smoke.** One journey in a real browser: log in, filter, group, read a chart.
 
-No tier ever runs against production bank data. The deployed tiers use the dashboard's own surface and a dedicated login.
+No tier ever runs against production bank data. The deployed tiers use the app's own surface and a dedicated login.
 
 ## CI
 
 On every push and pull request, and gating the image publish:
 
-| Tier    | Job                                                                        |
-| ------- | -------------------------------------------------------------------------- |
-| 0       | `static-analysis`: typecheck, lint, format check                           |
-| 1 and 2 | `tests`: `npm test`, which includes fixture freshness                      |
-| image   | `image`: builds the image and runs `scripts/check-image.sh` over it        |
-| publish | `publish`: on `main` only, after the three above; see [infra.md](infra.md) |
+| Tier     | Job                                                                        |
+| -------- | -------------------------------------------------------------------------- |
+| 0        | `static-analysis`: typecheck, lint, format check                           |
+| 1, 2, 2s | `tests`: `npm test`, which includes fixture freshness                      |
+| image    | `image`: builds the image and runs `scripts/check-image.sh` over it        |
+| publish  | `publish`: on `main` only, after the three above; see [infra.md](infra.md) |
 
 ## Running everything locally
 
 ```sh
 npm run typecheck && npm run lint && npm run format:check   # Tier 0
-npm test            # Tiers 1 and 2, and fixture freshness; pins the timezone
+npm test            # Tiers 1, 2 and 2s, and fixture freshness; pins the timezone
+npm run server      # the real server over the fixtures, on port 8080
 npm run fixtures    # regenerate fixtures/archive/ after changing the generator
 ```
 
@@ -218,4 +252,5 @@ npm run fixtures    # regenerate fixtures/archive/ after changing the generator
 | Workspace-link check, dependency rule    | in place                                                |
 | CI                                       | in place                                                |
 | Tier 1 and Tier 2 suites                 | in place for `shared` and `sync`                        |
+| Tier 1 and Tier 2s suites                | in place for `server`                                   |
 | Image check                              | in place (`scripts/check-image.sh`)                     |
