@@ -99,6 +99,33 @@ const credentialsOf = (value: unknown): { username: string; password: string } |
     : null;
 };
 
+type Checked =
+  | { outcome: "limited"; retryAfter: number }
+  | { outcome: "refused" }
+  | { outcome: "ok"; person: Person };
+
+// Run by the queue, one at a time. The lock is looked at again here, since the username
+// may have been locked while this attempt waited, and the count is updated before the
+// next attempt's turn, so no attempt is checked against a count that is out of date.
+const checkPassword = async (
+  deps: HandlerDeps,
+  people: readonly Person[],
+  username: string,
+  password: string,
+): Promise<Checked> => {
+  const retryAfter = deps.limiter.retryAfter(username);
+  if (retryAfter !== null) return { outcome: "limited", retryAfter };
+  // A username nobody has is checked against the dummy hash, so it takes as long.
+  const person = findByUsername(people, username);
+  const matches = await verifyPassword(password, person?.password ?? DUMMY_HASH);
+  if (person === null || !matches) {
+    deps.limiter.failed(username);
+    return { outcome: "refused" };
+  }
+  deps.limiter.succeeded(username);
+  return { outcome: "ok", person };
+};
+
 // The order matters. A username too long, or one already locked, never reaches the hash
 // queue, and only an attempt that went through the hash is counted, so the counts stay
 // bounded by how many hashes fit in a window.
@@ -121,23 +148,23 @@ export const login = async ({ request, deps }: Context): Promise<Reply> => {
   const files = await currentFiles(deps);
   if (files === null) return UNAVAILABLE;
 
-  // A username nobody has is checked against the dummy hash, so it takes as long.
-  const checked = deps.queue.run(async () => {
-    const person = findByUsername(files.serverConfig.people, username);
-    const matches = await verifyPassword(password, person?.password ?? DUMMY_HASH);
-    return person !== null && matches ? person : null;
-  });
-  if (checked === null) {
+  const queued = deps.queue.run(() =>
+    checkPassword(deps, files.serverConfig.people, username, password),
+  );
+  if (queued === null) {
     deps.log.event("login queue full");
     return UNAVAILABLE;
   }
-  const person = await checked;
-  if (person === null) {
-    deps.limiter.failed(username);
+  const checked = await queued;
+  if (checked.outcome === "limited") {
+    deps.log.event("login limited");
+    return tooManyAttempts(checked.retryAfter);
+  }
+  if (checked.outcome === "refused") {
     deps.log.event("login refused");
     return LOGIN_REFUSED;
   }
-  deps.limiter.succeeded(username);
+  const { person } = checked;
   deps.log.event("login ok");
   const issuedAt = deps.clock().getTime();
   const value = encodeSession({ person: person.key, issuedAt }, signingKey(files.secret, person));

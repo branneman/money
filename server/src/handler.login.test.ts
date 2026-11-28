@@ -103,6 +103,26 @@ describe("login", { concurrency: true }, () => {
     });
   });
 
+  test("a username locked while its logins wait for the hash is not checked again", async () => {
+    await withWorld(async (world) => {
+      await failTimes(world, PEOPLE.ana.username, 4);
+      // One runs and eight wait: exactly what the queue takes. The one that runs is the
+      // fifth failure, and locks the username before any of the eight is checked.
+      const burst = await Promise.all(
+        Array.from({ length: 9 }, () => attempt(world, PEOPLE.ana.username, "not the password")),
+      );
+      const statuses = burst.map((response) => response.status).toSorted();
+      assert.deepEqual(statuses, [401, 429, 429, 429, 429, 429, 429, 429, 429]);
+      for (const response of burst.filter((item) => item.status === 429)) {
+        assert.match(String(response.headers["retry-after"]), /^\d+$/);
+        assert.equal(response.body, LIMITED);
+      }
+      // Five checks of the password in all, and every other attempt answered without one.
+      assert.equal(world.output.filter((line) => line === "login refused").length, 5);
+      assert.equal(world.output.filter((line) => line === "login limited").length, 8);
+    });
+  });
+
   test("the window ends fifteen minutes after the first failure", async () => {
     await withWorld(async (world) => {
       await failTimes(world, PEOPLE.ana.username, 5);
