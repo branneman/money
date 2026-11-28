@@ -33,11 +33,15 @@ export type Account = {
   import_id?: string;
   closed?: boolean;
   fetch?: boolean;
+  owners?: string[];
 };
+
+export type PersonEntry = { username: string; password: string };
 
 export type Config = {
   banks: Record<string, { aspsp: { name: string; country: string } }>;
   accounts: Record<string, Account>;
+  people?: Record<string, PersonEntry>;
   imports: Record<string, ImportFormat>;
 };
 
@@ -178,6 +182,51 @@ const labelOf = (section: string, key: string, index: number): string =>
 const keyProblem = (label: string, key: string): string[] =>
   ACCOUNT_KEY.test(key) ? [] : [`${label}: the key may hold only a-z, 0-9 and -`];
 
+// A person's key is a first name, so it and the username never appear in a message: a
+// person is named by position. The password format is the server's check, not this one's.
+const PERSON_KEY = /^[a-z][a-z0-9-]*$/;
+const USERNAME = /^[A-Za-z0-9._-]{1,64}$/;
+
+const peopleProblems = (people: Record<string, unknown>): string[] => {
+  const problems: string[] = [];
+  const usernames = new Map<string, number>();
+  for (const [index, [key, person]] of Object.entries(people).entries()) {
+    const at = `people, entry ${index + 1}`;
+    if (!PERSON_KEY.test(key)) {
+      problems.push(`${at}: the key may hold only a-z, 0-9 and -, and starts with a letter`);
+    }
+    if (!isObject(person)) {
+      problems.push(`${at}: is not an object`);
+      continue;
+    }
+    problems.push(
+      ...unknownFields(person, ["username", "password"]).map((problem) => `${at}: ${problem}`),
+    );
+    if (!isText(person.username) || !USERNAME.test(person.username)) {
+      problems.push(`${at}: username must be 1 to 64 characters of letters, digits, - _ and .`);
+    } else {
+      const other = usernames.get(person.username);
+      if (other !== undefined)
+        problems.push(`${at}: shares its username with people, entry ${other}`);
+      else usernames.set(person.username, index + 1);
+    }
+    if (!isText(person.password)) problems.push(`${at}: password must be a non-empty text`);
+  }
+  return problems;
+};
+
+const ownersProblems = (at: string, owners: unknown, people: Record<string, unknown>): string[] => {
+  if (!Array.isArray(owners) || owners.length === 0 || !owners.every(isText)) {
+    return [`${at}: owners must be a non-empty list of names`];
+  }
+  const problems: string[] = [];
+  if (new Set(owners).size !== owners.length) problems.push(`${at}: owners names a person twice`);
+  if (!owners.every((owner) => Object.hasOwn(people, owner))) {
+    problems.push(`${at}: owners names a person the configuration does not know`);
+  }
+  return problems;
+};
+
 // Returns every problem, each as a sentence a person can act on. Messages name keys and
 // fields, never the values of account numbers.
 export const validateConfig = (value: unknown): ConfigResult => {
@@ -191,7 +240,14 @@ export const validateConfig = (value: unknown): ConfigResult => {
   const banks = section("banks");
   const accounts = section("accounts");
   const imports = section("imports");
-  problems.push(...unknownFields(value, ["banks", "accounts", "imports"], "section"));
+  problems.push(...unknownFields(value, ["banks", "accounts", "people", "imports"], "section"));
+  let people: Record<string, unknown> = {};
+  if (value.people !== undefined) {
+    if (isObject(value.people)) {
+      people = value.people;
+      problems.push(...peopleProblems(people));
+    } else problems.push("people is not an object");
+  }
 
   for (const [index, [key, bank]] of Object.entries(banks).entries()) {
     const at = labelOf("banks", key, index);
@@ -219,7 +275,7 @@ export const validateConfig = (value: unknown): ConfigResult => {
       continue;
     }
     problems.push(
-      ...unknownFields(account, ["bank", "iban", "import_id", "closed", "fetch"]).map(
+      ...unknownFields(account, ["bank", "iban", "import_id", "closed", "fetch", "owners"]).map(
         (problem) => `${at}: ${problem}`,
       ),
     );
@@ -227,6 +283,7 @@ export const validateConfig = (value: unknown): ConfigResult => {
     else if (!Object.hasOwn(banks, account.bank)) {
       problems.push(`${at}: its bank is not configured`);
     }
+    if (account.owners !== undefined) problems.push(...ownersProblems(at, account.owners, people));
     if (!isText(account.iban) && !isText(account.import_id)) {
       problems.push(`${at}: needs an iban or an import_id`);
     }

@@ -13,53 +13,99 @@
       }
     }
   },
+  "people": {
+    "mila": {
+      "username": "fx-mila-Qp2w9Lz7",
+      "password": "scrypt$N=131072,r=8,p=1$E1faUIVDpo8ugzo8GknIMw$IJgmi9CHv64Bk/YFRQglVhk8OowdakWTpTAEe/6ZCsk"
+    },
+    "tom": {
+      "username": "fx-tom-Hk4r8Vn2",
+      "password": "scrypt$N=131072,r=8,p=1$X3Wz5ckQ7hHi8LP1yArAzw$k2D75gwhcQrzVo4KPlj9dDdlnHQsa3nBMe1ke8l/hhs"
+    }
+  },
   "accounts": {
     "bnka-personal": {
       "bank": "bnka",
-      "iban": "NL00BNKA0000000001"
+      "iban": "NL00BNKA0000000001",
+      "owners": [
+        "mila"
+      ]
     },
     "bnka-joint": {
       "bank": "bnka",
       "iban": "NL00BNKA0000000002",
+      "owners": [
+        "mila",
+        "tom"
+      ],
       "closed": true
     },
     "bnka-personal-savings": {
       "bank": "bnka",
       "iban": "NL00BNKA0000000003",
+      "owners": [
+        "mila"
+      ],
       "fetch": false
     },
     "bnka-joint-savings": {
       "bank": "bnka",
       "iban": "NL00BNKA0000000004",
+      "owners": [
+        "mila",
+        "tom"
+      ],
       "closed": true,
       "fetch": false
     },
     "bnka-card": {
       "bank": "bnka",
       "import_id": "1001",
+      "owners": [
+        "mila",
+        "tom"
+      ],
       "closed": true
     },
     "bnkb-personal": {
       "bank": "bnkb",
-      "iban": "NL00BNKB0000000001"
+      "iban": "NL00BNKB0000000001",
+      "owners": [
+        "mila"
+      ]
     },
     "bnkb-joint": {
       "bank": "bnkb",
-      "iban": "NL00BNKB0000000002"
+      "iban": "NL00BNKB0000000002",
+      "owners": [
+        "mila",
+        "tom"
+      ]
     },
     "bnkb-personal-savings": {
       "bank": "bnkb",
       "iban": "NL00BNKB0000000003",
+      "owners": [
+        "mila"
+      ],
       "fetch": false
     },
     "bnkb-joint-savings": {
       "bank": "bnkb",
       "iban": "NL00BNKB0000000004",
+      "owners": [
+        "mila",
+        "tom"
+      ],
       "fetch": false
     },
     "bnkb-card": {
       "bank": "bnkb",
-      "import_id": "2001"
+      "import_id": "2001",
+      "owners": [
+        "mila",
+        "tom"
+      ]
     }
   },
   "imports": {

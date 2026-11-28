@@ -17,7 +17,9 @@ import {
   renderConfig,
 } from "./generate.ts";
 import { END } from "./household.ts";
-import { ACCOUNTS, CONFIG, FORMATS, importedAt, SWITCH } from "./world.ts";
+import { parseHash, verifyPassword } from "../server/src/auth/password.ts";
+import { serverConfigProblems } from "../server/src/people.ts";
+import { ACCOUNTS, CONFIG, FORMATS, importedAt, PEOPLE, SWITCH } from "./world.ts";
 import type { AccountInfo, AccountKey } from "./world.ts";
 
 const records = buildArchive();
@@ -318,4 +320,20 @@ test("the archive contains the cases the app has to handle", () => {
     record.first_seen.slice(0, 10),
   );
   assert.ok(!firstSeen.has("2025-07-08"), "a night without a sync");
+});
+
+test("the configuration satisfies the server", () => {
+  assert.deepEqual(serverConfigProblems(CONFIG), []);
+});
+
+test("each fixture person logs in with their password", async () => {
+  for (const [key, person] of Object.entries(PEOPLE)) {
+    const entry = CONFIG.people?.[key];
+    assert.ok(entry);
+    assert.equal(entry.username, person.username);
+    const hash = parseHash(entry.password);
+    assert.ok(hash);
+    assert.equal(await verifyPassword(person.password, hash), true);
+    assert.equal(await verifyPassword(`${person.password}!`, hash), false);
+  }
 });

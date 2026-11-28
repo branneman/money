@@ -370,3 +370,99 @@ test("namedColumns leaves out what a format does not name", () => {
     ],
   );
 });
+
+const PEOPLE = {
+  mila: { username: "u-mila", password: "hash-1" },
+  tom: { username: "u-tom", password: "hash-2" },
+};
+const withPeople = (value: Record<string, unknown>) => ({ ...aConfig(), ...value });
+
+test("a configuration without people or owners is valid, as before", () => {
+  assert.deepEqual(problemsOf(aConfig()), []);
+});
+
+test("people and owners are valid when well formed", () => {
+  const config = withPeople({
+    people: PEOPLE,
+    accounts: { a: { bank: "bnka", iban: "NL00BNKA0000000001", owners: ["mila", "tom"] } },
+  });
+  assert.deepEqual(problemsOf(config), []);
+});
+
+test("people refuses", async (t) => {
+  const person = (extra: Record<string, unknown>) => ({ mila: { ...PEOPLE.mila, ...extra } });
+  const USERNAME_PROBLEM =
+    "people, entry 1: username must be 1 to 64 characters of letters, digits, - _ and .";
+  const KEY_PROBLEM =
+    "people, entry 1: the key may hold only a-z, 0-9 and -, and starts with a letter";
+  const cases: Record<string, [Record<string, unknown>, string]> = {
+    "a non-object": [{ people: [] }, "people is not an object"],
+    "a key with a capital": [{ people: { Mila: PEOPLE.mila } }, KEY_PROBLEM],
+    "a key starting with a digit": [{ people: { "1mila": PEOPLE.mila } }, KEY_PROBLEM],
+    "an entry that is not an object": [
+      { people: { mila: "x" } },
+      "people, entry 1: is not an object",
+    ],
+    "an unknown field": [
+      { people: person({ email: "x" }) },
+      "people, entry 1: email is not a field the configuration knows",
+    ],
+    "a missing username": [{ people: { mila: { password: "h" } } }, USERNAME_PROBLEM],
+    "a username with a space": [{ people: person({ username: "a b" }) }, USERNAME_PROBLEM],
+    "a username of 65 characters": [
+      { people: person({ username: "a".repeat(65) }) },
+      USERNAME_PROBLEM,
+    ],
+    "an empty password": [
+      { people: person({ password: "" }) },
+      "people, entry 1: password must be a non-empty text",
+    ],
+    "a username two people share": [
+      { people: { mila: PEOPLE.mila, tom: { ...PEOPLE.tom, username: "u-mila" } } },
+      "people, entry 2: shares its username with people, entry 1",
+    ],
+  };
+  for (const [name, [value, problem]] of Object.entries(cases)) {
+    await t.test(name, () => assert.deepEqual(problemsOf(withPeople(value)), [problem]));
+  }
+});
+
+test("owners refuses", async (t) => {
+  const owned = (owners: unknown) =>
+    withPeople({
+      people: PEOPLE,
+      accounts: { a: { bank: "bnka", iban: "NL00BNKA0000000001", owners } },
+    });
+  const cases: Record<string, [unknown, string]> = {
+    "an empty list": [[], "accounts.a: owners must be a non-empty list of names"],
+    "a non-list": ["mila", "accounts.a: owners must be a non-empty list of names"],
+    "a non-text name": [[1], "accounts.a: owners must be a non-empty list of names"],
+    "a repeated name": [["mila", "mila"], "accounts.a: owners names a person twice"],
+    "an unknown name": [
+      ["mila", "nobody"],
+      "accounts.a: owners names a person the configuration does not know",
+    ],
+  };
+  for (const [name, [owners, problem]] of Object.entries(cases)) {
+    await t.test(name, () => assert.deepEqual(problemsOf(owned(owners)), [problem]));
+  }
+});
+
+test("no problem message repeats a username or a person's key", () => {
+  const problems = problemsOf(
+    withPeople({
+      people: {
+        zqperson: { username: "zq-user-1", password: "" },
+        "Zqperson-2": { username: "zq-user-1", password: "h" },
+      },
+      accounts: {
+        a: { bank: "bnka", iban: "NL00BNKA0000000001", owners: ["zqperson", "zqother"] },
+      },
+    }),
+  );
+  assert.ok(problems.length > 0);
+  assert.ok(
+    problems.every((problem) => !problem.includes("zq")),
+    problems.join(" | "),
+  );
+});

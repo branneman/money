@@ -60,6 +60,14 @@ test("isStrongEnough refuses N=65536, r=4, a 15-byte salt and a 31-byte key", ()
   assert.equal(isStrongEnough({ ...sample, key: Buffer.alloc(31) }), false);
 });
 
+test("isStrongEnough refuses what a login could not use", () => {
+  assert.equal(isStrongEnough({ ...sample, N: 131073 }), false);
+  assert.equal(isStrongEnough({ ...sample, N: 2 ** 21 }), false);
+  assert.equal(isStrongEnough({ ...sample, r: 33 }), false);
+  assert.equal(isStrongEnough({ ...sample, p: 17 }), false);
+  assert.equal(isStrongEnough({ ...sample, N: 2 ** 20 }), true);
+});
+
 test("verifyPassword accepts the password and refuses one character changed", async () => {
   const text = await hashPassword("correct horse battery", randomBytes(SCRYPT.saltBytes));
   const hash = parseHash(text);

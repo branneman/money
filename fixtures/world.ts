@@ -1,7 +1,10 @@
 // Which accounts the invented household has, and how each one reaches the archive.
 // Two made-up banks. Everything here is invented; every IBAN has check digits 00.
-import type { Config, ImportFormat } from "@money/shared";
+import { createHash } from "node:crypto";
 
+import type { Config, ImportFormat, PersonEntry } from "@money/shared";
+
+import { hashPassword } from "../server/src/auth/password.ts";
 import { iso, parts, utcDay } from "./dates.ts";
 
 // A second bank is added on this day. The joint account, its savings and the card move to
@@ -186,11 +189,35 @@ export const FORMATS: Record<FormatKey, ImportFormat> = {
   },
 };
 
+// The invented household's two people, with the passwords they type. Usernames are
+// invented too; nothing here is, or resembles, a real credential.
+export const PEOPLE = {
+  mila: { username: "fx-mila-Qp2w9Lz7", password: "fixture password mila" },
+  tom: { username: "fx-tom-Hk4r8Vn2", password: "fixture password tom" },
+} as const;
+
+// The salt is derived from the key, so the generator stays deterministic. Hashed once per
+// process, however often the generator runs.
+const saltFor = (key: string): Buffer =>
+  createHash("sha256").update(`fixture salt ${key}`).digest().subarray(0, 16);
+
+const hashedPeople: Record<string, PersonEntry> = Object.fromEntries(
+  await Promise.all(
+    Object.entries(PEOPLE).map(async ([key, person]): Promise<[string, PersonEntry]> => [
+      key,
+      { username: person.username, password: await hashPassword(person.password, saltFor(key)) },
+    ]),
+  ),
+);
+
+const ownersOf = (holder: string): string[] => (holder === SOLO ? ["mila"] : ["mila", "tom"]);
+
 export const CONFIG: Config = {
   banks: {
     bnka: { aspsp: { name: "Example Bank A", country: "NL" } },
     bnkb: { aspsp: { name: "Example Bank B", country: "NL" } },
   },
+  people: hashedPeople,
   accounts: Object.fromEntries(
     Object.entries(ACCOUNTS).map(([key, account]) => [
       key,
@@ -198,6 +225,7 @@ export const CONFIG: Config = {
         bank: account.bank,
         ...(account.iban === undefined ? {} : { iban: account.iban }),
         ...(account.import_id === undefined ? {} : { import_id: account.import_id }),
+        owners: ownersOf(account.holder),
         ...(account.closed === undefined ? {} : { closed: true }),
         // Known by an IBAN, so import finds it, but only exports reach it.
         ...(account.iban !== undefined && account.reach.api === undefined ? { fetch: false } : {}),
