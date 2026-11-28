@@ -22,7 +22,7 @@ The production system handles real bank data. That data must stay in the EU, so 
 
 - `npm test`: run all tests, with the timezone pinned
 - `npm run typecheck`: type-check (`tsc --noEmit`)
-- `npm run lint`: ESLint. `npm run format`: Prettier, writing. `npm run format:check`: Prettier, checking.
+- `npm run lint`: ESLint. `npm run format`: Prettier, writing. `npm run format:check`: Prettier, checking. Both take their files from git, so whatever a checkout keeps out of git, `.git/info/exclude` included, is never read.
 - `npm run fixtures`: regenerate `fixtures/archive/` after changing the generator. Never edit the year files by hand; a test fails if they drift from the generator.
 - The pre-commit hook (`.githooks/pre-commit`) runs typecheck, lint, format check and tests on the whole repo. Never bypass it with `--no-verify`.
 - `npm run server`: the app's server over the fixtures, on port 8080, with its data under `tmp/dev/`. The fixture logins are in docs/app.md.

@@ -17,8 +17,8 @@
     "server": "node scripts/dev-server.ts",
     "fixtures": "node fixtures/generate.ts",
     "lint": "eslint .",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "git ls-files -z --cached --others --exclude-standard | xargs -0 prettier --write --ignore-unknown --no-error-on-unmatched-pattern",
+    "format:check": "git ls-files -z --cached --others --exclude-standard | xargs -0 prettier --check --ignore-unknown --no-error-on-unmatched-pattern",
     "prepare": "git config core.hooksPath .githooks"
   },
   "devDependencies": {

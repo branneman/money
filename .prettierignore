@@ -8,3 +8,7 @@ fixtures/config.json
 
 # Worktrees of this repository, each checked in its own right
 .claude/worktrees/
+
+# The format scripts in package.json hand Prettier only what git would see: tracked files,
+# and new ones no ignore rule covers, .git/info/exclude included, which every worktree
+# shares. So what a checkout keeps out of git locally is never read or checked.
