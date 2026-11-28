@@ -95,7 +95,10 @@ const serve = async (env: Environment, deps: Deps): Promise<Outcome> => {
   const log = makeLog(deps.out);
   const handler = makeHandler(makeHandlerDeps(settings, deps.clock, log));
   const running = await deps.listen(makeServer(handler, log), settings.port);
-  log.event(`serving port=${running.port} revision=${settings.revision}`);
+  const accounts = Object.keys(loaded.config.accounts).length;
+  log.event(
+    `serving port=${running.port} revision=${settings.revision} people=${loaded.people.length} accounts=${accounts}`,
+  );
   return { running };
 };
 

@@ -172,7 +172,10 @@ test("serve with everything valid runs and answers /health", async () => {
     const health = await get(result.running.port, "/health");
     assert.equal(health.status, 200);
     assert.deepEqual(JSON.parse(health.body), { status: "ok" });
-    assert.ok(run.lines.some((line) => line.startsWith("serving ")));
+    assert.ok(
+      run.lines.includes(`serving port=${result.running.port} revision=rev1 people=2 accounts=2`),
+      run.lines.join("\n"),
+    );
   } finally {
     await stopAll(run);
   }
