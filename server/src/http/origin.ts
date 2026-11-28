@@ -10,14 +10,19 @@ export const crossSiteProblem = (headers: IncomingHttpHeaders): string | null =>
   if (origin === undefined) return "no Origin header";
   if (host === undefined) return "no Host header";
 
-  let originHost: string;
+  let parsed: URL;
   try {
-    originHost = new URL(origin).host;
+    parsed = new URL(origin);
   } catch {
     // "null" and anything else that is not a URL: refused, not guessed at.
     return "Origin does not parse";
   }
-  if (originHost !== host) return "Origin does not name this Host";
+  // A browser sends only scheme://host[:port], already in canonical form. Anything that
+  // changes when parsed and written again (userinfo, a path, upper case) is not from one.
+  if (parsed.origin !== origin) return "Origin is not in canonical form";
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "Origin is not http(s)";
+  if (parsed.host === "") return "Origin has no host";
+  if (parsed.host !== host) return "Origin does not name this Host";
 
   if (fetchSite !== undefined && fetchSite !== "same-origin") {
     return "Sec-Fetch-Site is not same-origin";

@@ -32,6 +32,20 @@ test("Origin: null and an unparseable Origin are refused", () => {
   assert.notEqual(crossSiteProblem({ host, origin: "not a url" }), null);
 });
 
+test("an Origin that is not in canonical form is refused, even when its host matches", () => {
+  const refused: Record<string, string> = {
+    userinfo: `https://evil@${host}`,
+    path: `https://${host}/path`,
+    "scheme other than http and https": `ftp://${host}`,
+    "uppercase scheme and host": `HTTPS://${host.toUpperCase()}`,
+  };
+  for (const [name, origin] of Object.entries(refused)) {
+    assert.notEqual(crossSiteProblem({ host, origin }), null, name);
+  }
+  // file: URLs have an empty host, which an empty Host header would otherwise equal.
+  assert.notEqual(crossSiteProblem({ host: "", origin: "file:///x" }), null, "empty host");
+});
+
 test("a missing Host is refused", () => {
   assert.notEqual(crossSiteProblem({ origin: `https://${host}` }), null);
 });
