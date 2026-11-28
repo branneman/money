@@ -142,7 +142,7 @@ The configuration file is replaced by a rename on the host ([infra.md](infra.md)
 
 ## Headers
 
-On every response, a `400` for a malformed request included:
+On every response, the `400`, `408` and `431` answered below the router included:
 
 | Header                         | Value                                                                                                                                                                                            |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

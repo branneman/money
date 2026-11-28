@@ -206,7 +206,7 @@ CI runs it on every push, and again before publishing from `main`. Locally: `doc
 
 It was seen to fail when test files were let into the image, and when the development tools were installed into it. Since then also when `/data` was not the image user's, when a nested `node_modules` was let in, when the image it was given did not exist, and when a run whose output it captures failed. Of the server's steps, only the login's has been seen to fail, and under a changed expectation rather than a broken image.
 
-What it does not assert yet: that `/app-data` has mode `0700`, that `/app/client` is empty, or that a `DATA_DIR` given to `money` wins over its default.
+What it does not assert yet: that a `DATA_DIR` given to `money` wins over its default, as an explicit `STATE_DIR` is shown to.
 
 What it does not prove: anything about a host, a volume, the schedule or the backup. Those are the infra repo's, and are checked there.
 
