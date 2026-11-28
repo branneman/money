@@ -7,12 +7,13 @@
   },
   "workspaces": [
     "shared",
-    "sync"
+    "sync",
+    "server"
   ],
   "scripts": {
     "check:workspaces": "node scripts/check-workspaces.ts",
     "typecheck": "npm run check:workspaces && tsc --noEmit",
-    "test": "TZ=Europe/Amsterdam node --test 'shared/**/*.test.ts' 'sync/**/*.test.ts' 'fixtures/**/*.test.ts' 'scripts/**/*.test.ts'",
+    "test": "TZ=Europe/Amsterdam node --test 'shared/**/*.test.ts' 'sync/**/*.test.ts' 'server/**/*.test.ts' 'fixtures/**/*.test.ts' 'scripts/**/*.test.ts'",
     "fixtures": "node fixtures/generate.ts",
     "lint": "eslint .",
     "format": "prettier --write .",

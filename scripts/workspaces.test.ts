@@ -37,9 +37,9 @@ test("a workspace that resolves into another checkout is reported", () => {
 
 test("a server workspace may depend on other workspaces only", () => {
   const ok = workspace("sync", { dependencies: { "@money/shared": "*" } });
-  const bad = workspace("api", { dependencies: { leftpad: "^1.0.0" } });
+  const bad = workspace("server", { dependencies: { leftpad: "^1.0.0" } });
   assert.deepEqual(dependencyProblems([shared, ok]), []);
-  assert.match(dependencyProblems([bad])[0], /@money\/api depends on leftpad/);
+  assert.match(dependencyProblems([bad])[0], /@money\/server depends on leftpad/);
 });
 
 test("the browser workspace is not held to the server rule", () => {
@@ -53,10 +53,10 @@ test("the browser workspace is not held to the server rule", () => {
 
 test("an optional dependency of a server workspace is held to the same rule", () => {
   const ok = workspace("sync", { optionalDependencies: { "@money/shared": "*" } });
-  const bad = workspace("api", { optionalDependencies: { leftpad: "^1.0.0" } });
+  const bad = workspace("server", { optionalDependencies: { leftpad: "^1.0.0" } });
   assert.deepEqual(dependencyProblems([ok]), []);
   assert.deepEqual(dependencyProblems([bad]).length, 1);
-  assert.match(dependencyProblems([bad])[0], /@money\/api depends on leftpad/);
+  assert.match(dependencyProblems([bad])[0], /@money\/server depends on leftpad/);
 });
 
 test("a peer dependency of a server workspace is held to the same rule", () => {

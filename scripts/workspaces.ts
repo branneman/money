@@ -53,7 +53,7 @@ export const linkProblems = (
   });
 
 // Code that runs on the server, next to bank data. See docs/architecture.md, Dependencies.
-const SERVER_WORKSPACES = ["shared", "sync", "api"];
+const SERVER_WORKSPACES = ["shared", "sync", "server"];
 
 export const dependencyProblems = (workspaces: readonly Workspace[]): string[] =>
   workspaces

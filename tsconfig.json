@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["shared", "sync", "fixtures", "scripts"]
+  "include": ["shared", "sync", "server", "fixtures", "scripts"]
 }
