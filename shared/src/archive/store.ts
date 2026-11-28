@@ -9,6 +9,8 @@ import type { ArchiveRecord, Source } from "./record.ts";
 import { laterCopy } from "./recover.ts";
 import { planWrites } from "./writes.ts";
 
+export { writeAtomic } from "../util/atomic.ts";
+
 const SOURCES: readonly Source[] = ["api", "import"];
 
 const isMissing = (error: unknown): boolean =>

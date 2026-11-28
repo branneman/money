@@ -6,8 +6,8 @@ import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promise
 import { join } from "node:path";
 
 import { isIsoDate, isObject, isTimestamp } from "@money/shared";
+import { writeAtomic } from "@money/shared/node";
 
-import { writeAtomic } from "./atomic.ts";
 import { SyncError } from "./errors.ts";
 import type { Window } from "./window.ts";
 

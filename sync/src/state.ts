@@ -5,8 +5,8 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { ACCOUNT_KEY, isObject, isText, isTimestamp } from "@money/shared";
+import { writeAtomic } from "@money/shared/node";
 
-import { writeAtomic } from "./atomic.ts";
 import { isJson } from "./enablebanking/responses.ts";
 import { SyncError } from "./errors.ts";
 
