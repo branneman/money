@@ -309,16 +309,16 @@ Everything below is written into the documents that own it. This section is only
 - **The leak test plants a value on every path it scans**: usernames, those of the burst included, people's keys, passwords and their hashes, whole and by salt and key, cookies and CSRF tokens, the session secret, the archive's values, and a `500` whose error message holds planted archive values.
 - **The image check's `/app` listing** includes `server` and the empty `client`, and its ownership step covers `/app-data`. It also asserts that the image sets neither `DATA_DIR` nor `STATE_DIR`.
 
+- **Immutable caching is tied to `assets/`.** Only a hash-named file under `assets/` in the client directory is cached for a year; a hash-shaped name anywhere else is `no-cache`. 5b's build must emit its hashed files into `assets/`.
+- **The final fix wave:** an unreadable session secret is a startup problem named beside the others; a directory or a refused file where a live file should be fails closed with `503`; `hash-password` with an empty pipe says so; typed input is decoded as a stream and edited by code point, and a CR and LF split across chunks are one break; a request timeout is `408` and a header overflow `431`, each with its own fixed log line, and a client's reset is neither answered nor logged; the sync's usage no longer lists the server's commands, and `money` with no command prints both; invalid UTF-8 in a body is `400`; `writeAtomic` opens with `wx`; the image check asserts `/app-data` is `700`, `/app/client` is empty and an explicit `STATE_DIR` wins over the default.
+
 ### Left open
 
 Found in review and not done in this slice; the final review triages them.
 
-- **`readJson` replaces invalid UTF-8** instead of refusing it.
-- **`writeAtomic` could open its temporary file with `wx`** after removing a stale one.
+- **A path through a regular file** (`ENOTDIR`) still propagates from a live file, as a test pins; the live files' own directory is the server's volume, so it is a fault and not a bad file.
 - **The limiter prunes by a full scan on every call**, which is fine at a few thousand usernames.
 - **A login waiting in the queue uses the configuration** as it was when the login arrived.
-- **The hidden terminal reader** does not handle a character split across chunks, escape sequences, or a CR and LF split across chunks.
-- **`clientError` logs every reset**, a client's own included.
-- **The image check does not assert** `/app-data`'s mode `0700`, an empty `/app/client`, or an explicit `DATA_DIR` winning over the default.
+- **The hidden terminal reader** does not handle escape sequences (arrow keys and the like).
 - **The full-queue test waits 300 ms** before its last login, rather than waiting for an event.
 - **The owner should run `money hash-password` once on a real terminal**, typing, backspace, Enter, Ctrl-C and Ctrl-D, since no test reaches the terminal path.

@@ -57,7 +57,7 @@ For the server both are required. `people` must name at least one person, and ev
 
 - **Anything under `/api/` that is not a route is `404`**, never the client's `index.html`. Any method a route does not take is `405`, with `Allow`.
 - **Request bodies are JSON, and small.** A `POST` without `Content-Type: application/json` is `415`; a body over 4 KiB is `413`. Both close the connection, as a cross-site `403` does: the body was never read, so nothing more on that connection can be trusted.
-- **A request Node cannot parse** is answered `400` with the security headers, and logged by a fixed line only.
+- **A request Node cannot parse** is answered `400`, one that took too long to arrive `408`, and one whose headers overflow `431`, each with the security headers, and logged by its own fixed line only. A client's own reset is neither answered nor logged.
 - **A failure nobody expected** is a `500` with `{"error":"failed"}`, logged as `failed <ErrorClass>` and nothing else. The server keeps serving.
 - **The placeholder exists to prove the lens on real data.** It reads the archive through `@money/shared/node`, cut to the person's accounts before anything is counted. Its shape is thrown away when the screens come.
 
@@ -65,13 +65,13 @@ For the server both are required. `people` must name at least one person, and ev
 
 Served only from inside `CLIENT_DIR`. A path is decoded once, and is `404` when it:
 
-- escapes the directory, names a dotfile or holds a NUL;
+- escapes the directory, names a dotfile, holds a NUL or a backslash;
 - has a segment over 255 bytes, or resolves to a path over 1024 bytes, so a long path is not found rather than a failure anyone can provoke;
 - ends in a slash, other than `/` itself;
 - names anything but a regular file. A directory is `404`, and there are no listings;
 - has an extension the server does not serve. It serves the types a built client holds: HTML, scripts, styles, source maps, JSON, fonts, images, text and the web manifest.
 
-Files whose names carry a content hash, as the bundler writes them (`<name>-<8 capitals and digits>.<ext>`), are cached for a year as immutable; everything else, `index.html` included, is `no-cache`. The image's `CLIENT_DIR` is empty until the client is built, and `/` is `404` until then.
+Files under `assets/` whose names carry a content hash, as the bundler writes them (`<name>-<8 capitals and digits>.<ext>`), are cached for a year as immutable; everything else, `index.html` and a hash-shaped name anywhere but `assets/` included, is `no-cache`, so the client's build must emit its hashed files into `assets/`. The image's `CLIENT_DIR` is empty until the client is built, and `/` is `404` until then.
 
 ## Login
 
@@ -161,7 +161,7 @@ And on every `/api/` response, `/health` and `/version`, `Cache-Control: no-stor
 ## Logging
 
 - **One line per request**: `request method=<method> route=<pattern> status=<n> ms=<n>`. The route's pattern, such as `/api/accounts/:key`, never its path.
-- **Events are fixed texts** from the server's own code: `login ok`, `login refused`, `login limited`, `login queue full`, `configuration invalid, refusing requests`, `session secret invalid, refusing requests`, `malformed request refused`, `failed <ErrorClass>`.
+- **Events are fixed texts** from the server's own code: `login ok`, `login refused`, `login limited`, `login queue full`, `configuration invalid, refusing requests`, `session secret invalid, refusing requests`, `malformed request refused`, `request timeout`, `headers too large`, `failed <ErrorClass>`.
 - **The startup line** is `serving port=<n> revision=<commit> people=<n> accounts=<n>`.
 - **Never** a username, a person's key, a password, a hash, a cookie, a token, a request body or anything from the archive, here as everywhere. The leak test holds the server to this ([testing.md](testing.md)).
 
@@ -178,7 +178,7 @@ The server must never be able to reach a bank, and the sync must never be reacha
 
 ## Commands
 
-`money` sends `serve`, `hash-password` and `rotate-session-secret` to `server/src/cli.ts`, and everything else to the sync. Each exits 0, or 1 with a message that says what to do; an unknown command prints the usage.
+`money` sends `serve`, `hash-password` and `rotate-session-secret` to `server/src/cli.ts`, and everything else to the sync. Each exits 0, or 1 with a message that says what to do; an unknown command prints the sync's usage, and no command prints it and the server's.
 
 | Command                 | Does                                                                                 |
 | ----------------------- | ------------------------------------------------------------------------------------ |

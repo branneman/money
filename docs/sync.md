@@ -32,7 +32,7 @@ sync (nightly)              import (by hand)
 | `banks <country>`        | the user    | The bank names Enable Banking lists for one country.    |
 | `import <format> <file>` | the user    | Checks an exported file; with `--write`, merges it too. |
 
-`money` also takes the server's three commands, `serve`, `hash-password` and `rotate-session-secret`, which the sync's usage line lists too ([app.md](app.md)).
+`money` also takes the server's three commands, `serve`, `hash-password` and `rotate-session-secret`, which the sync does not know: with no command, `money` prints the sync's usage line and then the server's ([app.md](app.md)).
 
 `auth`, `sync` and `import --write` take a lock in `STATE_DIR`, so only one of them writes at a time. `status`, `banks` and an `import` that only checks take none.
 

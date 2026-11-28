@@ -80,8 +80,8 @@ The real server over the synthetic archive and configuration, on `http://localho
 The server's commands, which the image runs as `money <command>`:
 
 ```sh
-node server/src/cli.ts hash-password           # a hash for a password, for the configuration
+money hash-password                            # a hash for a password, for the configuration
 money rotate-session-secret                    # a new session secret: everyone is logged out
 ```
 
-`hash-password` needs nothing but the repository. `rotate-session-secret` writes into `APP_DATA_DIR`. Changing a person's username or password is a new configuration, and is in [docs/app.md](docs/app.md).
+Both run inside the container. `hash-password` needs nothing but the repository, so on one's own machine it is `node server/src/cli.ts hash-password`. `rotate-session-secret` writes into `APP_DATA_DIR`. Changing a person's username or password is a new configuration, and is in [docs/app.md](docs/app.md).
