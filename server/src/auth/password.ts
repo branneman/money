@@ -54,27 +54,24 @@ export const parseHash = (text: string): PasswordHash | null => {
 export const formatHash = (hash: PasswordHash): string =>
   `scrypt$N=${hash.N},r=${hash.r},p=${hash.p}$${encode(hash.salt)}$${encode(hash.key)}`;
 
-// Upper bounds, so a hand-edited hash is refused at startup instead of throwing or
-// exhausting memory at login.
-const MAX_N = 2 ** 20;
-const MAX_R = 32;
 const MAX_P = 16;
-const MAX_BYTES = 64;
 
-const isPowerOfTwo = (n: number): boolean => Number.isInteger(n) && n > 0 && (n & (n - 1)) === 0;
+const isPowerOfTwo = (n: number): boolean => Number.isInteger(Math.log2(n));
+
+// The memory scrypt needs, as Node bounds it. A hash that needs more than MAX_MEMORY is
+// refused at startup, since at login derive would throw.
+const memoryNeeded = (hash: PasswordHash): number =>
+  128 * hash.r * (hash.N + 2) + 128 * hash.r * hash.p;
 
 export const isStrongEnough = (hash: PasswordHash): boolean =>
+  isPowerOfTwo(hash.N) &&
   hash.N >= SCRYPT.N &&
   hash.r >= SCRYPT.r &&
   hash.p >= SCRYPT.p &&
+  hash.p <= MAX_P &&
   hash.salt.length === SCRYPT.saltBytes &&
   hash.key.length === SCRYPT.keyBytes &&
-  isPowerOfTwo(hash.N) &&
-  hash.N <= MAX_N &&
-  hash.r <= MAX_R &&
-  hash.p <= MAX_P &&
-  hash.salt.length <= MAX_BYTES &&
-  hash.key.length <= MAX_BYTES;
+  memoryNeeded(hash) <= MAX_MEMORY;
 
 export const hashPassword = async (password: string, salt: Buffer): Promise<string> => {
   const key = await derive(password, salt, SCRYPT.keyBytes, {
