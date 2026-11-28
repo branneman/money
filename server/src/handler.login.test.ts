@@ -123,20 +123,24 @@ describe("login", { concurrency: true }, () => {
     });
   });
 
-  test("20 simultaneous logins for a locked username are all 429, and none waits for a hash", async () => {
+  test("20 simultaneous logins for a locked username are all 429, and none is checked", async () => {
     await withWorld(async (world) => {
       await failTimes(world, PEOPLE.ana.username, 5);
-      const started = performance.now();
+      const refusedBefore = world.output.filter((line) => line === "login refused").length;
+      assert.equal(refusedBefore, 5);
       const burst = await Promise.all(
         Array.from({ length: 20 }, () => attempt(world, PEOPLE.ana.username, PEOPLE.ana.password)),
       );
-      const elapsed = performance.now() - started;
       assert.deepEqual(
         burst.map((response) => response.status),
         Array.from({ length: 20 }, () => 429),
       );
-      // One hash takes about a quarter of a second; twenty queued would take seconds.
-      assert.ok(elapsed < 150, `took ${elapsed} ms`);
+      // Counted, not timed: a password checked would be logged as refused or ok, and a
+      // locked username never reaches the queue, so it is never answered 503 either.
+      assert.equal(world.output.filter((line) => line === "login refused").length, refusedBefore);
+      assert.ok(!world.output.includes("login ok"));
+      assert.ok(!world.output.includes("login queue full"));
+      assert.equal(world.output.filter((line) => line === "login limited").length, 20);
     });
   });
 
