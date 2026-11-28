@@ -38,6 +38,8 @@ run() { docker run --rm --pull=never --network none "$@"; }
 # 1. With no command, the usage line, and a failure: a job that typed it wrong must alert.
 if out=$(run "$IMAGE" money 2>&1); then fail "money with no command exited 0"; fi
 grep -q '^usage: auth <bank>' <<<"$out" || fail "money with no command did not print the usage line"
+grep -qx 'usage: serve | hash-password | rotate-session-secret' <<<"$out" \
+    || fail "money with no command did not print the server's usage line"
 ok "money with no command prints the usage line and fails"
 
 # 2. Without configuration, every command refuses to start, and says what is missing.
@@ -55,6 +57,10 @@ run "$IMAGE" sh -c '
         [ "$(stat -c %U "$dir")" = "$(id -un)" ] && [ -w "$dir" ] || exit 1
     done' || fail "/data, /state and /app-data are not owned and writable by the image's user"
 ok "/data, /state and /app-data are owned and writable by the image's user"
+[ "$(run "$IMAGE" stat -c %a /app-data)" = 700 ] || fail "/app-data is not mode 700"
+ok "/app-data is mode 700"
+[ -z "$(run "$IMAGE" find /app/client -mindepth 1)" ] || fail "/app/client is not empty"
+ok "/app/client is empty"
 
 # 4. The application directory holds the source and the workspace links, and nothing else.
 listing=$(run "$IMAGE" sh -c 'ls -A /app | tr "\n" " "; echo; ls -A /app/node_modules | tr "\n" " "') \
@@ -111,6 +117,19 @@ out=$(run \
 grep -qx 'import-checked format=example-export accounts=1 rows=1 written=no' <<<"$out" \
     || fail "an import check did not print its summary: $out"
 ok "an import check reads a mounted file and prints its summary"
+
+# An explicit STATE_DIR wins over bin/money's default: the default /state exists, so the
+# only way this names a missing directory is that the given value was used.
+out=$(run \
+    -e EB_APP_ID=00000000-0000-4000-8000-00000000aaaa \
+    -e "EB_PRIVATE_KEY=$(base64 <"$WORK/key.pem" | tr -d '\n')" \
+    -e EB_REDIRECT_URL=https://localhost/auth-callback \
+    -e CONFIG_PATH=/import/config.json -e STATE_DIR=/elsewhere \
+    -v "$WORK/import:/import:ro" \
+    "$IMAGE" money status 2>&1) && fail "money status with a missing STATE_DIR exited 0"
+grep -qx 'STATE_DIR does not name an existing directory' <<<"$out" \
+    || fail "an explicit STATE_DIR did not reach the sync: $out"
+ok "an explicit STATE_DIR reaches the sync's commands"
 
 # 7. The server, started the way the host starts it: a session secret made first, then
 #    `serve`, over a configuration and an archive mounted read-only. The container has no

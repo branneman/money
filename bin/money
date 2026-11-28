@@ -12,6 +12,13 @@ serve | hash-password | rotate-session-secret)
     DATA_DIR="${DATA_DIR:-/data}"
     STATE_DIR="${STATE_DIR:-/state}"
     export DATA_DIR STATE_DIR
+    if [ "$#" -eq 0 ]; then
+        # No command: the sync's usage line, then the server's, and the sync's exit code.
+        status=0
+        node /app/sync/src/cli.ts || status=$?
+        echo "usage: serve | hash-password | rotate-session-secret" >&2
+        exit "$status"
+    fi
     exec node /app/sync/src/cli.ts "$@"
     ;;
 esac

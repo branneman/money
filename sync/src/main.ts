@@ -17,7 +17,7 @@ import { loadStartup } from "./startup.ts";
 const SHOW_IBANS = "--show-ibans";
 const WRITE = "--write";
 const USAGE =
-  "usage: auth <bank> [--show-ibans] | sync | status | banks <country> | import <format> <file> [--write] | serve | hash-password | rotate-session-secret";
+  "usage: auth <bank> [--show-ibans] | sync | status | banks <country> | import <format> <file> [--write]";
 
 // import <format> <file>, with --write allowed only after them.
 const isImport = (rest: readonly string[]): boolean =>
