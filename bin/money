@@ -6,6 +6,12 @@ serve | hash-password | rotate-session-secret)
     exec node /app/server/src/cli.ts "$@"
     ;;
 *)
+    # The sync's directories, unless the caller chose others. Given here and not by the
+    # image, because the server's container inherits the image's environment and refuses
+    # to start with STATE_DIR in it.
+    DATA_DIR="${DATA_DIR:-/data}"
+    STATE_DIR="${STATE_DIR:-/state}"
+    export DATA_DIR STATE_DIR
     exec node /app/sync/src/cli.ts "$@"
     ;;
 esac

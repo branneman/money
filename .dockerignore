@@ -5,6 +5,7 @@
 !package-lock.json
 !shared/
 !sync/
+!server/
 !bin/money
 
 # A node_modules inside a workspace is the machine's, never the image's.
