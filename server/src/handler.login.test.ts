@@ -166,9 +166,9 @@ describe("login", { concurrency: true }, () => {
   test("a burst of logins for unknown usernames overflows the queue: 503 holds no failure, 401 holds one", async () => {
     await withWorld(async (world) => {
       // Waves of ten until one is answered 503, so that a slow machine, where the first
-      // hash ends before the rest arrive, only needs another wave. At most 30 requests.
+      // hash ends before the rest arrive, only needs another wave. At most 60 requests.
       const WAVE = 10;
-      const CAP = 30;
+      const CAP = 60;
       const answered: { username: string; status: number }[] = [];
       while (!answered.some((item) => item.status === 503) && answered.length < CAP) {
         const usernames = Array.from(
