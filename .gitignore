@@ -19,3 +19,6 @@ node_modules/
 
 # Left only by an image check that was killed
 .image-check.*/
+
+# Worktrees of this repository, each a checkout of its own
+.claude/worktrees/
