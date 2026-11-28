@@ -123,6 +123,45 @@ describe("login", { concurrency: true }, () => {
     });
   });
 
+  test("20 simultaneous logins for a locked username are all 429, and none waits for a hash", async () => {
+    await withWorld(async (world) => {
+      await failTimes(world, PEOPLE.ana.username, 5);
+      const started = performance.now();
+      const burst = await Promise.all(
+        Array.from({ length: 20 }, () => attempt(world, PEOPLE.ana.username, PEOPLE.ana.password)),
+      );
+      const elapsed = performance.now() - started;
+      assert.deepEqual(
+        burst.map((response) => response.status),
+        Array.from({ length: 20 }, () => 429),
+      );
+      // One hash takes about a quarter of a second; twenty queued would take seconds.
+      assert.ok(elapsed < 150, `took ${elapsed} ms`);
+    });
+  });
+
+  test("12 simultaneous logins for unknown usernames: some 503, the rest 401, and each 401 is one failure", async () => {
+    await withWorld(async (world) => {
+      const usernames = Array.from({ length: 12 }, (_, index) => `tw-unknown-${index}`);
+      const burst = await Promise.all(
+        usernames.map((name) => attempt(world, name, "not the password")),
+      );
+      const statuses = burst.map((response) => response.status);
+      assert.ok(statuses.includes(503));
+      assert.ok(
+        statuses.every((status) => status === 401 || status === 503),
+        statuses.join(),
+      );
+      for (const [index, username] of usernames.entries()) {
+        // Answered 401: one failure held, so four more are 401 and the next 429. Answered
+        // 503: none held, so five are 401 and the next 429.
+        const held = statuses[index] === 401 ? 1 : 0;
+        await failTimes(world, username, 5 - held);
+        assert.equal((await attempt(world, username, "not the password")).status, 429);
+      }
+    });
+  });
+
   test("the window ends fifteen minutes after the first failure", async () => {
     await withWorld(async (world) => {
       await failTimes(world, PEOPLE.ana.username, 5);
